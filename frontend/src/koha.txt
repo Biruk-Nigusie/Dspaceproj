@@ -1,0 +1,1817 @@
+Mint Resource Center - Complete Integration Guide
+📋 SYSTEM OVERVIEW
+Koha
+Purpose: Web-based integrated library management system for day-to-day library operations
+
+Tech Stack: Perl + MySQL/MariaDB + Apache
+
+Koha version:	25.05.05.001
+DSpace
+Purpose: Institutional Repository System for managing and sharing digital research materials
+
+Tech Stack: Java + PostgreSQL + Angular (frontend for DSpace 7+)
+
+VuFind
+Purpose: Open-source library discovery system - search engine for libraries
+
+Function: Single interface to search across Koha, DSpace, and other systems
+
+🎯 INTEGRATION BENEFITS
+Unified Search: Single search across physical (Koha) and digital (DSpace) collections
+
+Cross-linking: Records in Koha can link to corresponding DSpace items and vice versa
+
+Metadata Synchronization: Share bibliographic metadata to reduce duplication
+
+🔧 COMPLETE INSTALLATION GUIDE
+1. KOHA INSTALLATION & SETUP
+bash
+# Install system dependencies
+sudo apt update
+sudo apt install apt-transport-https ca-certificates curl sudo
+
+# Add Koha repository
+sudo mkdir -p --mode=0755 /etc/apt/keyrings
+sudo curl -fsSL https://debian.koha-community.org/koha/gpg.asc -o /etc/apt/keyrings/koha.asc
+
+sudo tee /etc/apt/sources.list.d/koha.sources <<EOF
+Types: deb
+URIs: https://debian.koha-community.org/koha/
+Suites: 25.05
+Components: main
+Signed-By: /etc/apt/keyrings/koha.asc 
+EOF
+
+sudo apt update
+sudo apt install koha-common mariadb-server
+
+# Configure Koha
+sudo nano /etc/koha/koha-sites.conf
+/etc/koha/koha-sites.conf content:
+
+bash
+DOMAIN=""
+INTRAPORT="8085"
+INTRAPREFIX=""
+INTRASUFFIX=""
+OPACPORT="80"
+OPACPREFIX=""
+OPACSUFFIX=""
+DEFAULTSQL=""
+ZEBRA_MARC_FORMAT="marc21"
+ZEBRA_LANGUAGE="en"
+bash
+# Setup Apache and create Koha instance
+sudo a2enmod rewrite cgi headers proxy_http
+sudo systemctl restart apache2
+sudo koha-create --create-db libraryname
+sudo koha-plack --enable libraryname
+sudo koha-plack --start libraryname
+sudo systemctl restart apache2
+2. VUFIND INSTALLATION
+bash
+# Install dependencies
+sudo apt install -y apache2 mariadb-server php php-mysql php-curl php-json php-xml php-mbstring php-zip php-gd php-intl git curl
+
+# Create user and install VuFind
+sudo useradd -m -d /opt/vufind -s /bin/bash vufind
+sudo su - vufind
+git clone https://github.com/vufind-org/vufind.git /opt/vufind
+cd /opt/vufind
+git checkout tags/v9.1.1
+exit
+
+sudo chown -R vufind:vufind /opt/vufind
+sudo chmod -R 755 /opt/vufind
+
+# Configure Apache for VuFind
+sudo nano /etc/apache2/sites-available/vufind.conf
+/etc/apache2/sites-available/vufind.conf content:
+
+apache
+<VirtualHost *:8090>
+    ServerName vufind.local
+    DocumentRoot /opt/vufind/public
+    <Directory /opt/vufind/public>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    ErrorLog ${APACHE_LOG_DIR}/vufind_error.log
+    CustomLog ${APACHE_LOG_DIR}/vufind_access.log combined
+</VirtualHost>
+bash
+echo "Listen 8090" | sudo tee -a /etc/apache2/ports.conf
+sudo a2enmod rewrite
+sudo a2ensite vufind.conf
+sudo systemctl restart apache2
+echo "127.0.0.1 vufind.local" | sudo tee -a /etc/hosts
+
+# Install Composer and dependencies
+cd /tmp
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+sudo chmod +x /usr/local/bin/composer
+
+sudo apt install php-intl
+sudo phpenmod intl
+sudo systemctl restart apache2
+
+sudo su - vufind
+cd /opt/vufind
+composer install
+exit
+3. SOLR WITH DOCKER
+bash
+# Install Docker and run Solr
+sudo apt install -y docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+# Log out and log back in for group changes
+
+sudo docker run -d -p 8983:8983 --name solr solr:8.11
+4. DATABASE SETUP
+bash
+# Create database setup file
+sudo nano /var/www/html/setup-database.sql
+/var/www/html/setup-database.sql content:
+
+sql
+CREATE DATABASE IF NOT EXISTS library_portal CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE library_portal;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    role ENUM('user', 'librarian', 'admin') DEFAULT 'user',
+    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_username (username),
+    INDEX idx_email (email),
+    INDEX idx_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_activity (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    activity VARCHAR(50) NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_activity (activity),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+CREATE USER IF NOT EXISTS 'library_user'@'localhost' IDENTIFIED BY 'library_pass123';
+GRANT ALL PRIVILEGES ON library_portal.* TO 'library_user'@'localhost';
+FLUSH PRIVILEGES;
+
+INSERT INTO users (username, password, email, full_name, role) VALUES 
+('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@mintlibrary.edu', 'System Administrator', 'admin'),
+('librarian', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'librarian@mintlibrary.edu', 'Library Staff', 'librarian'),
+('john.doe', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'john.doe@student.edu', 'John Doe', 'user');
+bash
+# Run database setup
+sudo mysql -u root -p < /var/www/html/setup-database.sql
+sudo rm /var/www/html/setup-database.sql
+
+# Create database configuration
+sudo mkdir -p /var/www/html/config
+sudo nano /var/www/html/config/database.php
+/var/www/html/config/database.php content:
+
+php
+<?php
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'library_portal');
+define('DB_USER', 'library_user');
+define('DB_PASS', 'library_pass123');
+define('DB_CHARSET', 'utf8mb4');
+
+function getDBConnection() {
+    try {
+        $pdo = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+            DB_USER,
+            DB_PASS,
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]
+        );
+        return $pdo;
+    } catch (PDOException $e) {
+        error_log("Database connection failed: " . $e->getMessage());
+        try {
+            $pdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                'root',
+                '',
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]
+            );
+            return $pdo;
+        } catch (PDOException $e2) {
+            error_log("Root connection also failed: " . $e2->getMessage());
+            return null;
+        }
+    }
+}
+?>
+5. INTEGRATION PORTAL FILES
+Shared Login System
+bash
+sudo nano /var/www/html/shared-login.php
+/var/www/html/shared-login.php content:
+
+php
+<?php
+session_start();
+require_once 'config/database.php';
+
+// Initialize database connection
+try {
+    $pdo = new PDO("mysql:host=localhost;dbname=library_portal", 'root', '');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    error_log("Database connection failed: " . $e->getMessage());
+}
+
+// Handle user registration
+if ($_POST['action'] ?? '' == 'register') {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    $email = trim($_POST['email'] ?? '');
+    $full_name = trim($_POST['full_name'] ?? '');
+    
+    // Validation
+    if (empty($username) || empty($password) || empty($email) || empty($full_name)) {
+        $error = "All fields are required";
+    } elseif ($password !== $confirm_password) {
+        $error = "Passwords do not match";
+    } elseif (strlen($password) < 6) {
+        $error = "Password must be at least 6 characters";
+    } else {
+        // Check if user exists
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+        $stmt->execute([$username, $email]);
+        
+        if ($stmt->fetch()) {
+            $error = "Username or email already exists";
+        } else {
+            // Create new user
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (username, password, email, full_name, created_at) VALUES (?, ?, ?, ?, NOW())");
+            
+            if ($stmt->execute([$username, $hashed_password, $email, $full_name])) {
+                $success = "Registration successful! Please login.";
+            } else {
+                $error = "Registration failed. Please try again.";
+            }
+        }
+    }
+}
+
+// Handle login
+if ($_POST['action'] ?? '' == 'login') {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    
+    $stmt = $pdo->prepare("SELECT id, username, password, full_name, role FROM users WHERE username = ? AND status = 'active'");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($user && password_verify($password, $user['password'])) {
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user'] = $user['username'];
+        $_SESSION['name'] = $user['full_name'];
+        $_SESSION['role'] = $user['role'];
+        $_SESSION['logged_in'] = true;
+        
+        // Log login activity
+        $log_stmt = $pdo->prepare("INSERT INTO user_activity (user_id, activity, ip_address, created_at) VALUES (?, 'login', ?, NOW())");
+        $log_stmt->execute([$user['id'], $_SERVER['REMOTE_ADDR']]);
+        
+        // Redirect to portal
+        header("Location: /library-portal.php");
+        exit;
+    } else {
+        $error = "Invalid username or password";
+    }
+}
+
+// Handle logout
+if ($_GET['action'] ?? '' == 'logout') {
+    session_destroy();
+    header("Location: /");
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mint Resource Center - Single Sign-On</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #007bff;
+            --primary-dark: #0056b3;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --gray: #6c757d;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            display: flex;
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .welcome-section {
+            flex: 1;
+            background-color: var(--primary);
+            color: white;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .auth-section {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .logo i {
+            font-size: 2rem;
+        }
+        
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .welcome-title {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            line-height: 1.3;
+        }
+        
+        .welcome-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        
+        .features {
+            list-style: none;
+            margin-top: 25px;
+        }
+        
+        .features li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+        
+        .features i {
+            font-size: 0.8rem;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .auth-tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--gray);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .auth-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        
+        .auth-form {
+            display: none;
+        }
+        
+        .auth-form.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .system-quick-access {
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .system-quick-access h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+            font-size: 1.1rem;
+        }
+        
+        .system-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .system-card {
+            padding: 12px;
+            background: var(--light);
+            border-radius: 4px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--dark);
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            font-size: 0.85rem;
+        }
+        
+        .system-card:hover {
+            border-color: var(--primary);
+            text-decoration: none;
+            color: var(--dark);
+        }
+        
+        .system-card i {
+            font-size: 1.2rem;
+            color: var(--primary);
+            margin-bottom: 6px;
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .welcome-section {
+                padding: 30px 20px;
+            }
+            
+            .auth-section {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Welcome Section -->
+        <div class="welcome-section">
+            <div class="logo">
+                <i class="fas fa-book"></i>
+                <div class="logo-text">Mint Resource Center</div>
+            </div>
+            <h2 class="welcome-title">Unified Access to All Library Resources</h2>
+            <p class="welcome-subtitle">
+                One account for all library systems. Access physical collections, 
+                digital repositories, and research materials through a single platform.
+            </p>
+            
+            <ul class="features">
+                <li><i class="fas fa-check"></i> Single Sign-On for all systems</li>
+                <li><i class="fas fa-check"></i> Unified search across collections</li>
+                <li><i class="fas fa-check"></i> Digital repository access</li>
+                <li><i class="fas fa-check"></i> Research paper management</li>
+                <li><i class="fas fa-check"></i> 24/7 resource availability</li>
+            </ul>
+        </div>
+        
+        <!-- Authentication Section -->
+        <div class="auth-section">
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="showForm('login')">Sign In</button>
+                <button class="auth-tab" onclick="showForm('register')">Create Account</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form method="post" class="auth-form active" id="loginForm">
+                <input type="hidden" name="action" value="login">
+                
+                <?php if (isset($error) && $_POST['action'] == 'login'): ?>
+                    <div class="alert alert-error"><?php echo $error; ?></div>
+                <?php endif; ?>
+                
+                <?php if (isset($success)): ?>
+                    <div class="alert alert-success"><?php echo $success; ?></div>
+                <?php endif; ?>
+                
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-input" placeholder="Enter your username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-input" placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="btn">
+                    <i class="fas fa-sign-in-alt"></i> Sign In to All Systems
+                </button>
+                
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">Forgot your password?</a>
+                </div>
+            </form>
+            
+            <!-- Registration Form -->
+            <form method="post" class="auth-form" id="registerForm">
+                <input type="hidden" name="action" value="register">
+                
+                <?php if (isset($error) && $_POST['action'] == 'register'): ?>
+                    <div class="alert alert-error"><?php echo $error; ?></div>
+                <?php endif; ?>
+                
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="full_name" class="form-input" placeholder="Enter your full name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-input" placeholder="Enter your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-input" placeholder="Choose a username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-input" placeholder="Create a password" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" name="confirm_password" class="form-input" placeholder="Confirm your password" required>
+                </div>
+                
+                <button type="submit" class="btn">
+                    <i class="fas fa-user-plus"></i> Create Account
+                </button>
+            </form>
+            
+            <!-- Quick System Access -->
+            <div class="system-quick-access">
+                <h3>Quick System Access</h3>
+                <div class="system-grid">
+                    <a href="http://127.0.0.1:8085" class="system-card" target="_blank">
+                        <i class="fas fa-tools"></i>
+                        <div>Koha Staff</div>
+                    </a>
+                    <a href="http://127.0.0.1:8085" class="system-card" target="_blank">
+                        <i class="fas fa-search"></i>
+                        <div>Koha OPAC</div>
+                    </a>
+                    <a href="http://localhost:4000" class="system-card" target="_blank">
+                        <i class="fas fa-database"></i>
+                        <div>DSpace</div>
+                    </a>
+                    <a href="http://localhost:8090" class="system-card" target="_blank">
+                        <i class="fas fa-compass"></i>
+                        <div>VuFind</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showForm(formType) {
+            // Update tabs
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Show selected form
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('registerForm').classList.remove('active');
+            document.getElementById(formType + 'Form').classList.add('active');
+        }
+        
+        // Clear errors when switching forms
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.alert').forEach(alert => {
+                    alert.style.display = 'none';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+Library Portal
+bash
+sudo nano /var/www/html/library-portal.php
+/var/www/html/library-portal.php content:
+
+php
+<?php
+session_start();
+require_once 'config/database.php';
+
+// Redirect to login if not authenticated
+if (!($_SESSION['logged_in'] ?? false)) {
+    header("Location: /shared-login.php?system=portal");
+    exit;
+}
+
+// Get user stats
+$pdo = getDBConnection();
+$user_id = $_SESSION['user_id'];
+
+// Get user activity
+$activity_stmt = $pdo->prepare("
+    SELECT activity, created_at 
+    FROM user_activity 
+    WHERE user_id = ? 
+    ORDER BY created_at DESC 
+    LIMIT 5
+");
+$activity_stmt->execute([$user_id]);
+$recent_activity = $activity_stmt->fetchAll();
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mint Resource Center - Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #007bff;
+            --primary-dark: #0056b3;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --gray: #6c757d;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .logo i {
+            font-size: 1.5rem;
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-info {
+            text-align: right;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .user-role {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+        
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .welcome-banner {
+            background: var(--primary);
+            color: white;
+            padding: 2rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        .welcome-banner h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-banner p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        
+        .search-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            margin-bottom: 2rem;
+        }
+        
+        .search-title {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .search-form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .search-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+        
+        .search-btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        .search-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .search-option {
+            background: var(--light);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--dark);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+        
+        .search-option:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .systems-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .system-card {
+            background: white;
+            border-radius: 6px;
+            padding: 1.5rem;
+            border: 1px solid #dee2e6;
+            transition: box-shadow 0.3s ease;
+        }
+        
+        .system-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .system-icon {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        
+        .system-title {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+        
+        .system-description {
+            color: var(--gray);
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        
+        .system-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .system-link {
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        .system-link:hover {
+            background: var(--primary-dark);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .system-link.secondary {
+            background: var(--light);
+            color: var(--dark);
+            border: 1px solid #dee2e6;
+        }
+        
+        .system-link.secondary:hover {
+            background: #e2e6ea;
+        }
+        
+        .activity-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .activity-list {
+            list-style: none;
+        }
+        
+        .activity-item {
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .activity-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+        
+        .activity-time {
+            color: var(--gray);
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+            }
+            
+            .search-form {
+                flex-direction: column;
+            }
+            
+            .systems-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-book"></i>
+            <span>Mint Resource Center</span>
+        </div>
+        <div class="user-menu">
+            <div class="user-info">
+                <div class="user-name"><?php echo htmlspecialchars($_SESSION['name']); ?></div>
+                <div class="user-role"><?php echo ucfirst($_SESSION['role']); ?> User</div>
+            </div>
+            <a href="/shared-login.php?action=logout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+            <h1>Welcome to Mint Resource Center</h1>
+            <p>Access all your library resources in one place</p>
+        </div>
+
+        <!-- Unified Search -->
+        <section class="search-section">
+            <h2 class="search-title"><i class="fas fa-search"></i> Unified Search</h2>
+            <form action="/search-results.php" method="get" class="search-form">
+                <input type="text" name="q" class="search-input" placeholder="Search across books, research papers, articles, and more..." value="<?php echo htmlspecialchars($_GET['q'] ?? ''); ?>">
+                <button type="submit" class="search-btn">Search</button>
+            </form>
+            <div class="search-options">
+                <div class="search-option">Books & Media</div>
+                <div class="search-option">Research Papers</div>
+                <div class="search-option">Journals</div>
+                <div class="search-option">Theses</div>
+                <div class="search-option">Digital Collections</div>
+            </div>
+        </section>
+
+        <!-- Systems Grid -->
+        <div class="systems-grid">
+            <!-- Koha System -->
+            <div class="system-card">
+                <div class="system-icon">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <h3 class="system-title">Library Catalog (Koha)</h3>
+                <p class="system-description">
+                    Search and manage physical collections, books, journals, and media materials. 
+                    Check availability, place holds, and manage your library account.
+                </p>
+                <div class="system-links">
+                    <a href="http://127.0.0.1:8085" class="system-link" target="_blank">
+                        <i class="fas fa-tools"></i> Staff Interface
+                    </a>
+                    <a href="http://127.0.0.1:8085" class="system-link secondary" target="_blank">
+                        <i class="fas fa-search"></i> OPAC Catalog
+                    </a>
+                </div>
+            </div>
+
+            <!-- DSpace System -->
+            <div class="system-card">
+                <div class="system-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h3 class="system-title">Research Repository (DSpace)</h3>
+                <p class="system-description">
+                    Access digital research materials, theses, publications, and institutional 
+                    repository content. Submit your research works and manage digital collections.
+                </p>
+                <div class="system-links">
+                    <a href="http://localhost:4000" class="system-link" target="_blank">
+                        <i class="fas fa-box"></i> Repository Frontend
+                    </a>
+                    <a href="http://localhost:8080/server" class="system-link secondary" target="_blank">
+                        <i class="fas fa-server"></i> REST API
+                    </a>
+                </div>
+            </div>
+
+            <!-- VuFind System -->
+            <div class="system-card">
+                <div class="system-icon">
+                    <i class="fas fa-compass"></i>
+                </div>
+                <h3 class="system-title">Discovery Layer (VuFind)</h3>
+                <p class="system-description">
+                    Unified discovery interface searching across all library resources. 
+                    Single search box for both physical and digital collections with advanced filtering.
+                </p>
+                <div class="system-links">
+                    <a href="http://localhost:8090" class="system-link" target="_blank">
+                        <i class="fas fa-search"></i> Discovery Interface
+                    </a>
+                    <a href="http://localhost:8983/solr" class="system-link secondary" target="_blank">
+                        <i class="fas fa-cog"></i> Solr Admin
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <section class="activity-section">
+            <h2 class="section-title"><i class="fas fa-history"></i> Recent Activity</h2>
+            <ul class="activity-list">
+                <?php if (empty($recent_activity)): ?>
+                    <li class="activity-item">
+                        <div class="activity-info">
+                            <div class="activity-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div>No recent activity</div>
+                        </div>
+                    </li>
+                <?php else: ?>
+                    <?php foreach ($recent_activity as $activity): ?>
+                        <li class="activity-item">
+                            <div class="activity-info">
+                                <div class="activity-icon">
+                                    <i class="fas fa-<?php echo $activity['activity'] == 'login' ? 'sign-in-alt' : 'sign-out-alt'; ?>"></i>
+                                </div>
+                                <div>
+                                    <strong><?php echo ucfirst($activity['activity']); ?></strong>
+                                    from your account
+                                </div>
+                            </div>
+                            <div class="activity-time">
+                                <?php echo date('M j, Y g:i A', strtotime($activity['created_at'])); ?>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
+        </section>
+    </div>
+</body>
+</html>
+Search Results Page
+bash
+sudo nano /var/www/html/search-results.php
+/var/www/html/search-results.php content:
+
+php
+<?php
+session_start();
+require_once 'config/database.php';
+
+if (!($_SESSION['logged_in'] ?? false)) {
+    header("Location: /shared-login.php");
+    exit;
+}
+
+$query = $_GET['q'] ?? '';
+$search_type = $_GET['type'] ?? 'all';
+
+// Log search activity
+if (!empty($query)) {
+    $pdo = getDBConnection();
+    $log_stmt = $pdo->prepare("INSERT INTO user_activity (user_id, activity, ip_address, user_agent, created_at) VALUES (?, 'search', ?, ?, NOW())");
+    $log_stmt->execute([$_SESSION['user_id'], $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT'] ?? '']);
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results - Mint Resource Center</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #007bff;
+            --primary-dark: #0056b3;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --gray: #6c757d;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .logo:hover {
+            text-decoration: none;
+            color: var(--primary);
+        }
+        
+        .search-header {
+            background: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 2rem;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .search-meta {
+            margin-bottom: 2rem;
+        }
+        
+        .search-query {
+            font-size: 1.5rem;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .search-stats {
+            color: var(--gray);
+            font-size: 1rem;
+        }
+        
+        .search-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 1rem;
+        }
+        
+        .search-tab {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--gray);
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .search-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .results-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        
+        .result-system {
+            background: white;
+            border-radius: 6px;
+            padding: 1.5rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        .system-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .system-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            color: var(--dark);
+        }
+        
+        .system-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--light);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+        
+        .system-link {
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        .system-link:hover {
+            background: var(--primary-dark);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .result-items {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .result-item {
+            padding: 1.5rem;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .result-item:hover {
+            border-color: var(--primary);
+        }
+        
+        .result-title {
+            font-size: 1.1rem;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            text-decoration: none;
+            display: block;
+            font-weight: 500;
+        }
+        
+        .result-title:hover {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .result-meta {
+            color: var(--gray);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .result-description {
+            color: var(--dark);
+            line-height: 1.5;
+            font-size: 0.9rem;
+        }
+        
+        .result-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+            color: var(--dark);
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+        
+        .action-btn:hover {
+            background: var(--light);
+            border-color: var(--primary);
+            text-decoration: none;
+            color: var(--dark);
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray);
+        }
+        
+        .no-results i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+            }
+            
+            .container {
+                padding: 0 1rem 1rem;
+            }
+            
+            .search-tabs {
+                flex-wrap: wrap;
+            }
+            
+            .system-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/library-portal.php" class="logo">
+            <i class="fas fa-book"></i>
+            <span>Mint Resource Center</span>
+        </a>
+        <div class="user-info">
+            Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>
+        </div>
+    </nav>
+
+    <!-- Search Header -->
+    <div class="search-header">
+        <div class="container">
+            <a href="/library-portal.php" class="back-link">
+                <i class="fas fa-arrow-left"></i> Back to Portal
+            </a>
+            
+            <div class="search-meta">
+                <h1 class="search-query">"<?php echo htmlspecialchars($query); ?>"</h1>
+                <div class="search-stats">Searching across all library systems...</div>
+            </div>
+            
+            <div class="search-tabs">
+                <button class="search-tab active">All Systems</button>
+                <button class="search-tab">Library Catalog</button>
+                <button class="search-tab">Research Repository</button>
+                <button class="search-tab">Digital Collections</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="container">
+        <?php if (empty($query)): ?>
+            <div class="no-results">
+                <i class="fas fa-search"></i>
+                <h3>Please enter a search term</h3>
+                <p>Enter what you're looking for in the search box above</p>
+            </div>
+        <?php else: ?>
+            <div class="results-grid">
+                <!-- Koha Results -->
+                <div class="result-system">
+                    <div class="system-header">
+                        <div class="system-title">
+                            <div class="system-icon">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <span>Library Catalog (Koha)</span>
+                        </div>
+                        <a href="http://127.0.0.1:8085/search?q=<?php echo urlencode($query); ?>" class="system-link" target="_blank">
+                            View All Results <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                    <div class="result-items">
+                        <div class="result-item">
+                            <a href="#" class="result-title">Searching books and media in Koha...</a>
+                            <div class="result-meta">Loading results from library catalog</div>
+                            <div class="result-description">
+                                The system is searching for "<?php echo htmlspecialchars($query); ?>" in the library's physical and digital collections including books, journals, and media materials.
+                            </div>
+                            <div class="result-actions">
+                                <a href="http://127.0.0.1:8085/search?q=<?php echo urlencode($query); ?>" class="action-btn" target="_blank">
+                                    <i class="fas fa-external-link-alt"></i> Open in Koha
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DSpace Results -->
+                <div class="result-system">
+                    <div class="system-header">
+                        <div class="system-title">
+                            <div class="system-icon">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <span>Research Repository (DSpace)</span>
+                        </div>
+                        <a href="http://localhost:4000/search?query=<?php echo urlencode($query); ?>" class="system-link" target="_blank">
+                            View All Results <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                    <div class="result-items">
+                        <div class="result-item">
+                            <a href="#" class="result-title">Searching research materials in DSpace...</a>
+                            <div class="result-meta">Loading results from institutional repository</div>
+                            <div class="result-description">
+                                Searching for "<?php echo htmlspecialchars($query); ?>" in research papers, theses, publications, and digital collections within the institutional repository.
+                            </div>
+                            <div class="result-actions">
+                                <a href="http://localhost:4000/search?query=<?php echo urlencode($query); ?>" class="action-btn" target="_blank">
+                                    <i class="fas fa-external-link-alt"></i> Open in DSpace
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VuFind Results -->
+                <div class="result-system">
+                    <div class="system-header">
+                        <div class="system-title">
+                            <div class="system-icon">
+                                <i class="fas fa-compass"></i>
+                            </div>
+                            <span>Unified Discovery (VuFind)</span>
+                        </div>
+                        <a href="http://localhost:8090/Search/Results?lookfor=<?php echo urlencode($query); ?>" class="system-link" target="_blank">
+                            View All Results <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                    <div class="result-items">
+                        <div class="result-item">
+                            <a href="#" class="result-title">Unified search across all systems...</a>
+                            <div class="result-meta">Combining results from multiple sources</div>
+                            <div class="result-description">
+                                Performing a unified search for "<?php echo htmlspecialchars($query); ?>" across both physical collections (Koha) and digital repository (DSpace) through the VuFind discovery layer.
+                            </div>
+                            <div class="result-actions">
+                                <a href="http://localhost:8090/Search/Results?lookfor=<?php echo urlencode($query); ?>" class="action-btn" target="_blank">
+                                    <i class="fas fa-external-link-alt"></i> Open in VuFind
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <script>
+        // Tab functionality
+        document.querySelectorAll('.search-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.search-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
+6. STARTUP AND MANAGEMENT SCRIPTS
+---------------START SCRIPT WITH DSPACE
+sudo nano /home/biruk/start-library-services.sh
+#!/bin/bash
+echo "Starting Library Integration Services..."
+
+# Fix VuFind cache permissions
+sudo mkdir -p /opt/vufind/data/cache
+sudo mkdir -p /opt/vufind/local/cache/configs
+sudo chown -R vufind:vufind /opt/vufind/data/
+sudo chown -R vufind:vufind /opt/vufind/local/cache/
+sudo chmod -R 755 /opt/vufind/data/
+sudo chmod -R 755 /opt/vufind/local/cache/
+
+# Stop any conflicting Solr processes
+sudo pkill -f "java.*8983" || true
+sleep 2
+
+# Start Docker Solr
+sudo docker start solr
+
+# Start Koha services
+sudo systemctl start koha-common
+
+# Start Apache
+sudo systemctl start apache2
+
+# Start MariaDB
+sudo systemctl start mariadb
+
+# Start DSpace Angular UI (in background)
+echo "Starting DSpace Angular UI..."
+cd /home/biruk/Downloads/dspace-angular-dspace-9.1
+npm run start:dev > /tmp/dspace-angular.log 2>&1 &
+DSPACE_PID=$!
+echo $DSPACE_PID > /tmp/dspace-angular.pid
+
+echo "All services started!"
+echo "Access URLs:"
+echo "Single Sign-On: http://localhost/shared-login.php"
+echo "Library Portal: http://localhost/library-portal.php" 
+echo "Koha Staff: http://127.0.0.1:8085"
+echo "Koha OPAC: http://127.0.0.1:8085"
+echo "DSpace: http://localhost:4000"
+echo "VuFind: http://localhost:8090"
+echo ""
+echo "Note: DSpace Angular UI is starting in background..."
+echo "Check DSpace status: tail -f /tmp/dspace-angular.log"
+-----------------STOP SCRIPT WITH DSPACE
+sudo nano /home/biruk/stop-library-services.sh
+
+#!/bin/bash
+echo "Stopping Library Integration Services..."
+
+# Stop DSpace Angular UI
+if [ -f /tmp/dspace-angular.pid ]; then
+    echo "Stopping DSpace Angular UI..."
+    DSPACE_PID=$(cat /tmp/dspace-angular.pid)
+    kill $DSPACE_PID 2>/dev/null
+    rm -f /tmp/dspace-angular.pid
+    echo "DSpace Angular UI stopped."
+fi
+
+# Stop Docker Solr
+sudo docker stop solr
+
+# Stop Koha services  
+sudo systemctl stop koha-common
+
+# Stop Apache
+sudo systemctl stop apache2
+
+echo "All services stopped!"
+# Make scripts executable
+sudo chmod +x /home/biruk/start-library-services.sh
+sudo chmod +x /home/biruk/stop-library-services.sh
+🚀 USAGE GUIDE
+Daily Commands
+bash
+# Start everything
+/home/biruk/start-library-services.sh
+
+# Stop everything
+/home/biruk/stop-library-services.sh
+
+# Check status
+sudo docker ps
+sudo systemctl status koha-common
+sudo systemctl status apache2
+sudo systemctl status mariadb
+Access Points
+Single Sign-On: http://localhost/shared-login.php
+
+Library Portal: http://localhost/library-portal.php
+
+Koha Staff: http://127.0.0.1:8085
+
+Koha OPAC: http://127.0.0.1:8085
+
+DSpace: http://localhost:4000
+
+VuFind: http://localhost:8090
+
+Default Login Credentials
+Username: admin | Password: password
+
+Username: librarian | Password: password
+
+Username: john.doe | Password: password
+
+Koha Credentials
+Username: koha_libraryname
+
+Password: HVumz8=~q)Kq49
+
+🔧 TROUBLESHOOTING
+bash
+# Restart individual services
+sudo systemctl restart apache2
+sudo systemctl restart koha-common
+sudo docker restart solr
+
+# Check logs
+sudo tail -f /var/log/apache2/error.log
+sudo tail -f /var/log/koha/libraryname/*.log
+
+# Fix common issues
+# If Solr port is in use:
+sudo pkill -f "java.*8983"
+sudo docker start solr
+
+# If VuFind has permission issues:
+sudo mkdir -p /opt/vufind/data/cache
+sudo chown -R vufind:vufind /opt/vufind/data/
+sudo chmod -R 755 /opt/vufind/data/
