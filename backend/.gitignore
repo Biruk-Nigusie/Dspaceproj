@@ -42,7 +42,6 @@ venv/
 ENV/
 static/
 
-migrations/
 *.so
 .Python
 build/
