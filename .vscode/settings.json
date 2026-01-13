@@ -1,0 +1,4 @@
+{
+	"cSpell.words": ["gunicorn", "wsgi"],
+	"conventionalCommits.scopes": ["docker"]
+}
