@@ -1,4 +1,4 @@
 {
-	"cSpell.words": ["gunicorn", "wsgi"],
-	"conventionalCommits.scopes": ["docker"]
+	"cSpell.words": ["CRRSA", "csrftoken", "gunicorn", "oklch", "wsgi"],
+	"conventionalCommits.scopes": ["docker", "branding"]
 }
