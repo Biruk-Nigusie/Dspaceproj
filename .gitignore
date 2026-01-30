@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+db.sqlite3
+media/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vscode/
+
+# System
+.DS_Store
+Thumbs.db
+cookies.txt
+dspace_cookies.txt
+
+# Project specific debris
+additem.html
+additem_logged.html
+all.xml
+test.txt
+koha.txt
+*.log
+ql -U *

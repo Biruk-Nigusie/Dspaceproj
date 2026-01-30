@@ -1,0 +1,82 @@
+{
+  "field_mappings": {
+    "title": {
+      "marc_field": "245",
+      "indicators": ["1", "0"],
+      "subfields": {
+        "main": "a",
+        "subtitle": "b"
+      },
+      "separator": ":"
+    },
+    "creator": {
+      "main_author": {
+        "marc_field": "100",
+        "indicators": ["1", " "],
+        "subfield": "a"
+      },
+      "additional_authors": {
+        "marc_field": "700",
+        "indicators": ["1", " "],
+        "subfield": "a",
+        "max_count": 5
+      }
+    },
+    "subject": {
+      "marc_field": "650",
+      "indicators": [" ", "0"],
+      "subfield": "a"
+    },
+    "description": {
+      "marc_field": "520",
+      "indicators": [" ", " "],
+      "subfield": "a",
+      "min_length": 20
+    },
+    "publisher": {
+      "marc_field": "260",
+      "indicators": [" ", " "],
+      "subfield": "b"
+    },
+    "date": {
+      "marc_field": "260",
+      "indicators": [" ", " "],
+      "subfield": "c"
+    },
+    "identifier": {
+      "marc_field": "856",
+      "indicators": ["4", "0"],
+      "subfields": {
+        "url": "u",
+        "description": "z"
+      },
+      "url_description": "Access online resource"
+    },
+    "language": {
+      "marc_field": "041",
+      "indicators": ["0", " "],
+      "subfield": "a"
+    },
+    "source": {
+      "marc_field": "786",
+      "indicators": ["0", " "],
+      "subfield": "n"
+    },
+    "rights": {
+      "marc_field": "540",
+      "indicators": [" ", " "],
+      "subfield": "a"
+    }
+  },
+  "material_types": {
+    "book": ["book", "monograph", "text"],
+    "serial": ["article", "journal", "periodical"],
+    "visual": ["image", "photo", "picture", "video", "film", "movie"],
+    "sound": ["audio", "sound", "music"]
+  },
+  "validation_rules": {
+    "required_fields": ["245"],
+    "title_min_length": 1,
+    "author_name_format": "lastname_first"
+  }
+}
