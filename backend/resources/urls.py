@@ -26,4 +26,8 @@ urlpatterns = [
     path('<int:resource_id>/catalog/', views.catalog_resource, name='catalog_resource'),
     path('catalog-external/', views.catalog_external_dspace, name='catalog_external_dspace'),
     path('koha-metadata/<int:biblio_id>/', views.get_koha_item_metadata, name='get_koha_item_metadata'),
+    path('pdf/rotate/', views.pdf_rotate, name='pdf_rotate'),
+    path('pdf/split/', views.pdf_split, name='pdf_split'),
+    path('pdf/merge/', views.pdf_merge, name='pdf_merge'),
+    path('pdf/rename/', views.pdf_rename, name='pdf_rename'),
 ]

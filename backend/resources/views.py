@@ -12,6 +12,9 @@ import json
 from django.shortcuts import redirect
 from django.http import StreamingHttpResponse, FileResponse
 from django.conf import settings
+from .pdf_ops import rotate_pdf_page, split_pdf_at, merge_pdfs, rename_pdf_title
+import zipfile
+import io
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -782,4 +785,197 @@ def get_koha_item_metadata(request, biblio_id):
             'items': items
         })
     except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def pdf_rotate(request):
+    try:
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({'error': 'No file provided'}, status=400)
+            
+        try:
+            page = int(request.data.get('page', 1))
+        except ValueError:
+            page = 1
+            
+        angle = int(request.data.get('angle', 90))
+        
+        # Process
+        output_stream = rotate_pdf_page(file_obj, page, angle)
+        
+        response = FileResponse(
+            output_stream,
+            content_type='application/pdf'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{file_obj.name}"'
+        return response
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def pdf_split(request):
+    try:
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({'error': 'No file provided'}, status=400)
+            
+        # Parse pages: can be "2" or "2,5"
+        pages_input = request.data.get('pages', request.data.get('page', ''))
+        
+        split_points = []
+        if pages_input:
+            if isinstance(pages_input, str):
+                try:
+                    split_points = [int(p.strip()) for p in pages_input.split(',') if p.strip()]
+                except ValueError:
+                    return Response({'error': 'Invalid page numbers'}, status=400)
+            elif isinstance(pages_input, int):
+                split_points = [pages_input]
+            elif isinstance(pages_input, list):
+                split_points = [int(x) for x in pages_input]
+        
+        # Default to page 1 if nothing provided (or should we error?)
+        if not split_points:
+             return Response({'error': 'No split pages provided'}, status=400)
+
+        # Parse names: JSON list or comma separated?
+        # Let's support JSON string for complex list of names
+        names_input = request.data.get('names')
+        custom_names = []
+        if names_input:
+            try:
+                if isinstance(names_input, str):
+                    if names_input.startswith('['):
+                         custom_names = json.loads(names_input)
+                    else:
+                         custom_names = [n.strip() for n in names_input.split(',')]
+                elif isinstance(names_input, list):
+                    custom_names = names_input
+            except:
+                pass
+
+        # Process
+        parts = split_pdf_at(file_obj, split_points)
+        
+        if len(parts) < 2 and len(split_points) > 0:
+             # This might happen if split points were invalid (e.g. > total_pages)
+             # But split_pdf_at handles validation.
+             # If it returns 1 part, it means no split happened.
+             pass
+
+        # Save to media folder
+        import time
+        timestamp = int(time.time())
+        media_path = settings.MEDIA_ROOT
+        if not os.path.exists(media_path):
+            os.makedirs(media_path)
+            
+        base_name = file_obj.name.replace('.pdf', '').replace('.PDF', '')
+        
+        response_files = []
+        
+        for i, part in enumerate(parts):
+            # Determine filename
+            if i < len(custom_names) and custom_names[i]:
+                name = custom_names[i]
+            else:
+                name = f"{base_name}_part{i+1}_{timestamp}"
+                
+            if not name.lower().endswith('.pdf'):
+                name += ".pdf"
+                
+            file_path = media_path / name
+            with open(file_path, 'wb') as f:
+                f.write(part.getvalue())
+                
+            url = f"{request.scheme}://{request.get_host()}{settings.MEDIA_URL}{name}"
+            response_files.append({'name': name, 'url': url})
+
+        return Response({
+            'message': 'Split successful',
+            'files': response_files
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def pdf_merge(request):
+    try:
+        files = request.FILES.getlist('files')
+        if not files or len(files) < 2:
+            return Response({'error': 'At least 2 files required for merge'}, status=400)
+            
+        # Sort files? They come in order of append. 
+        # The frontend should ensure order if needed.
+        
+        output_stream = merge_pdfs(files)
+        
+        # Save to media folder
+        try:
+            import time
+            timestamp = int(time.time())
+            filename = f"merged_{timestamp}.pdf"
+            media_path = settings.MEDIA_ROOT
+            if not os.path.exists(media_path):
+                os.makedirs(media_path)
+                
+            file_path = media_path / filename
+            with open(file_path, 'wb') as f:
+                f.write(output_stream.getvalue())
+                
+            print(f"Saved merged file to: {file_path}")
+            
+            # Reset stream for response
+            output_stream.seek(0)
+            
+        except Exception as save_err:
+             print(f"Warning: Failed to save merged file locally: {save_err}")
+             output_stream.seek(0)
+        
+        response = FileResponse(
+            output_stream,
+            content_type='application/pdf'
+        )
+        response['Content-Disposition'] = 'attachment; filename="merged.pdf"'
+        return response
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def pdf_rename(request):
+    try:
+        file_obj = request.FILES.get('file')
+        title = request.data.get('title')
+        
+        if not file_obj or not title:
+            return Response({'error': 'File and title required'}, status=400)
+            
+        output_stream = rename_pdf_title(file_obj, title)
+        
+        response = FileResponse(
+            output_stream,
+            content_type='application/pdf'
+        )
+        # We return the new filename in header, frontend should respect it or use the title input
+        new_filename = f"{title}.pdf" if not title.lower().endswith('.pdf') else title
+        response['Content-Disposition'] = f'attachment; filename="{new_filename}"'
+        return response
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return Response({'error': str(e)}, status=500)

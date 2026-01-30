@@ -309,6 +309,16 @@ class DSpaceService {
         const otherTitles = metadata.otherTitles || [];
         const dateIssued = metadata.dateIssued || metadata.publicationDate || "";
 
+        let seriesFormatted = metadata.series || [];
+        const reportNum = (metadata.reportNumber || "").trim();
+        if (reportNum) {
+            if (seriesFormatted.length > 0) {
+                seriesFormatted = seriesFormatted.map(s => `${s}; ${reportNum}`);
+            } else {
+                seriesFormatted = [`; ${reportNum}`];
+            }
+        }
+
         const dcFields = {
             "dc.title": metadata.title,
             "dc.contributor.author": author,
@@ -319,9 +329,9 @@ class DSpaceService {
             "dc.description.sponsorship": metadata.sponsors,
             "dc.publisher": metadata.publisher,
             "dc.identifier.citation": metadata.citation,
-            "dc.identifier.govdoc": metadata.reportNo,
-            "dc.identifier.other": metadata.reportNo, // Keep generic linking too just in case
-            "dc.relation.ispartofseries": metadata.series,
+            // "dc.identifier.govdoc": metadata.reportNumber,
+            // "dc.identifier.other": metadata.accessionNumber,
+            "dc.relation.ispartofseries": seriesFormatted,
             "dc.date.issued": dateIssued,
             "dc.language": metadata.language,
             "dc.type": metadata.type,
@@ -338,6 +348,41 @@ class DSpaceService {
                     path: `/sections/traditionalpageone/${field}`,
                     value: cleaned.map(v => ({ value: v }))
                 });
+            }
+        }
+
+        // Handle dynamic identifiers
+        if (metadata.identifiers && Array.isArray(metadata.identifiers)) {
+            const idMap = {
+                "ISSN": "dc.identifier.issn",
+                "ISBN": "dc.identifier.isbn",
+                "ISMN": "dc.identifier.ismn",
+                "URI": "dc.identifier.uri",
+                "Gov't Doc #": "dc.identifier.govdoc",
+                "Other": "dc.identifier.other"
+            };
+
+            for (const idObj of metadata.identifiers) {
+                const val = (idObj.value || "").trim();
+                // Skip empty values strictly
+                if (!val) continue;
+
+                const field = idMap[idObj.type] || "dc.identifier.other";
+
+                // CRITICAL: Check if this field/value combo was already added via fixed fields
+                // This prevents "Report No." (mapped to govdoc) from being added AGAIN if the user also put it in the dynamic list
+                // OR if the dynamic list tries to add to "other" and "Accession No" (mapped to other) already added it.
+                const alreadyExists = metadataUpdates.some(u =>
+                    u.path.endsWith(field) && u.value.some(v => v.value === val)
+                );
+
+                if (!alreadyExists) {
+                    metadataUpdates.push({
+                        op: "add",
+                        path: `/sections/traditionalpageone/${field}`,
+                        value: [{ value: val }]
+                    });
+                }
             }
         }
 
