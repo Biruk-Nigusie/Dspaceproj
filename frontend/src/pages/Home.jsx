@@ -4,9 +4,9 @@ import CatalogModal from "./CatalogModal";
 import { AuthContext } from "../contexts/AuthContext";
 import { useState, useEffect, useContext } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AlertCircle, BarChart3, Book, CheckCircle, Download, Filter, Heart, MapPin, UserPlus, Users, Search, X } from "lucide-react";
-import CollectionsGrid from "./CollectionsGrid";
+
 import ResourceTable from "./ResourceTable";
 import HowItWorks from "../components/HowItWorks";
 import Card from "../components/UI/Card";
@@ -66,6 +66,29 @@ const Home = () => {
 
     const { user, token, djangoToken } = useContext(AuthContext);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Sync search and collections from URL
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const q = params.get('q');
+        const colIdsRaw = params.get('collections');
+
+        if (q) setSearchQuery(q);
+
+        if (colIdsRaw) {
+            const colIds = colIdsRaw.split(',').filter(id => id);
+            const found = collections.filter(c => colIds.includes(c.uuid || c.id));
+            if (found.length > 0) {
+                setSelectedCollections(found);
+                setDisplayMode("digital");
+            } else {
+                setSelectedCollections([]);
+            }
+        } else {
+            setSelectedCollections([]);
+        }
+    }, [location.search, collections]);
 
     useEffect(() => {
         // Initial fetch
@@ -192,10 +215,7 @@ const Home = () => {
         }
     };
 
-    const handleSearch = (e) => {
-        e.preventDefault();
-        // Search is handled by useEffect now
-    };
+
 
     const fetchCollections = async () => {
         try {
@@ -295,38 +315,26 @@ const Home = () => {
     };
 
     const handleCollectionClick = (collection) => {
-        setSelectedCollections((prev) => {
-            const collectionId = collection.uuid || collection.id;
-            const isAlreadySelected = prev.some(
-                (c) => (c.uuid || c.id) === collectionId,
-            );
+        const id = collection.uuid || collection.id;
+        const currentParams = new URLSearchParams(location.search);
+        let selected = currentParams.get('collections')?.split(',').filter(x => x) || [];
 
-            if (isAlreadySelected) {
-                // Remove from selection
-                const newSelection = prev.filter(
-                    (c) => (c.uuid || c.id) !== collectionId,
-                );
-                if (newSelection.length === 0) {
-                    // If no collections selected, fetch all items
-                    fetchAllResources(searchQuery);
-                } else {
-                    // Fetch items for remaining collections
-                    fetchDspaceItemsByCollections(newSelection);
-                }
-                return newSelection;
-            } else {
-                // Add to selection and fetch items
-                const newSelection = [...prev, collection];
-                fetchDspaceItemsByCollections(newSelection);
-                return newSelection;
-            }
-        });
+        if (selected.includes(id)) {
+            selected = selected.filter(c => c !== id);
+        } else {
+            selected.push(id);
+        }
 
-        // When a collection is selected, switch to digital mode
-        setDisplayMode("digital");
-        setCurrentPage(1);
-        setActiveFilters({});
+        if (selected.length > 0) {
+            currentParams.set('collections', selected.join(','));
+        } else {
+            currentParams.delete('collections');
+        }
+
+        navigate(`/?${currentParams.toString()}`);
     };
+
+
 
     // Fetch items from specific DSpace collections
     const fetchDspaceItemsByCollections = async (collections) => {
@@ -419,6 +427,7 @@ const Home = () => {
         fetchAllResources(searchQuery);
         setCurrentPage(1);
         setActiveFilters({});
+        navigate("/"); // Clear collection filter from URL
     };
 
     const handleDisplayModeChange = (mode) => {
@@ -499,58 +508,24 @@ const Home = () => {
 
     return (
         <div className="min-h-screen bg-white">
+
+
             {/* Hero Section */}
             <Carousel />
 
-            {/* Search Bar Overlay */}
-            <div className="max-w-4xl mx-auto px-4 -mt-10 relative z-10 mb-8">
-                <div className="bg-white p-4 rounded-xl">
-                    <form onSubmit={handleSearch} className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search resources, books, documents..."
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-colors"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="bg-blue-900 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm cursor-pointer"
-                        >
-                            Search
-                        </button>
-                    </form>
-                </div>
-            </div>
 
 
-            {/* Collections Section */}
-            <section className="bg-white py-16">
-                <div className="max-w-[95%] px-4">
-                    <div className="text-center mb-8">
-                        <h2 className="text-3xl font-bold text-gray-900">Collections</h2>
-                        <p className="text-gray-600">Select a collection to browse.</p>
-                    </div>
-                    <CollectionsGrid
-                        collections={collections}
-                        onCollectionClick={handleCollectionClick}
-                        selectedCollections={selectedCollections}
-                    />
-                </div>
-            </section>
+
 
             {/* Latest Additions / Featured Items */}
             <section className="bg-white py-16">
                 <div className="max-w-[95%] px-4">
-                    <div className="text-center mb-12">
+                    <div className="text-center mb-1">
 
 
                     </div>
 
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex justify-between items-center mb-3">
                         <h3 className="text-2xl font-bold text-gray-900">
                             Recent Records and Cataloges
                             <span className="text-gray-500 text-lg ml-2">
@@ -688,7 +663,7 @@ const Home = () => {
                                                 window.scrollTo({ top: document.querySelector('#resource-section') ? document.querySelector('#resource-section').offsetTop - 100 : 0, behavior: 'smooth' });
                                             }}
                                             disabled={currentPage === 1}
-                                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            className={`relative inline - flex items - center px - 4 py - 2 border border - gray - 300 text - sm font - medium rounded - md text - gray - 700 bg - white hover: bg - gray - 50 cursor - pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
                                         >
                                             Previous
                                         </button>
@@ -698,7 +673,7 @@ const Home = () => {
                                                 window.scrollTo({ top: document.querySelector('#resource-section') ? document.querySelector('#resource-section').offsetTop - 100 : 0, behavior: 'smooth' });
                                             }}
                                             disabled={currentPage === Math.ceil(resourcesToDisplay.length / pageSize)}
-                                            className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            className={`ml - 3 relative inline - flex items - center px - 4 py - 2 border border - gray - 300 text - sm font - medium rounded - md text - gray - 700 bg - white hover: bg - gray - 50 cursor - pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
                                         >
                                             Next
                                         </button>
@@ -717,7 +692,7 @@ const Home = () => {
                                                         setCurrentPage(Math.max(1, currentPage - 1));
                                                     }}
                                                     disabled={currentPage === 1}
-                                                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    className={`relative inline - flex items - center px - 2 py - 2 rounded - l - md border border - gray - 300 bg - white text - sm font - medium text - gray - 500 hover: bg - gray - 50 cursor - pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
                                                 >
                                                     <span className="sr-only">Previous</span>
                                                     <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -732,7 +707,7 @@ const Home = () => {
                                                         setCurrentPage(Math.min(Math.ceil(resourcesToDisplay.length / pageSize), currentPage + 1));
                                                     }}
                                                     disabled={currentPage === Math.ceil(resourcesToDisplay.length / pageSize)}
-                                                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    className={`relative inline - flex items - center px - 2 py - 2 rounded - r - md border border - gray - 300 bg - white text - sm font - medium text - gray - 500 hover: bg - gray - 50 cursor - pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
                                                 >
                                                     <span className="sr-only">Next</span>
                                                     <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
