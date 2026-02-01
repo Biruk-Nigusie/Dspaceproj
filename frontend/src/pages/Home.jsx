@@ -98,13 +98,6 @@ const Home = () => {
 	const { user, token, djangoToken } = useContext(AuthContext);
 	const navigate = useNavigate();
 
-	useEffect(() => {
-		// Initial fetch
-		fetchAllResources();
-		fetchSystemStats();
-		fetchCollections();
-	}, [user]);
-
 	// Debounced search effect
 	useEffect(() => {
 		const delayDebounceFn = setTimeout(() => {
@@ -240,6 +233,13 @@ const Home = () => {
 		}
 	};
 
+	useEffect(() => {
+		// Initial fetch
+		fetchAllResources();
+		fetchSystemStats();
+		fetchCollections();
+	}, [fetchAllResources, fetchCollections, fetchSystemStats]);
+
 	const handleCatalogSubmit = async () => {
 		try {
 			// Use Django token for backend requests
@@ -247,10 +247,10 @@ const Home = () => {
 
 			const config = activeToken
 				? {
-					headers: {
-						Authorization: `Token ${activeToken}`,
-					},
-				}
+						headers: {
+							Authorization: `Token ${activeToken}`,
+						},
+					}
 				: {};
 
 			const response = await axios.post(
@@ -283,7 +283,8 @@ const Home = () => {
 		} catch (error) {
 			console.error("Catalog error:", error);
 			alert(
-				`Failed to catalog in Koha: ${error.response?.data?.error || error.message
+				`Failed to catalog in Koha: ${
+					error.response?.data?.error || error.message
 				}`,
 			);
 		}
@@ -299,7 +300,7 @@ const Home = () => {
 	const handleCatalogClick = (resource) => {
 		// Construct handle URL if external_id exists
 		const handleUrl = resource.external_id
-			? `http://localhost:4000/handle/${resource.external_id}`
+			? `${import.meta.env.VITE_DSPACE_FRONTEND_URL}/handle/${resource.external_id}`
 			: resource.url || "";
 
 		setCatalogData({
@@ -674,16 +675,16 @@ const Home = () => {
 											)}
 											{dspacePagination.number <
 												dspacePagination.totalPages - 1 && (
-													<button
-														type="button"
-														onClick={() =>
-															handleDspacePageChange(dspacePagination.number + 1)
-														}
-														className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
-													>
-														Next
-													</button>
-												)}
+												<button
+													type="button"
+													onClick={() =>
+														handleDspacePageChange(dspacePagination.number + 1)
+													}
+													className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
+												>
+													Next
+												</button>
+											)}
 										</div>
 									</div>
 								</div>
@@ -698,20 +699,22 @@ const Home = () => {
 							<button
 								type="button"
 								onClick={() => handleDisplayModeChange("digital")}
-								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${displayMode === "digital"
-									? "bg-blue-600 text-white"
-									: "border border-gray-300 text-gray-700 hover:bg-gray-100"
-									}`}
+								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${
+									displayMode === "digital"
+										? "bg-blue-600 text-white"
+										: "border border-gray-300 text-gray-700 hover:bg-gray-100"
+								}`}
 							>
 								Digital
 							</button>
 							<button
 								type="button"
 								onClick={() => handleDisplayModeChange("cataloged")}
-								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${displayMode === "cataloged"
-									? "bg-blue-600 text-white"
-									: "border border-gray-300 text-gray-700 hover:bg-gray-100"
-									}`}
+								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${
+									displayMode === "cataloged"
+										? "bg-blue-600 text-white"
+										: "border border-gray-300 text-gray-700 hover:bg-gray-100"
+								}`}
 							>
 								Cataloged
 							</button>
@@ -752,16 +755,17 @@ const Home = () => {
 												window.scrollTo({
 													top: document.querySelector("#resource-section")
 														? document.querySelector("#resource-section")
-															.offsetTop - 100
+																.offsetTop - 100
 														: 0,
 													behavior: "smooth",
 												});
 											}}
 											disabled={currentPage === 1}
-											className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage === 1
-												? "opacity-50 cursor-not-allowed"
-												: "cursor-pointer"
-												}`}
+											className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${
+												currentPage === 1
+													? "opacity-50 cursor-not-allowed"
+													: "cursor-pointer"
+											}`}
 										>
 											Previous
 										</button>
@@ -777,7 +781,7 @@ const Home = () => {
 												window.scrollTo({
 													top: document.querySelector("#resource-section")
 														? document.querySelector("#resource-section")
-															.offsetTop - 100
+																.offsetTop - 100
 														: 0,
 													behavior: "smooth",
 												});
@@ -786,11 +790,12 @@ const Home = () => {
 												currentPage ===
 												Math.ceil(resourcesToDisplay.length / pageSize)
 											}
-											className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage ===
+											className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${
+												currentPage ===
 												Math.ceil(resourcesToDisplay.length / pageSize)
-												? "opacity-50 cursor-not-allowed"
-												: "cursor-pointer"
-												}`}
+													? "opacity-50 cursor-not-allowed"
+													: "cursor-pointer"
+											}`}
 										>
 											Next
 										</button>
@@ -827,10 +832,11 @@ const Home = () => {
 														setCurrentPage(Math.max(1, currentPage - 1));
 													}}
 													disabled={currentPage === 1}
-													className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === 1
-														? "opacity-50 cursor-not-allowed"
-														: "cursor-pointer"
-														}`}
+													className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${
+														currentPage === 1
+															? "opacity-50 cursor-not-allowed"
+															: "cursor-pointer"
+													}`}
 												>
 													<span className="sr-only">Previous</span>
 													<svg
@@ -866,11 +872,12 @@ const Home = () => {
 														currentPage ===
 														Math.ceil(resourcesToDisplay.length / pageSize)
 													}
-													className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage ===
+													className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${
+														currentPage ===
 														Math.ceil(resourcesToDisplay.length / pageSize)
-														? "opacity-50 cursor-not-allowed"
-														: "cursor-pointer"
-														}`}
+															? "opacity-50 cursor-not-allowed"
+															: "cursor-pointer"
+													}`}
 												>
 													<span className="sr-only">Next</span>
 													<svg

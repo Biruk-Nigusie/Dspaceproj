@@ -303,8 +303,8 @@ class DSpaceClient:
             coll_uuid = r.json().get("uuid")
             print(f"   └── 📁 Collection Created: {name}")
 
-            self.remove_anonymous_access_from_collection(coll_uuid)
-            # self.activate_roles(coll_uuid)
+            # self.remove_anonymous_access_from_collection(coll_uuid)
+            self.activate_roles(coll_uuid)
 
             return coll_uuid
         return self._handle_error(r)

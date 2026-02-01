@@ -98,13 +98,13 @@ class DSpaceService {
 				body: formData.toString(),
 				credentials: "include",
 			});
-			console.log("🚀 ~ DSpaceService ~ login ~ response:", response)
+			console.log("🚀 ~ DSpaceService ~ login ~ response:", response);
 
 			const newToken =
 				response.headers.get("DSPACE-XSRF-TOKEN") ||
 				response.headers.get("XSRF-TOKEN") ||
 				response.headers.get("X-XSRF-TOKEN");
-			console.log("🚀 ~ DSpaceService ~ login ~ newToken:", newToken)
+			console.log("🚀 ~ DSpaceService ~ login ~ newToken:", newToken);
 			if (newToken) {
 				this.csrfToken = newToken;
 			}
@@ -112,7 +112,7 @@ class DSpaceService {
 			const authHeader =
 				response.headers.get("Authorization") ||
 				response.headers.get("authorization");
-			console.log("🚀 ~ DSpaceService ~ login ~ authHeader:", authHeader)
+			console.log("🚀 ~ DSpaceService ~ login ~ authHeader:", authHeader);
 			if (authHeader) {
 				this.authToken = authHeader;
 			}
@@ -148,7 +148,7 @@ class DSpaceService {
 				return data;
 			}
 			return { authenticated: false };
-		} catch (error) {
+		} catch {
 			return { authenticated: false };
 		}
 	}
@@ -166,8 +166,52 @@ class DSpaceService {
 				return data._embedded?.collections || [];
 			}
 			return [];
-		} catch (error) {
+		} catch {
 			return [];
+		}
+	}
+
+	async getSubmitAuthorizedCollections(page = 0, size = 20) {
+		try {
+			const headers = this.getCsrfHeaders({
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			});
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+			const response = await fetch(
+				`${DSPACE_API_URL}/core/collections/search/findSubmitAuthorized?page=${page}&size=${size}&query=&embed=parentCommunity`,
+				{
+					headers: headers,
+					credentials: "include",
+				},
+			);
+
+			if (response.ok) {
+				const data = await response.json();
+				return {
+					collections: data._embedded?.collections || [],
+					page: data.page || {
+						number: 0,
+						size: size,
+						totalPages: 1,
+						totalElements: 0,
+					},
+				};
+			}
+			return {
+				collections: [],
+				page: { number: 0, size: size, totalPages: 0, totalElements: 0 },
+			};
+		} catch {
+			return {
+				collections: [],
+				page: { number: 0, size: size, totalPages: 0, totalElements: 0 },
+			};
 		}
 	}
 
@@ -329,18 +373,10 @@ class DSpaceService {
 		const dcFields = {
 			"dc.title": metadata.title,
 			"dc.contributor.author": author,
-			"dc.title.alternative": otherTitles,
-			"dc.subject": subjectKeywords,
 			"dc.description.abstract": metadata.abstract,
 			"dc.description": metadata.description,
-			"dc.description.sponsorship": metadata.sponsors,
-			"dc.publisher": metadata.publisher,
 			"dc.identifier.citation": metadata.citation,
-			// "dc.identifier.govdoc": metadata.reportNumber,
-			// "dc.identifier.other": metadata.accessionNumber,
-			"dc.relation.ispartofseries": seriesFormatted,
 			"dc.date.issued": dateIssued,
-			"dc.language": metadata.language,
 			"dc.type": metadata.type,
 		};
 
@@ -433,7 +469,7 @@ class DSpaceService {
 			).catch(() => {});
 
 			return true;
-		} catch (error) {
+		} catch {
 			return true;
 		}
 	}
@@ -476,7 +512,7 @@ class DSpaceService {
 			});
 			const token = this.getStoredToken();
 			if (token) {
-				headers["Authorization"] = token.startsWith("Bearer ")
+				headers.Authorization = token.startsWith("Bearer ")
 					? token
 					: `Bearer ${token}`;
 			}
@@ -494,7 +530,7 @@ class DSpaceService {
 			);
 
 			return response.ok;
-		} catch (error) {
+		} catch {
 			return false;
 		}
 	}
@@ -507,7 +543,7 @@ class DSpaceService {
 			});
 			const token = this.getStoredToken();
 			if (token) {
-				headers["Authorization"] = token.startsWith("Bearer ")
+				headers.Authorization = token.startsWith("Bearer ")
 					? token
 					: `Bearer ${token}`;
 			}

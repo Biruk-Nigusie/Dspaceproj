@@ -1,3 +1,5 @@
+import { XIcon } from "lucide-react";
+
 const InputField = ({
 	label,
 	value,
@@ -8,10 +10,14 @@ const InputField = ({
 	onCatalogDataChange,
 }) => (
 	<div className="flex flex-col">
-		<label className="text-xs font-bold text-gray-700 mb-1 uppercase tracking-tight flex items-center">
+		<label
+			htmlFor={field}
+			className="text-xs font-bold text-gray-700 mb-1 uppercase tracking-tight flex items-center"
+		>
 			{label} {required && <span className="text-red-500 ml-1">★</span>}
 		</label>
 		<input
+			id={field}
 			type={type}
 			value={value || ""}
 			onChange={(e) => onCatalogDataChange(field, e.target.value)}
@@ -35,10 +41,14 @@ const SelectField = ({
 	onCatalogDataChange,
 }) => (
 	<div className="flex flex-col">
-		<label className="text-xs font-bold text-gray-700 mb-1 uppercase tracking-tight flex items-center">
+		<label
+			htmlFor={field}
+			className="text-xs font-bold text-gray-700 mb-1 uppercase tracking-tight flex items-center"
+		>
 			{label} {required && <span className="text-red-500 ml-1">★</span>}
 		</label>
 		<select
+			id={field}
 			value={value || ""}
 			onChange={(e) => onCatalogDataChange(field, e.target.value)}
 			className={`p-2 border rounded text-sm transition-all ${
@@ -77,23 +87,11 @@ const CatalogModal = ({
 						</h2>
 					</div>
 					<button
+						type="button"
 						onClick={onClose}
 						className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors cursor-pointer"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							className="h-6 w-6"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
+						<XIcon />
 					</button>
 				</div>
 
@@ -113,14 +111,14 @@ const CatalogModal = ({
 							</h3>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
 								<InputField
-									label="Title"
+									label="House Identifier"
 									value={catalogData.title}
 									field="title"
 									required
 									onCatalogDataChange={onCatalogDataChange}
 								/>
 								<InputField
-									label="Author / Creator"
+									label="House Head"
 									value={catalogData.authors}
 									field="authors"
 									required
@@ -214,10 +212,14 @@ const CatalogModal = ({
 									/>
 								</div>
 								<div className="md:col-span-2">
-									<label className="text-xs font-bold text-gray-700 mb-1 uppercase tracking-tight">
+									<label
+										htmlFor="summary"
+										className="text-xs font-bold text-gray-700 mb-1 uppercase tracking-tight"
+									>
 										Summary
 									</label>
 									<textarea
+										id="summary"
 										value={catalogData.description}
 										onChange={(e) =>
 											onCatalogDataChange("description", e.target.value)

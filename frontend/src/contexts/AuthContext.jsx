@@ -1,5 +1,11 @@
 import axios from "axios";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import dspaceService from "../services/dspaceService";
 
 // Configure axios defaults
@@ -23,30 +29,22 @@ export const AuthProvider = ({ children }) => {
 	const [user, setUser] = useState(null);
 	const [loading, setLoading] = useState(true);
 
-	useEffect(() => {
-		checkAuth();
-	}, []);
-
-	const checkAuth = async () => {
+	const checkAuth = useCallback(async () => {
 		try {
-			// Check if we have a stored auth token
 			const storedToken = localStorage.getItem("dspaceAuthToken");
 			if (storedToken) {
 				dspaceService.authToken = storedToken;
 				dspaceService.isAuthenticated = true;
 
-				// Try to get auth status
 				const status = await dspaceService.checkAuthStatus();
 				if (status.authenticated) {
-					const userInfo = {
+					setUser({
 						username: status.email || "User",
 						authenticated: true,
 						id: status.id || status.uuid,
 						...status,
-					};
-					setUser(userInfo);
+					});
 				} else {
-					// Token might be expired
 					localStorage.removeItem("dspaceAuthToken");
 					setUser(null);
 				}
@@ -55,12 +53,16 @@ export const AuthProvider = ({ children }) => {
 			}
 		} catch (error) {
 			console.error("Auth check failed", error);
-			setUser(null);
 			localStorage.removeItem("dspaceAuthToken");
+			setUser(null);
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
+
+	useEffect(() => {
+		checkAuth();
+	}, [checkAuth]);
 
 	const login = async (email, password) => {
 		try {
