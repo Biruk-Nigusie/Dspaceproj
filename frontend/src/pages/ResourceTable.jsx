@@ -123,10 +123,10 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Title
+                                House number
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Author
+                                Head of House
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Publisher
@@ -135,10 +135,6 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Issue date
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Citation
-                            </th>
-
 
                             <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
@@ -168,12 +164,6 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 
                                 <td className="px-6 py-4 text-sm text-gray-700">
                                     {resource.year || "—"}
-                                </td>
-                                <td>{resource.citation && (
-                                    <div className=" mt-1">
-                                        {resource.citation}
-                                    </div>
-                                )}
                                 </td>
 
                                 <td className="px-6 py-4 text-center">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -49,7 +49,7 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
                         onChange={(e) => updateField(index, e.target.value)}
                         placeholder={placeholder}
                         autoComplete="off"
-                        className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        className="grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     />
                     <button
                         type="button"
@@ -499,8 +499,6 @@ const MetadataEditor = () => {
                 subjectKeywords: subjectKeywords.filter(k => k.trim()),
                 type: type,
                 language: language,
-                type: type,
-                language: language,
                 reportNumber: reportNumber,
                 series: seriesReportNo.filter(s => s.trim()),
                 sponsors: sponsors,
@@ -642,16 +640,16 @@ const MetadataEditor = () => {
                                                 >
                                                     <button
                                                         onClick={() => handleFileSelect(file.id)}
-                                                        className="flex-grow flex items-center text-left"
+                                                        className="grow flex items-center text-left"
                                                     >
-                                                        <div className="flex-shrink-0">
+                                                        <div className="shrink-0">
                                                             {selectedFileId === file.id ? (
                                                                 <Check className="w-3.5 h-3.5 text-blue-600" />
                                                             ) : (
                                                                 <div className="w-3.5 h-3.5 border border-gray-400 rounded"></div>
                                                             )}
                                                         </div>
-                                                        <div className="ml-2 flex-shrink-0">
+                                                        <div className="ml-2 shrink-0">
                                                             {getFileIcon(file.type)}
                                                         </div>
                                                         <div className="ml-2 flex-1 min-w-0">
@@ -771,7 +769,7 @@ const MetadataEditor = () => {
                                             <select value={id.type} onChange={(e) => handleIdentifierChange(index, "type", e.target.value)} className="p-2 border border-gray-300 rounded-md bg-white">
                                                 {["Other", "ISSN", "ISMN", "Gov't Doc #", "URI", "ISBN"].map((t) => (<option key={t} value={t}>{t}</option>))}
                                             </select>
-                                            <input type="text" placeholder="Enter identifier" value={id.value} onChange={(e) => handleIdentifierChange(index, "value", e.target.value)} autoComplete="off" className="flex-grow p-2 border border-gray-300 rounded-md" />
+                                            <input type="text" placeholder="Enter identifier" value={id.value} onChange={(e) => handleIdentifierChange(index, "value", e.target.value)} autoComplete="off" className="grow p-2 border border-gray-300 rounded-md" />
                                             <button type="button" onClick={() => removeIdentifier(index)} className="text-red-400 hover:text-red-700 cursor-pointer"><Trash2 size={18} /></button>
                                         </div>
                                     ))}

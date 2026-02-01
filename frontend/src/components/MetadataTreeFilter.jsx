@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Filter, X } from 'lucide-react';
 
 const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, onClearFilters, className = "" }) => {
@@ -188,9 +188,9 @@ const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, o
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
                 <TreeNode label="Language" category="language" items={filterOptions.language} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Author" category="author" items={filterOptions.author} />
+                <TreeNode label="House number" category="author" items={filterOptions.author} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Publisher" category="publisher" items={filterOptions.publisher} />
+                <TreeNode label="Head of House" category="publisher" items={filterOptions.publisher} />
             </div>
         </div>
     );
