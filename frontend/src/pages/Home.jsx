@@ -17,6 +17,7 @@ const Home = () => {
     const [allResources, setAllResources] = useState([]); // For all resources (mixed)
     const [catalogedResources, setCatalogedResources] = useState([]); // For Koha cataloged items
     const [dspaceItems, setDspaceItems] = useState([]); // For DSpace items fetched directly
+    const [dspaceHierarchy, setDspaceHierarchy] = useState([]); // For Community/Collection hierarchy
     const [loading, setLoading] = useState(false);
     const [showCatalogModal, setShowCatalogModal] = useState(false);
     const [catalogData, setCatalogData] = useState({
@@ -54,7 +55,6 @@ const Home = () => {
     const [collections, setCollections] = useState([]);
     const [selectedCollections, setSelectedCollections] = useState([]);
     const [activeFilters, setActiveFilters] = useState({});
-    const [displayMode, setDisplayMode] = useState("digital"); // "digital", "cataloged"
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
     const [dspacePagination, setDspacePagination] = useState({
@@ -95,15 +95,23 @@ const Home = () => {
         fetchAllResources();
         fetchSystemStats();
         fetchCollections();
+        fetchDspaceHierarchy();
     }, [user]);
+
+    const fetchDspaceHierarchy = async () => {
+        try {
+            const hierarchy = await dspaceService.getHierarchy();
+            setDspaceHierarchy(hierarchy);
+        } catch (error) {
+            console.error("Error fetching hierarchy:", error);
+        }
+    };
 
     // Debounced search effect
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             if (searchQuery !== undefined) {
-                if (displayMode === "cataloged") {
-                    fetchCatalogedResources(searchQuery);
-                } else if (selectedCollections.length > 0) {
+                if (selectedCollections.length > 0) {
                     fetchDspaceItemsByCollections(selectedCollections);
                 } else {
                     fetchAllResources(searchQuery);
@@ -112,57 +120,56 @@ const Home = () => {
         }, 500);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchQuery, selectedCollections, displayMode]);
+    }, [searchQuery, selectedCollections]);
 
-    // Fetch all resources (using DSpace search)
+    // Fetch all resources (Mixed DSpace & Koha)
     const fetchAllResources = async (query = "") => {
         setLoading(true);
         try {
-            // Use DSpace service to search
-            const results = await dspaceService.searchItems(query);
-
-            // Transform DSpace items to common resource format
-            // Filter out collections - only include actual items
-            const mappedResults = results
-                .filter(item => {
-                    const type = item._embedded?.indexableObject?.type;
-                    return type === 'item'; // Only items, not collections
-                })
+            // 1. Fetch DSpace Items
+            const dspaceResults = await dspaceService.searchItems(query);
+            const mappedDspace = dspaceResults
+                .filter(item => item._embedded?.indexableObject?.type === 'item')
                 .map(item => {
                     const metadata = item._embedded?.indexableObject?.metadata || {};
-                    const getVal = (key) => {
-                        const mk = metadata[key];
-                        return mk && mk.length > 0 ? mk[0].value : "";
-                    };
-                    const getValList = (key) => {
-                        const mk = metadata[key];
-                        return mk ? mk.map(m => m.value).join(", ") : "";
-                    };
+                    const getVal = (key) => metadata[key]?.[0]?.value || "";
+                    const getValList = (key) => metadata[key]?.map(m => m.value).join(", ") || "";
 
                     return {
                         id: item._embedded?.indexableObject?.uuid,
                         title: getVal("dc.title") || item._embedded?.indexableObject?.name,
                         authors: getValList("dc.contributor.author"),
                         year: getVal("dc.date.issued")?.substring(0, 4),
-                        publisher: getVal("dc.publisher"),
                         source: "dspace",
-                        description: getVal("dc.description") || getVal("dc.description.abstract"),
-                        abstract: getVal("dc.description.abstract"),
+                        source_name: "Research Repository",
+                        resource_type: getVal("dc.type") || "Digital",
                         external_id: item._embedded?.indexableObject?.handle || item._embedded?.indexableObject?.uuid,
-                        resource_type: getVal("dc.type"),
+                        description: getVal("dc.description") || getVal("dc.description.abstract"),
                         language: getVal("dc.language"),
-                        citation: getVal("dc.identifier.citation"),
-                        sponsors: getVal("dc.description.sponsorship"),
-                        series: getVal("dc.relation.ispartofseries"),
-                        reportNo: getVal("dc.identifier.other") || getVal("dc.identifier.govdoc"),
-                        isbn: getVal("dc.identifier.isbn"),
-                        issn: getVal("dc.identifier.issn"),
-                        subjects: getValList("dc.subject"),
                         format: getVal("dc.format"),
                     };
                 });
 
-            setAllResources(mappedResults);
+            // 2. Fetch Koha Items
+            let mappedKoha = [];
+            try {
+                const kohaResponse = await axios.get(`/api/resources/search/`, {
+                    params: { q: query, source: 'koha', limit: 50 }
+                });
+                if (kohaResponse.data?.results) {
+                    mappedKoha = kohaResponse.data.results.map(item => ({
+                        ...item,
+                        source: 'koha',
+                        source_name: 'Library Catalog'
+                    }));
+                }
+            } catch (err) {
+                console.error("Koha fetch error:", err);
+            }
+
+            // Combine and set
+            setAllResources([...mappedDspace, ...mappedKoha]);
+            setCatalogedResources(mappedKoha); // Keep this for secondary filters
             setCurrentPage(1);
         } catch (error) {
             console.error("Error fetching resources:", error);
@@ -430,22 +437,7 @@ const Home = () => {
         navigate("/"); // Clear collection filter from URL
     };
 
-    const handleDisplayModeChange = (mode) => {
-        setDisplayMode(mode);
-        setCurrentPage(1);
-        setActiveFilters({}); // Reset all side filters when switching modes
-        if (mode === "cataloged") {
-            setSelectedCollections([]);
-            fetchCatalogedResources(searchQuery);
-        } else {
-            fetchAllResources(searchQuery);
-        }
-    };
-
     const getResourcesToDisplay = () => {
-        if (displayMode === "cataloged") {
-            return catalogedResources;
-        }
         return allResources;
     };
 
@@ -478,22 +470,38 @@ const Home = () => {
                     resourceValue = resource.publisher || 'Unknown';
                 }
 
-                if (resourceValue === null || resourceValue === undefined) {
-                    return false;
-                }
-
-                if (!selectedValues.includes(String(resourceValue))) {
-                    return false;
-                }
             }
             return true;
         });
     };
 
-    const baseResources = getResourcesToDisplay();
-    // We compute filter options from the BASE resources (before filtering) 
-    // so that the tree shows all available options in the current view/mode
+    const getSubCommunitiesToDisplay = () => {
+        if (!dspaceHierarchy || dspaceHierarchy.length === 0) return [];
 
+        // If nothing selected, show the first level of sub-communities (children of top-level nodes)
+        if (selectedCollections.length === 0) {
+            const subs = dspaceHierarchy.flatMap(node => node.children || []);
+            // Show only the first 4 main sub-communities (Archive, Multimedia, Printed Material, Serial)
+            return subs.length > 0 ? subs.slice(0, 4) : dspaceHierarchy.slice(0, 4);
+        }
+
+        const lastSelected = selectedCollections[selectedCollections.length - 1];
+        const findNodeDeep = (nodes) => {
+            for (const node of nodes) {
+                if ((node.uuid || node.id) === (lastSelected.uuid || lastSelected.id)) {
+                    return node.children && node.children.length > 0 ? node.children : nodes;
+                }
+                if (node.children) {
+                    const found = findNodeDeep(node.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        return findNodeDeep(dspaceHierarchy) || dspaceHierarchy;
+    };
+
+    const baseResources = getResourcesToDisplay();
     const resourcesToDisplay = applyTreeFilters(baseResources);
 
     const handleDspacePageChange = (newPage) => {
@@ -525,18 +533,10 @@ const Home = () => {
 
                     </div>
 
-                    <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-2xl font-bold text-gray-900">
-                            Recent Records and Cataloges
-                            <span className="text-gray-500 text-lg ml-2">
-                                ({resourcesToDisplay.length} results)
-                            </span>
-                        </h3>
-                        <div className="flex space-x-4"></div>
-                    </div>
+
 
                     {/* Collection filter status - subtle version */}
-                    {selectedCollections.length > 0 && displayMode === "digital" && (
+                    {selectedCollections.length > 0 && (
                         <div className="mb-4 p-2 bg-blue-50 rounded-lg border border-blue-100 text-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center">
@@ -552,7 +552,7 @@ const Home = () => {
                                                 {collection.name}
                                                 <button
                                                     onClick={() => handleCollectionClick(collection)}
-                                                    className="ml-1 text-blue-600 hover:text-blue-800 cursor-pointer"
+                                                    className="ml-1 text-blue-900 hover:text-blue-800 cursor-pointer"
                                                 >
                                                     <X className="w-3 h-3" />
                                                 </button>
@@ -563,7 +563,7 @@ const Home = () => {
                                 {selectedCollections.length > 0 && (
                                     <button
                                         onClick={clearCollectionFilter}
-                                        className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
+                                        className="text-blue-900 hover:text-blue-800 text-sm cursor-pointer"
                                     >
                                         Clear all
                                     </button>
@@ -574,7 +574,7 @@ const Home = () => {
                             {dspaceItems.length > 0 && dspacePagination.totalPages > 1 && (
                                 <div className="mt-2 pt-2 border-t border-blue-100">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-blue-600 text-xs">
+                                        <span className="text-blue-900 text-xs">
                                             Page {dspacePagination.number + 1} of{" "}
                                             {dspacePagination.totalPages}(
                                             {dspacePagination.totalElements} total items)
@@ -585,7 +585,7 @@ const Home = () => {
                                                     onClick={() =>
                                                         handleDspacePageChange(dspacePagination.number - 1)
                                                     }
-                                                    className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
+                                                    className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-900 rounded hover:bg-blue-50 cursor-pointer"
                                                 >
                                                     Previous
                                                 </button>
@@ -596,7 +596,7 @@ const Home = () => {
                                                         onClick={() =>
                                                             handleDspacePageChange(dspacePagination.number + 1)
                                                         }
-                                                        className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
+                                                        className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-900 rounded hover:bg-blue-50 cursor-pointer"
                                                     >
                                                         Next
                                                     </button>
@@ -608,45 +608,91 @@ const Home = () => {
                         </div>
                     )}
 
-                    {/* Display mode filters */}
-                    <div className="flex flex-wrap gap-4 mb-6">
-                        <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-700">Show:</span>
-                            <button
-                                onClick={() => handleDisplayModeChange("digital")}
-                                className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${displayMode === "digital"
-                                    ? "bg-blue-600 text-white"
-                                    : "border border-gray-300 text-gray-700 hover:bg-gray-100"
-                                    }`}
-                            >
-                                Digital
-                            </button>
-                            <button
-                                onClick={() => handleDisplayModeChange("cataloged")}
-                                className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${displayMode === "cataloged"
-                                    ? "bg-blue-600 text-white"
-                                    : "border border-gray-300 text-gray-700 hover:bg-gray-100"
-                                    }`}
-                            >
-                                Cataloged
-                            </button>
-                        </div>
-                    </div>
-
                     <div className="flex flex-col lg:flex-row gap-6">
                         {/* Left Sidebar - Metadata Tree Filter */}
                         <div className="lg:w-1/4">
                             <MetadataTreeFilter
                                 resources={baseResources}
+                                dspaceHierarchy={dspaceHierarchy}
                                 selectedFilters={activeFilters}
                                 onFilterChange={setActiveFilters}
                                 onClearFilters={() => setActiveFilters({})}
+                                onCollectionClick={handleCollectionClick}
                                 className="sticky top-4"
                             />
                         </div>
 
                         {/* Right Content - Resource Table */}
                         <div className="lg:w-3/4">
+                            {/* Sub-community selection buttons */}
+                            {/* Sub-community selection buttons */}
+                            {dspaceHierarchy.length > 0 && (
+                                <div className="bg-white border-b border-gray-100 p-6 mb-8 rounded-sm shadow-sm">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {getSubCommunitiesToDisplay().map((node) => {
+                                            const isSelected = selectedCollections.some(c => (c.uuid || c.id) === (node.uuid || node.id));
+                                            return (
+                                                <button
+                                                    key={node.id || node.uuid}
+                                                    onClick={() => handleCollectionClick(node)}
+                                                    className={`px-6 py-2.5 rounded-sm border border-blue-900/10 transition-all cursor-pointer active:bg-blue-900/10 flex items-center space-x-4 text-[11px] font-bold uppercase tracking-[0.1em]
+                                                        ${isSelected
+                                                            ? 'bg-blue-900 text-white'
+                                                            : 'bg-white text-blue-900'
+                                                        }`}
+                                                >
+                                                    <span className="truncate max-w-[250px]">{node.name}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black transition-colors ${isSelected ? 'text-white' : 'bg-blue-50 text-blue-900/40'}`}>
+                                                        {node.count || 0}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+
+                                        {/* Inline Pagination (Unified Style) */}
+                                        {resourcesToDisplay.length > pageSize && (
+                                            <div className="ml-auto flex items-center">
+                                                <nav className="relative z-0 inline-flex rounded-sm -space-x-px" aria-label="Pagination">
+                                                    <button
+                                                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                                        disabled={currentPage === 1}
+                                                        className={`relative inline-flex items-center px-4 py-2.5 rounded-l-sm border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    >
+                                                        <span className="sr-only">Previous</span>
+                                                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                    <span className="relative inline-flex items-center px-6 py-2.5 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                                        Page {currentPage} of {Math.ceil(resourcesToDisplay.length / pageSize)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setCurrentPage(Math.min(Math.ceil(resourcesToDisplay.length / pageSize), currentPage + 1))}
+                                                        disabled={currentPage === Math.ceil(resourcesToDisplay.length / pageSize)}
+                                                        className={`relative inline-flex items-center px-4 py-2.5 rounded-r-sm border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    >
+                                                        <span className="sr-only">Next</span>
+                                                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                </nav>
+                                            </div>
+                                        )}
+
+                                        {selectedCollections.length > 0 && (
+                                            <button
+                                                onClick={clearCollectionFilter}
+                                                className="flex items-center text-[10px] font-bold text-blue-600 shadow-sm uppercase tracking-widest cursor-pointer transition-all group px-4 py-2 border border-blue-100 rounded-sm hover:bg-blue-50"
+                                            >
+                                                <span className="mr-2 transform transition-transform">←</span>
+                                                Reset
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <ResourceTable
                                 resources={resourcesToDisplay.slice((currentPage - 1) * pageSize, currentPage * pageSize)}
                                 loading={loading}
@@ -686,20 +732,20 @@ const Home = () => {
                                             </p>
                                         </div>
                                         <div>
-                                            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                                            <nav className="relative z-0 inline-flex rounded-sm -space-x-px" aria-label="Pagination">
                                                 <button
                                                     onClick={() => {
                                                         setCurrentPage(Math.max(1, currentPage - 1));
                                                     }}
                                                     disabled={currentPage === 1}
-                                                    className={`relative inline - flex items - center px - 2 py - 2 rounded - l - md border border - gray - 300 bg - white text - sm font - medium text - gray - 500 hover: bg - gray - 50 cursor - pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
+                                                    className={`relative inline-flex items-center px-4 py-2.5 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
                                                 >
                                                     <span className="sr-only">Previous</span>
-                                                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                                                     </svg>
                                                 </button>
-                                                <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                                <span className="relative inline-flex items-center px-6 py-2.5 border border-gray-300 bg-white text-sm font-medium text-gray-700">
                                                     Page {currentPage} of {Math.ceil(resourcesToDisplay.length / pageSize)}
                                                 </span>
                                                 <button
@@ -707,10 +753,10 @@ const Home = () => {
                                                         setCurrentPage(Math.min(Math.ceil(resourcesToDisplay.length / pageSize), currentPage + 1));
                                                     }}
                                                     disabled={currentPage === Math.ceil(resourcesToDisplay.length / pageSize)}
-                                                    className={`relative inline - flex items - center px - 2 py - 2 rounded - r - md border border - gray - 300 bg - white text - sm font - medium text - gray - 500 hover: bg - gray - 50 cursor - pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
+                                                    className={`relative inline-flex items-center px-4 py-2.5 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
                                                 >
                                                     <span className="sr-only">Next</span>
-                                                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                    <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                                                     </svg>
                                                 </button>
@@ -750,28 +796,28 @@ const Home = () => {
 
                     {/* Stats Overview */}
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                        <Card className="text-center bg-white hover:shadow-sm transition-shadow border border-gray-200">
                             <BarChart3 className="w-8 h-8 text-gray-800 mx-auto mb-3" />
                             <h3 className="text-4xl font-bold text-gray-900 mb-2">
                                 {stats.totalResources.toLocaleString()}
                             </h3>
                             <p className="text-gray-600 font-medium">መዛግብት እና መጻሕፍት</p>
                         </Card>
-                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                        <Card className="text-center bg-white  border border-gray-200">
                             <Download className="w-8 h-8 text-gray-800 mx-auto mb-3" />
                             <h3 className="text-4xl font-bold text-gray-900 mb-2">
                                 {stats.monthlyDownloads.toLocaleString()}+
                             </h3>
                             <p className="text-gray-600 font-medium">ወርሃዊ መዳረሻ</p>
                         </Card>
-                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                        <Card className="text-center bg-white  transition-shadow border border-gray-200">
                             <Users className="w-8 h-8 text-gray-800 mx-auto mb-3" />
                             <h3 className="text-4xl font-bold text-gray-900 mb-2">
                                 {stats.activeUsers.toLocaleString()}
                             </h3>
                             <p className="text-gray-600 font-medium">የተመዘገቡ ተጠቃሚዎች</p>
                         </Card>
-                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                        <Card className="text-center bg-white  transition-shadow border border-gray-200">
                             <MapPin className="w-8 h-8 text-gray-800 mx-auto mb-3" />
                             <h3 className="text-4xl font-bold text-gray-900 mb-2">
                                 {stats.communities}
@@ -789,7 +835,7 @@ const Home = () => {
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="text-center">
-                                <Book className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                                <Book className="w-12 h-12 text-blue-900 mx-auto mb-4" />
                                 <h3 className="text-xl font-semibold text-gray-900 mb-3">
                                     File Formats
                                 </h3>
@@ -799,7 +845,7 @@ const Home = () => {
                                 </p>
                             </div>
                             <div className="text-center">
-                                <CheckCircle className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                                <CheckCircle className="w-12 h-12 text-blue-900 mx-auto mb-4" />
                                 <h3 className="text-xl font-semibold text-gray-900 mb-3">
                                     Metadata Requirement
                                 </h3>
@@ -809,7 +855,7 @@ const Home = () => {
                                 </p>
                             </div>
                             <div className="text-center">
-                                <AlertCircle className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                                <AlertCircle className="w-12 h-12 text-blue-900 mx-auto mb-4" />
                                 <h3 className="text-xl font-semibold text-gray-900 mb-3">
                                     Review Process
                                 </h3>

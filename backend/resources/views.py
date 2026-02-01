@@ -765,6 +765,20 @@ def get_dspace_items(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
+def get_dspace_hierarchy(request):
+    """
+    Get DSpace community/collection hierarchy with item counts.
+    """
+    try:
+        api = RealDSpaceAPI()
+        hierarchy = api.get_hierarchy()
+        return Response(hierarchy)
+    except Exception as e:
+        print(f"Hierarchy error: {e}")
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
 def get_koha_item_metadata(request, biblio_id):
     try:
         from .koha_rest_api import KohaRestAPI

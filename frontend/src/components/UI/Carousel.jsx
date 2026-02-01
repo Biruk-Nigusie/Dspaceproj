@@ -74,7 +74,7 @@ const Carousel = () => {
                         {/* Opening Times */}
                         <div className="bg-white p-8 rounded-xl">
                             <h3 className="flex items-center text-2xl font-bold mb-6 text-gray-900 border-b border-gray-100 pb-4">
-                                <Clock className="w-6 h-6 mr-3 text-blue-600" /> Opening Times
+                                <Clock className="w-6 h-6 mr-3 text-blue-900" /> Opening Times
                             </h3>
                             <div className="space-y-4 text-gray-600">
                                 <div className="flex justify-between items-center text-sm md:text-base">
@@ -95,7 +95,7 @@ const Carousel = () => {
                         {/* Contact */}
                         <div className="bg-white p-8 rounded-xl">
                             <h3 className="flex items-center text-2xl font-bold mb-6 text-gray-900 border-b border-gray-100 pb-4">
-                                <Phone className="w-6 h-6 mr-3 text-blue-600" /> Contact Details
+                                <Phone className="w-6 h-6 mr-3 text-blue-900" /> Contact Details
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm md:text-base">
                                 <div className="space-y-2">
@@ -105,7 +105,7 @@ const Carousel = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Official Email</p>
-                                    <p className="text-blue-600 font-bold">ILARMS@nala.gov.et</p>
+                                    <p className="text-blue-900 font-bold">ILARMS@nala.gov.et</p>
                                 </div>
                             </div>
                         </div>

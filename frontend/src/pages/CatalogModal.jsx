@@ -111,9 +111,7 @@ const CatalogModal = ({
                                     options={[
                                         { value: "English", label: "English" },
                                         { value: "Amharic", label: "Amharic" },
-                                        { value: "Oromo", label: "Oromo" },
-                                        { value: "Tigrinya", label: "Tigrinya" },
-                                        { value: "French", label: "French" }
+                                        
                                     ]}
                                 />
                                 <InputField label="Call Number" value={catalogData.call_number} field="call_number" placeholder="QA76.76.C65" onCatalogDataChange={onCatalogDataChange} />

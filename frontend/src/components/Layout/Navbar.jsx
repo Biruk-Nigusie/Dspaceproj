@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Search, User, LogOut, X, Loader2, Book } from "lucide-react";
+import { Search, User, LogOut, X, Loader2, Book, Globe, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import dspaceService from "../../services/dspaceService";
 import { useAuth } from "../../contexts/AuthContext";
@@ -12,9 +12,10 @@ const Navbar = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [collections, setCollections] = useState([]);
+    const [language, setLanguage] = useState("English");
+    const [isLangOpen, setIsLangOpen] = useState(false);
     const searchRef = useRef(null);
-    const collectionsRef = useRef(null);
+    const langRef = useRef(null);
 
     const params = new URLSearchParams(location.search);
     const activeCollectionIds = params.get('collections')?.split(',').filter(x => x) || [];
@@ -25,42 +26,14 @@ const Navbar = () => {
     };
 
     useEffect(() => {
-        const fetchCollections = async () => {
-            try {
-                const list = await dspaceService.getCollections();
-                setCollections(list || []);
-            } catch (error) {
-                console.error("Error fetching collections:", error);
+        const handleClickOutside = (event) => {
+            if (langRef.current && !langRef.current.contains(event.target)) {
+                setIsLangOpen(false);
             }
         };
-        fetchCollections();
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
-
-    const handleCollectionClick = (collection) => {
-        const id = collection.uuid || collection.id;
-        const currentParams = new URLSearchParams(location.search);
-        let selected = currentParams.get('collections')?.split(',').filter(x => x) || [];
-
-        if (selected.includes(id)) {
-            selected = selected.filter(c => c !== id);
-        } else {
-            selected.push(id);
-        }
-
-        if (selected.length > 0) {
-            currentParams.set('collections', selected.join(','));
-        } else {
-            currentParams.delete('collections');
-        }
-
-        navigate(`/?${currentParams.toString()}`);
-    };
-
-    const clearCollectionFilter = () => {
-        const currentParams = new URLSearchParams(location.search);
-        currentParams.delete('collections');
-        navigate(`/?${currentParams.toString()}`);
-    };
 
     useEffect(() => {
         const handleTriggerSearch = () => setIsSearchOpen(true);
@@ -131,7 +104,7 @@ const Navbar = () => {
     };
 
     return (
-        <nav className="bg-white text-gray-900 shadow-md sticky top-0 z-50">
+        <nav className="bg-white text-gray-900 shadow-sm sticky top-0 z-50">
             <div className="w-full px-4">
                 <div className="flex justify-between items-center h-20">
                     {/* Logo - Pushed Left */}
@@ -144,33 +117,50 @@ const Navbar = () => {
                             />
                             <div className="hidden lg:block">
                                 <span className="text-xl font-black text-blue-900 leading-tight">ወመዘክር</span>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">EANLA SERVICE</p>
                             </div>
                         </Link>
                     </div>
 
-                    {/* Collections - Centered and visible */}
-                    <div className="flex-1 min-w-0 border-l border-gray-100 pl-6">
-                        <div className="flex items-center h-20 overflow-x-auto no-scrollbar space-x-8 whitespace-nowrap py-2">
+                    {/* Main Navigation - Centered */}
+                    <div className="hidden lg:flex flex-1 justify-center items-center space-x-10 px-8">
+                        <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
+                            NALA Library
+                        </Link>
+                        <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
+                            NALA Archives
+                        </Link>
+                        <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
+                            Enquiry for records and ISBN
+                        </Link>
+
+
+                        {/* Language Dropdown */}
+                        <div className="relative" ref={langRef}>
                             <button
-                                onClick={clearCollectionFilter}
-                                className={`text-sm font-bold transition-colors cursor-pointer pb-1 flex-shrink-0 ${activeCollectionIds.length === 0 ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-blue-600"}`}
+                                onClick={() => setIsLangOpen(!isLangOpen)}
+                                className="flex items-center space-x-1 text-sm font-bold text-blue-900  px-3 py-1.5 rounded-sm  transition-all cursor-pointer"
                             >
-                                All Records
+                                <Globe className="w-4 h-4 mr-1 ml-4" />
+                                <span>{language}</span>
+                                <ChevronDown className={`w-3 h-3 transition-transform ${isLangOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            {collections.map((collection) => {
-                                const id = collection.uuid || collection.id;
-                                const isActive = activeCollectionIds.includes(id);
-                                return (
+
+                            {isLangOpen && (
+                                <div className="absolute top-full mt-2 right-0 w-32 bg-white shadow-xl border border-gray-100 rounded-sm py-1 z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                                     <button
-                                        key={id}
-                                        onClick={() => handleCollectionClick(collection)}
-                                        className={`text-sm font-bold transition-colors cursor-pointer pb-1 flex-shrink-0 ${isActive ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-blue-600"}`}
+                                        onClick={() => { setLanguage("English"); setIsLangOpen(false); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors ${language === "English" ? "text-blue-900" : "text-gray-900"}`}
                                     >
-                                        {collection.name}
+                                        English
                                     </button>
-                                );
-                            })}
+                                    <button
+                                        onClick={() => { setLanguage("Amharic"); setIsLangOpen(false); }}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold  transition-colors ${language === "Amharic" ? "text-blue-900" : "text-gray-900"}`}
+                                    >
+                                        Amharic
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -198,8 +188,8 @@ const Navbar = () => {
                         </button>
 
                         <div className="hidden lg:flex items-center space-x-4">
-                            {user && (
-                                <Link to="/editor" className="bg-blue-600 hover:bg-blue-900 text-white px-4 py-2 rounded-sm text-xs font-bold transition-all shadow-sm">
+                            {user && location.pathname !== '/editor' && (
+                                <Link to="/editor" className="bg-blue-900 text-white px-4 py-2 rounded-sm text-xs font-bold transition-all shadow-sm">
                                     UPLOAD
                                 </Link>
                             )}
@@ -213,16 +203,13 @@ const Navbar = () => {
                         {user ? (
                             <div className="flex items-center space-x-3 border-l border-gray-100 pl-6">
                                 <Link to="/profile" className="flex items-center space-x-2 group">
-                                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-sm font-bold border border-blue-100 text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                        {user.first_name?.[0] || user.username?.[0]?.toUpperCase()}
-                                    </div>
-                                    <span className="hidden md:inline text-sm font-bold text-gray-700 group-hover:text-blue-600 transition-colors">
+                                    <span className="hidden md:inline text-sm font-bold text-gray-900 group transition-colors">
                                         {user.first_name || user.username}
                                     </span>
                                 </Link>
                                 <button
                                     onClick={handleLogout}
-                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                    className="p-2 text-gray-400 cursor-pointer bg-blue-900rounded-full transition-all"
                                     title="Logout"
                                 >
                                     <LogOut className="w-5 h-5" />
@@ -231,7 +218,7 @@ const Navbar = () => {
                         ) : (
                             <Link
                                 to="/signin"
-                                className="bg-blue-900 text-white px-8 py-1.5 rounded-sm font-bold transition-all shadow-md active:scale-95"
+                                className="bg-blue-900 text-white px-8 py-1.5 rounded-sm font-bold transition-all "
                             >
                                 Login
                             </Link>
@@ -268,7 +255,7 @@ const Navbar = () => {
                         <div className="max-h-[60vh] overflow-y-auto p-4 custom-scrollbar">
                             {isSearching ? (
                                 <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-600" />
+                                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-900" />
                                     <p>Searching through archives...</p>
                                 </div>
                             ) : searchQuery.trim().length > 0 ? (
@@ -284,7 +271,7 @@ const Navbar = () => {
                                                 className="flex items-start p-4 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-blue-100 group"
                                             >
                                                 <div className="bg-blue-100 p-2 rounded-lg mr-4 group-hover:bg-blue-200 transition-colors">
-                                                    <Book className="w-6 h-6 text-blue-600" />
+                                                    <Book className="w-6 h-6 text-blue-900" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="font-semibold text-gray-900 truncate">
@@ -299,7 +286,7 @@ const Navbar = () => {
                                                                 {result.type}
                                                             </span>
                                                         )}
-                                                        <span className="text-[10px] text-blue-600 font-medium">
+                                                        <span className="text-[10px] text-blue-900 font-medium">
                                                             Handle: {result.handle || 'N/A'}
                                                         </span>
                                                     </div>

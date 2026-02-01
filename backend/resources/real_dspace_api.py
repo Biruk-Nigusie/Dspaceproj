@@ -13,8 +13,9 @@ from dspace_client import DSpaceClient
 
 class RealDSpaceAPI:
     def __init__(self):
+        from config import API_BASE
         self.client = DSpaceClient()
-        self.base_url = "http://localhost:8080/server/api"
+        self.base_url = API_BASE
     
     def authenticate(self):
         """Authenticate with real DSpace"""
@@ -408,3 +409,88 @@ class RealDSpaceAPI:
         except Exception as e:
             print(f"DSpace get bitstream by UUID error: {e}")
             return None
+
+    def get_item_count(self, uuid):
+        """Get item count for a given community or collection UUID"""
+        try:
+            params = {
+                'scope': uuid,
+                'dsoType': 'item',
+                'size': 0
+            }
+            response = self.client.session.get(f"{self.base_url}/discover/search/objects", params=params)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('_embedded', {}).get('searchResult', {}).get('page', {}).get('totalElements', 0)
+            return 0
+        except Exception:
+            return 0
+
+    def get_hierarchy(self):
+        """Fetch the full DSpace community/sub-community/collection hierarchy with counts"""
+        try:
+            if not self.client.logged_in:
+                self.authenticate()
+
+            # 1. Get top-level communities
+            response = self.client.session.get(f"{self.base_url}/core/communities/search/top")
+            if response.status_code != 200:
+                return []
+            
+            top_communities = response.json().get('_embedded', {}).get('communities', [])
+            hierarchy = []
+
+            for comm in top_communities:
+                comm_node = self._build_community_node(comm)
+                hierarchy.append(comm_node)
+            
+            return hierarchy
+        except Exception as e:
+            print(f"Error fetching hierarchy: {e}")
+            return []
+
+    def _build_community_node(self, community):
+        uuid = community.get('uuid')
+        name = community.get('metadata', {}).get('dc.title', [{}])[0].get('value', 'Unnamed Community')
+        
+        # Get count
+        count = self.get_item_count(uuid)
+        
+        node = {
+            'id': uuid,
+            'name': name,
+            'type': 'community',
+            'count': count,
+            'children': []
+        }
+
+        # Sub-communities
+        try:
+            sub_resp = self.client.session.get(f"{self.base_url}/core/communities/{uuid}/subcommunities")
+            if sub_resp.status_code == 200:
+                subs = sub_resp.json().get('_embedded', {}).get('subcommunities', [])
+                for sub in subs:
+                    node['children'].append(self._build_community_node(sub))
+        except Exception:
+            pass
+
+        # Collections
+        try:
+            coll_resp = self.client.session.get(f"{self.base_url}/core/communities/{uuid}/collections")
+            if coll_resp.status_code == 200:
+                colls = coll_resp.json().get('_embedded', {}).get('collections', [])
+                for coll in colls:
+                    coll_uuid = coll.get('uuid')
+                    coll_name = coll.get('metadata', {}).get('dc.title', [{}])[0].get('value', 'Unnamed Collection')
+                    coll_count = self.get_item_count(coll_uuid)
+                    node['children'].append({
+                        'id': coll_uuid,
+                        'name': coll_name,
+                        'type': 'collection',
+                        'count': coll_count,
+                        'children': []
+                    })
+        except Exception:
+            pass
+
+        return node

@@ -122,25 +122,52 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Title
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-widest">
+                                <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-900 group">
+                                    <span>Title</span>
+                                    <div className="flex flex-col -space-y-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" /></svg>
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                    </div>
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Author
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-widest">
+                                <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-900 group">
+                                    <span>Author</span>
+                                    <div className="flex flex-col -space-y-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" /></svg>
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                    </div>
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Publisher
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-widest">
+                                <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-900 group">
+                                    <span>Publisher</span>
+                                    <div className="flex flex-col -space-y-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" /></svg>
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                    </div>
+                                </div>
                             </th>
-
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Issue date
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-widest">
+                                <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-900 group">
+                                    <span>Issue date</span>
+                                    <div className="flex flex-col -space-y-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" /></svg>
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                    </div>
+                                </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Citation
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-widest">
+                                <div className="flex items-center space-x-1 cursor-pointer hover:text-gray-900 group">
+                                    <span>Citation</span>
+                                    <div className="flex flex-col -space-y-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" /></svg>
+                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                    </div>
+                                </div>
                             </th>
-
-
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-widest">
                                 Actions
                             </th>
                         </tr>
@@ -153,7 +180,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                 onClick={() => handleRowClick(resource)}
                             >
                                 <td className="px-6 py-4 max-w-xs">
-                                    <div className="text-sm font-medium text-blue-600 hover:underline">
+                                    <div className="text-sm font-medium text-blue-900 hover:underline">
                                         {resource.title || "—"}
                                     </div>
 
@@ -183,7 +210,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                                 <button
                                                     onClick={(e) => handlePreview(resource, e)}
                                                     disabled={previewLoading[resource.id]}
-                                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center cursor-pointer"
+                                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center cursor-pointer"
                                                 >
                                                     {previewLoading[resource.id] ? (
                                                         <>
@@ -200,7 +227,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                                             e.stopPropagation();
                                                             onCatalogClick(resource);
                                                         }}
-                                                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 cursor-pointer"
+                                                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded-sm hover:bg-blue-700 cursor-pointer"
                                                     >
                                                         Catalog
                                                     </button>
@@ -213,7 +240,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                                     e.stopPropagation();
                                                     handleRowClick(resource);
                                                 }}
-                                                className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 cursor-pointer flex items-center gap-1"
+                                                className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-sm hover:bg-indigo-700 cursor-pointer flex items-center gap-1"
                                             >
                                                 <Search className="w-3 h-3" />
                                                 View In Catalog

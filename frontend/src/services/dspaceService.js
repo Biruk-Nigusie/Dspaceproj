@@ -554,6 +554,19 @@ class DSpaceService {
             this.csrfToken = null;
         }
     }
+
+    async getHierarchy() {
+        try {
+            const response = await fetch("/api/resources/dspace/hierarchy/", {
+                credentials: "include",
+                headers: this.getCsrfHeaders({ Accept: "application/json" }),
+            });
+            return response.ok ? await response.json() : [];
+        } catch (error) {
+            console.error("Error fetching hierarchy:", error);
+            return [];
+        }
+    }
 }
 
 export default new DSpaceService();

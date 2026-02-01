@@ -3,6 +3,7 @@ from . import views, diagnostics, bulk_views
 
 urlpatterns = [
     path('dspace-items/', views.get_dspace_items, name='get_dspace_items'),
+    path('dspace/hierarchy/', views.get_dspace_hierarchy, name='get_dspace_hierarchy'),
     path('bitstream/<str:bitstream_uuid>/', views.get_bitstream, name='get_bitstream'),
     path('dspace-bitstream/<path:handle_id>/', views.get_dspace_bitstream, name='get_dspace_bitstream'),
     path('search/', views.search_resources, name='search_resources'),

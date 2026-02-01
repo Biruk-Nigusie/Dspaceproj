@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -49,7 +50,7 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
                         onChange={(e) => updateField(index, e.target.value)}
                         placeholder={placeholder}
                         autoComplete="off"
-                        className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-grow p-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                     <button
                         type="button"
@@ -63,7 +64,7 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
             <button
                 type="button"
                 onClick={addField}
-                className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                className="flex items-center text-sm text-blue-900 hover:text-blue-800"
             >
                 <PlusCircle size={16} className="mr-1" />
                 Add {label}
@@ -172,6 +173,8 @@ const MetadataEditor = () => {
 
     const handleSplit = () => {
         if (!selectedFile) return;
+        setIsMergeModalOpen(false);
+        setIsRenameModalOpen(false);
         setSplitPages(String(pageNumber));
         const baseName = selectedFile.name.replace('.pdf', '');
         // Initial split assumes 1 split point -> 2 files.
@@ -267,6 +270,8 @@ const MetadataEditor = () => {
 
     const handleRename = () => {
         if (!selectedFile) return;
+        setIsMergeModalOpen(false);
+        setIsSplitModalOpen(false);
         setRenameNewName(selectedFile.name.replace('.pdf', ''));
         setIsRenameModalOpen(true);
     };
@@ -313,6 +318,8 @@ const MetadataEditor = () => {
 
     const handleMergeClick = () => {
         if (!selectedFile) return;
+        setIsSplitModalOpen(false);
+        setIsRenameModalOpen(false);
         setIsMergeModalOpen(true);
     };
 
@@ -600,15 +607,21 @@ const MetadataEditor = () => {
         setIdentifiers(identifiers.filter((_, i) => i !== index));
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
-            {/* Top Bar */}
-            <div className="bg-white border-b border-gray-300 p-3">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-lg font-bold text-gray-800 ml-4">Upload File</h1>
-                    <div className="flex items-center space-x-3 mr-4">
-                        <label className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer text-sm">
-                            <Upload className="w-3 h-3 mr-1" />
-                            Upload Files
+        <div className="flex flex-col h-screen bg-white">
+            <div className="flex h-16  z-10">
+                {/* Left Header - Nav */}
+                <div className="w-1/2 border-r border-gray-300 flex items-center bg-white">
+                    <Link to="/" className="flex items-center text-blue-900  px-6 transition-colors h-full border-gray-200">
+                        <ChevronLeft className="w-6 h-6" />
+                    </Link>
+                </div>
+
+                {/* Right Header - Actions */}
+                <div className="w-1/2 flex items-center justify-between px-6 bg-white">
+                    <div className="flex items-center space-x-3">
+                        <label className="flex items-center px-4 py-2 bg-blue-900 text-white rounded-sm transition-all cursor-pointer text-xs font-bold ">
+                            <Upload className="w-4 h-4 mr-2" />
+                            UPLOAD NEW
                             <input
                                 type="file"
                                 multiple
@@ -620,25 +633,25 @@ const MetadataEditor = () => {
                         <div className="relative">
                             <button
                                 onClick={() => setShowFileDropdown(!showFileDropdown)}
-                                className="flex items-center px-3 py-1.5 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors text-sm cursor-pointer"
+                                className="flex items-center px-4 py-2 border border-blue-900/10 rounded-sm bg-blue-50/50 hover:bg-blue-50 transition-all text-xs font-bold cursor-pointer text-blue-900"
                             >
-                                <Eye className="w-3 h-3 mr-1.5 text-gray-600" />
-                                <span className="text-gray-700">
-                                    {selectedFile ? selectedFile.name : "Select File"}
+                            
+                                <span>
+                                    {selectedFile ? selectedFile.name : "VIEW FILES"}
                                 </span>
                                 <ChevronDown
-                                    className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${showFileDropdown ? "rotate-180" : ""
+                                    className={`w-4 h-4 ml-2 transition-transform ${showFileDropdown ? "rotate-180" : ""
                                         }`}
                                 />
                             </button>
                             {showFileDropdown && (
-                                <div className="absolute top-full right-0 mt-1 w-72 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                                <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg z-50 max-h-96 overflow-y-auto overflow-x-hidden">
                                     <div className="p-2">
                                         {files.length > 0 ? (
                                             files.map((file) => (
                                                 <div
                                                     key={file.id}
-                                                    className={`w-full flex items-center px-2.5 py-2 hover:bg-blue-50 ${selectedFileId === file.id ? "bg-blue-50" : ""}`}
+                                                    className={`w-full flex items-center px-3 py-2.5 hover:bg-blue-50 rounded-sm mb-1 transition-colors ${selectedFileId === file.id ? "bg-blue-50/80" : ""}`}
                                                 >
                                                     <button
                                                         onClick={() => handleFileSelect(file.id)}
@@ -646,60 +659,49 @@ const MetadataEditor = () => {
                                                     >
                                                         <div className="flex-shrink-0">
                                                             {selectedFileId === file.id ? (
-                                                                <Check className="w-3.5 h-3.5 text-blue-600" />
+                                                                <Check className="w-4 h-4 text-blue-900" />
                                                             ) : (
-                                                                <div className="w-3.5 h-3.5 border border-gray-400 rounded"></div>
+                                                                <div className="w-4 h-4 border border-gray-300 rounded"></div>
                                                             )}
                                                         </div>
-                                                        <div className="ml-2 flex-shrink-0">
+                                                        <div className="ml-3 flex-shrink-0 text-blue-900/60">
                                                             {getFileIcon(file.type)}
                                                         </div>
-                                                        <div className="ml-2 flex-1 min-w-0">
-                                                            <div className="font-medium text-gray-900 truncate text-sm">
+                                                        <div className="ml-3 flex-1 min-w-0">
+                                                            <div className="font-semibold text-gray-900 truncate text-xs">
                                                                 {file.name}
                                                             </div>
-                                                            <div className="text-xs text-gray-500 mt-0.5">
-                                                                {formatFileSize(file.size)} • {file.type}
+                                                            <div className="text-[10px] text-gray-500 mt-0.5">
+                                                                {formatFileSize(file.size)} • {file.type.split('/')[1]?.toUpperCase() || file.type}
                                                             </div>
                                                         </div>
                                                     </button>
-                                                    <div className="ml-2 flex items-center" title="Set as Primary File">
-                                                        <input
-                                                            type="radio"
-                                                            name="primaryFile"
-                                                            checked={primaryFileId === file.id || (!primaryFileId && files[0].id === file.id)}
-                                                            onChange={() => setPrimaryFileId(file.id)}
-                                                            className="cursor-pointer"
-                                                        />
-                                                        <span className="text-xs text-gray-500 ml-1">Primary</span>
-                                                    </div>
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="p-3 text-center text-gray-600 text-sm">
-                                                No files uploaded.
+                                            <div className="p-4 text-center text-gray-400 text-xs italic">
+                                                No files uploaded yet.
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             )}
                         </div>
-                        <button
-                            onClick={handleFinalUpload}
-                            disabled={uploading || files.length === 0}
-                            className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:bg-gray-400"
-                        >
-                            {uploading ? "Uploading..." : "Submit"}
-                        </button>
                     </div>
+                    <button
+                        onClick={handleFinalUpload}
+                        disabled={uploading || files.length === 0}
+                        className="px-6 py-2 bg-blue-900 text-white rounded-sm cursor-pointer transition-all text-xs font-bold disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none uppercase tracking-wider"
+                    >
+                        {uploading ? "SUBMITTING..." : "SUBMIT ITEM"}
+                    </button>
                 </div>
             </div>
 
             {/* Main Content */}
             <div className="flex flex-1 overflow-hidden">
-                {/* Left Panel - Metadata Form */}
-                <div className="w-1/2 overflow-y-auto p-6 border-r border-gray-300 bg-white">
-                    <div className="max-w-2xl mx-auto">
+                <div className="w-1/2 overflow-y-auto bg-white border-r border-gray-300">
+                    <div className="h-full max-w-2xl mx-auto px-6 py-8">
                         {selectedFile ? (
                             <form
                                 onSubmit={(e) => {
@@ -721,7 +723,7 @@ const MetadataEditor = () => {
                                         value={collectionId}
                                         onChange={(e) => setCollectionId(e.target.value)}
                                         required
-                                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                                        className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"
                                     >
                                         <option value="" disabled>
                                             Select a collection
@@ -743,65 +745,65 @@ const MetadataEditor = () => {
                                 />
                                 <div>
                                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title *</label>
-                                    <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                    <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                 </div>
                                 <RepeatableField label="Other Titles" values={otherTitles} setValues={setOtherTitles} placeholder="Enter other title" />
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Date of Issue *</label>
-                                    <input type="date" value={dateOfIssue} onChange={(e) => setDateOfIssue(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                    <input type="date" value={dateOfIssue} onChange={(e) => setDateOfIssue(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                 </div>
                                 <div>
                                     <label htmlFor="publisher" className="block text-sm font-medium text-gray-700">Publisher</label>
-                                    <input id="publisher" type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                    <input id="publisher" type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                 </div>
                                 <div>
                                     <label htmlFor="citation" className="block text-sm font-medium text-gray-700">Citation</label>
-                                    <input id="citation" type="text" value={citation} onChange={(e) => setCitation(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                    <input id="citation" type="text" value={citation} onChange={(e) => setCitation(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                 </div>
                                 <RepeatableField label="Series/Report No." values={seriesReportNo} setValues={setSeriesReportNo} placeholder="Enter series/report number" />
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Report No.</label>
-                                    <input type="text" value={reportNumber} onChange={(e) => setReportNumber(e.target.value)} placeholder="Enter report number" autoComplete="off" className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                    <input type="text" value={reportNumber} onChange={(e) => setReportNumber(e.target.value)} placeholder="Enter report number" autoComplete="off" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Identifiers</label>
                                     {identifiers.map((id, index) => (
                                         <div key={index} className="flex space-x-2 mb-2">
-                                            <select value={id.type} onChange={(e) => handleIdentifierChange(index, "type", e.target.value)} className="p-2 border border-gray-300 rounded-md bg-white">
+                                            <select value={id.type} onChange={(e) => handleIdentifierChange(index, "type", e.target.value)} className="p-2 border border-gray-300 rounded-sm bg-white">
                                                 {["Other", "ISSN", "ISMN", "Gov't Doc #", "URI", "ISBN"].map((t) => (<option key={t} value={t}>{t}</option>))}
                                             </select>
-                                            <input type="text" placeholder="Enter identifier" value={id.value} onChange={(e) => handleIdentifierChange(index, "value", e.target.value)} autoComplete="off" className="flex-grow p-2 border border-gray-300 rounded-md" />
+                                            <input type="text" placeholder="Enter identifier" value={id.value} onChange={(e) => handleIdentifierChange(index, "value", e.target.value)} autoComplete="off" className="flex-grow p-2 border border-gray-300 rounded-sm" />
                                             <button type="button" onClick={() => removeIdentifier(index)} className="text-red-400 hover:text-red-700 cursor-pointer"><Trash2 size={18} /></button>
                                         </div>
                                     ))}
-                                    <button type="button" onClick={addIdentifier} className="flex items-center text-sm text-blue-600 hover:text-blue-800"><PlusCircle size={16} className="mr-1" /> Add Identifier</button>
+                                    <button type="button" onClick={addIdentifier} className="flex items-center text-sm text-blue-900 hover:text-blue-800"><PlusCircle size={16} className="mr-1" /> Add Identifier</button>
                                 </div>
                                 <div>
                                     <label htmlFor="type" className="block text-sm font-medium text-gray-700">Type *</label>
-                                    <select id="type" value={type} onChange={(e) => setType(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <select id="type" value={type} onChange={(e) => setType(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                         <option value="" disabled>Select a type</option>
                                         {["Animation", "Article", "Learning Object", "Image", "Image, 3-D", "Musical Score", "Plan or blueprint", "Preprint", "Presentation", "Recording acoustical", "Recording musical", "Recording oral", "Technical Report", "Thesis", "Video", "Working Paper"].map((t) => (<option key={t} value={t}>{t}</option>))}
                                     </select>
                                 </div>
                                 <div>
                                     <label htmlFor="language" className="block text-sm font-medium text-gray-700">Language</label>
-                                    <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                         {[{ label: "English (United States)", value: "en_US" }, { label: "English", value: "en" }, { label: "Spanish", value: "es" }, { label: "Italian", value: "it" }, { label: "Chinese", value: "zh" }, { label: "Turkish", value: "tr" }].map((l) => (<option key={l.value} value={l.value}>{l.label}</option>))}
                                     </select>
                                 </div>
                                 <RepeatableField label="Subject Keywords" values={subjectKeywords} setValues={setSubjectKeywords} placeholder="Enter keyword" />
                                 <div>
                                     <label htmlFor="abstract" className="block text-sm font-medium text-gray-700">Abstract</label>
-                                    <textarea id="abstract" value={abstractText} onChange={(e) => setAbstractText(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
+                                    <textarea id="abstract" value={abstractText} onChange={(e) => setAbstractText(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"></textarea>
                                 </div>
                                 <div>
                                     <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
-                                    <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
+                                    <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"></textarea>
                                 </div>
                                 <div>
                                     <label htmlFor="sponsors" className="block text-sm font-medium text-gray-700">Sponsors</label>
-                                    <textarea id="sponsors" value={sponsors} onChange={(e) => setSponsors(e.target.value)} rows="2" placeholder="Enter sponsor details (optional)" className="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
+                                    <textarea id="sponsors" value={sponsors} onChange={(e) => setSponsors(e.target.value)} rows="2" placeholder="Enter sponsor details (optional)" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"></textarea>
                                 </div>
 
                                 {/* File List Section */}
@@ -822,7 +824,7 @@ const MetadataEditor = () => {
                                                                 name="primaryFile"
                                                                 checked={primaryFileId === file.id || (!primaryFileId && files[0].id === file.id)}
                                                                 onChange={() => setPrimaryFileId(file.id)}
-                                                                className="form-radio h-4 w-4 text-blue-600 border-gray-300"
+                                                                className="form-radio h-4 w-4 text-blue-900 border-gray-300"
                                                             />
                                                             <span className="ml-1 text-xs text-gray-600">Primary</span>
                                                         </label>
@@ -849,12 +851,12 @@ const MetadataEditor = () => {
                                 </div>
 
                                 <div className="flex items-center">
-                                    <input id="license" type="checkbox" checked={confirmLicense} onChange={(e) => setConfirmLicense(e.target.checked)} required className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                                    <input id="license" type="checkbox" checked={confirmLicense} onChange={(e) => setConfirmLicense(e.target.checked)} required className="h-4 w-4 text-blue-900 border-gray-300 rounded" />
                                     <label htmlFor="license" className="ml-2 block text-sm text-gray-900">I confirm the license above</label>
                                 </div>
                             </form>
                         ) : (
-                            <div className="text-center text-gray-500 pt-16">
+                            <div className="h-full flex flex-col items-center justify-center text-gray-500">
                                 <FileText size={48} className="mx-auto mb-4" />
                                 <h3 className="text-lg font-semibold">No file selected</h3>
                                 <p>Please upload a file and select it to edit metadata.</p>
@@ -877,15 +879,15 @@ const MetadataEditor = () => {
                                         <span>{Math.round(scale * 100)}%</span>
                                         <button onClick={zoomIn} className="px-2 py-1 bg-gray-300 rounded cursor-pointer"><ZoomIn size={18} /></button>
 
-                                        <div className="h-6 w-px bg-gray-400 mx-2"></div>
+                                        <div className="h-6 w-px  mx-2"></div>
 
                                         <div className="relative">
-                                            <button onClick={handleMergeClick} className="p-1.5 hover:bg-gray-300 rounded cursor-pointer" title="Merge with another file">
+                                            <button onClick={handleMergeClick} className="p-1.5  rounded cursor-pointer" title="Merge with another file">
                                                 <Merge size={18} />
                                             </button>
                                             {isMergeModalOpen && (
-                                                <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-300 rounded-lg shadow-xl z-50">
-                                                    <div className="p-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
+                                                <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-300 rounded-lg z-50">
+                                                    <div className="p-3 border-b border-gray-200 flex justify-between items-center rounded-t-lg">
                                                         <h3 className="text-sm font-semibold text-gray-800">Merge Files</h3>
                                                         <button onClick={() => setIsMergeModalOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
                                                             <X size={16} />
@@ -895,14 +897,14 @@ const MetadataEditor = () => {
 
                                                         <div className="space-y-3">
                                                             <div>
-                                                                <div className="border border-gray-200 rounded-md max-h-40 overflow-y-auto">
+                                                                <div className="border border-gray-200 rounded-sm max-h-40 overflow-y-auto">
                                                                     {files.filter(f => f.type === 'application/pdf').map(file => (
                                                                         <label key={file.id} className="flex items-center p-2 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 border-gray-100 transition-colors">
                                                                             <input
                                                                                 type="checkbox"
                                                                                 checked={filesToMerge.includes(file.id)}
                                                                                 onChange={() => toggleFileForMerge(file.id)}
-                                                                                className="h-3.5 w-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                                                className="h-3.5 w-3.5 text-blue-900 border-gray-300 rounded focus:ring-blue-500"
                                                                             />
                                                                             <span className="ml-2.5 text-xs text-gray-700 truncate select-none">{file.name}</span>
                                                                         </label>
@@ -916,7 +918,7 @@ const MetadataEditor = () => {
                                                                     type="text"
                                                                     value={mergeFileName}
                                                                     onChange={(e) => setMergeFileName(e.target.value)}
-                                                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                                                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
                                                                     placeholder="merged_filename.pdf"
                                                                 />
                                                             </div>
@@ -925,7 +927,7 @@ const MetadataEditor = () => {
                                                     <div className="p-2 bg-gray-50 rounded-b-lg flex justify-end space-x-2">
                                                         <button
                                                             onClick={handleMergeSubmit}
-                                                            className="px-3 py-1.5 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm focus:outline-none disabled:opacity-50 transition-colors"
+                                                            className="px-3 py-1.5 text-xs font-medium rounded-sm text-white bg-blue-900 cursor-pointer focus:outline-none disabled:opacity-50 transition-colors"
                                                             disabled={filesToMerge.length < 2}
                                                         >
                                                             Merge Files
@@ -936,11 +938,11 @@ const MetadataEditor = () => {
                                         </div>
 
                                         <div className="relative">
-                                            <button onClick={handleSplit} className="p-1.5 hover:bg-gray-300 rounded cursor-pointer" title="Split at this page">
+                                            <button onClick={handleSplit} className="p-1.5  rounded cursor-pointer" title="Split at this page">
                                                 <Scissors size={18} />
                                             </button>
                                             {isSplitModalOpen && (
-                                                <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-gray-300 rounded-lg shadow-xl z-50 p-4">
+                                                <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-gray-300 rounded-lg z-50 p-4">
                                                     <div className="flex justify-between items-center mb-3">
                                                         <h3 className="text-sm font-semibold text-gray-800">Split PDF</h3>
                                                         <button onClick={() => setIsSplitModalOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -986,7 +988,7 @@ const MetadataEditor = () => {
                                                             <button
                                                                 onClick={handleSplitSubmit}
                                                                 disabled={splitNames.some(n => !n.trim()) || !splitPages}
-                                                                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:opacity-50"
+                                                                className="px-3 py-1.5 bg-blue-900 text-white text-xs font-medium rounded disabled:opacity-50 cursor-pointer"
                                                             >
                                                                 Split Files
                                                             </button>
@@ -997,7 +999,7 @@ const MetadataEditor = () => {
                                         </div>
 
                                         <div className="relative">
-                                            <button onClick={handleRename} className="p-1.5 hover:bg-gray-300 rounded cursor-pointer" title="Rename">
+                                            <button onClick={handleRename} className="p-1.5  rounded cursor-pointer" title="Rename">
                                                 <Pencil size={18} />
                                             </button>
                                             {isRenameModalOpen && (
@@ -1023,7 +1025,7 @@ const MetadataEditor = () => {
                                                         <button
                                                             onClick={handleRenameSubmit}
                                                             disabled={!renameNewName.trim()}
-                                                            className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 disabled:opacity-50"
+                                                            className="px-3 py-1.5 bg-blue-900 text-white text-xs font-medium rounded cursor-pointer disabled:opacity-50"
                                                         >
                                                             Rename
                                                         </button>
@@ -1032,7 +1034,7 @@ const MetadataEditor = () => {
                                             )}
                                         </div>
 
-                                        <button onClick={() => handleRotate(90)} className="p-1.5 hover:bg-gray-300 rounded cursor-pointer" title="Rotate Page 90°">
+                                        <button onClick={() => handleRotate(90)} className="p-1.5  rounded cursor-pointer" title="Rotate Page 90°">
                                             <RotateCw size={18} />
                                         </button>
                                     </div>
@@ -1050,14 +1052,18 @@ const MetadataEditor = () => {
                                 </div>
                             </>
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-500"><Eye size={48} className="mb-4" /><h3 className="text-lg font-semibold">Preview</h3><p>Select a file to preview.</p></div>
+                            <div className="h-full flex flex-col items-center justify-center text-gray-500">
+                                <Eye size={48} className="mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold">Preview</h3>
+                                <p>Select a file to preview.</p>
+                            </div>
                         )}
                     </div>
                 </div>
             </div>
 
 
-        </div>
+        </div >
     );
 };
 
