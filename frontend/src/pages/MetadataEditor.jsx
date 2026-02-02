@@ -11,7 +11,7 @@ import {
 	FileText,
 	Image,
 	Merge,
-	Pencil,
+	Pencil, PlusCircleIcon,
 	ChevronRight as RightIcon,
 	RotateCw,
 	Scissors,
@@ -19,12 +19,58 @@ import {
 	Upload,
 	X,
 	ZoomIn,
-	ZoomOut,
+	ZoomOut
 } from "lucide-react";
 import { useRef } from "react";
 import dspaceService from "../services/dspaceService";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+const RepeatableField = ({ label, values, setValues, placeholder }) => {
+	const addField = () => setValues([...values, ""]);
+	const removeField = (index) =>
+		setValues(values.filter((_, i) => i !== index));
+	const updateField = (index, value) => {
+		const newValues = [...values];
+		newValues[index] = value;
+		setValues(newValues);
+	};
+
+	return (
+		<div>
+			<label className="block text-sm font-medium text-gray-700 mb-1">
+				{label}
+			</label>
+			{values.map((value, index) => (
+				<div key={index} className="flex items-center mb-2">
+					<input
+						type="text"
+						value={value}
+						onChange={(e) => updateField(index, e.target.value)}
+						placeholder={placeholder}
+						autoComplete="off"
+						className="grow p-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
+					/>
+					<button
+						type="button"
+						onClick={() => removeField(index)}
+						className="ml-2 text-red-600 hover:text-red-800 cursor-pointer"
+					>
+						<Trash2 size={18} />
+					</button>
+				</div>
+			))}
+			<button
+				type="button"
+				onClick={addField}
+				className="flex items-center text-sm text-blue-900 hover:text-blue-800"
+			>
+				<PlusCircleIcon size={16} className="mr-1" />
+				Add {label}
+			</button>
+		</div>
+	);
+};
 
 const MetadataEditor = () => {
 	const [files, setFiles] = useState([]);
@@ -39,7 +85,7 @@ const MetadataEditor = () => {
 	const [loadingCollections, setLoadingCollections] = useState(false);
 	const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
 
-	const [author, setAuthor] = useState(""); // Family head
+	const [authors, setAuthors] = useState([""]); // Family head
 	const [title, setTitle] = useState(""); // House identifier (House Number + Family Head Name)
 	const [dateOfIssue, setDateOfIssue] = useState(""); // Registration date
 	const [familyHeadNationalID, setFamilyHeadNationalID] = useState("");
@@ -492,7 +538,7 @@ const MetadataEditor = () => {
 			// 2. Update metadata
 			const metadata = {
 				title: title,
-				author: author,
+				author: authors.filter(a => a.trim()),
 				description: description,
 				type: "Other",
 				dateIssued: dateOfIssue,
@@ -543,7 +589,7 @@ const MetadataEditor = () => {
 			setPrimaryFileId(null);
 			setSelectedFileId(null);
 			setTitle("");
-			setAuthor("");
+			setAuthors([""]);
 			setDescription("");
 			setAbstractText("");
 			setDateOfIssue("");
@@ -610,9 +656,8 @@ const MetadataEditor = () => {
 									{selectedFile ? selectedFile.name : "Select File"}
 								</span>
 								<ChevronDown
-									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${
-										showFileDropdown ? "rotate-180" : ""
-									}`}
+									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${showFileDropdown ? "rotate-180" : ""
+										}`}
 								/>
 							</button>
 							{showFileDropdown && (
@@ -708,7 +753,7 @@ const MetadataEditor = () => {
 										htmlFor="collection"
 										className="block text-sm font-medium text-gray-700"
 									>
-										Select Collection *
+										Select Woreda *
 									</label>
 									<div className="relative mt-1" ref={collectionDropdownRef}>
 										<button
@@ -725,13 +770,12 @@ const MetadataEditor = () => {
 											>
 												{collectionId
 													? collections.find((c) => c.uuid === collectionId)
-															?.name || "Select a collection"
+														?.name || "Select a collection"
 													: "Select a collection"}
 											</span>
 											<ChevronDown
-												className={`w-4 h-4 text-gray-500 transition-transform ${
-													showCollectionDropdown ? "rotate-180" : ""
-												}`}
+												className={`w-4 h-4 text-gray-500 transition-transform ${showCollectionDropdown ? "rotate-180" : ""
+													}`}
 											/>
 										</button>
 										{showCollectionDropdown && (
@@ -759,11 +803,10 @@ const MetadataEditor = () => {
 																	setCollectionId(c.uuid);
 																	setShowCollectionDropdown(false);
 																}}
-																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${
-																	collectionId === c.uuid
-																		? "bg-blue-100 text-blue-900"
-																		: "text-gray-900"
-																}`}
+																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${collectionId === c.uuid
+																	? "bg-blue-100 text-blue-900"
+																	: "text-gray-900"
+																	}`}
 															>
 																{c.name}
 															</button>
@@ -786,22 +829,12 @@ const MetadataEditor = () => {
 									</div>
 								</div>
 
-								<div>
-									<label
-										htmlFor="author"
-										className="block text-sm font-medium text-gray-700 mb-1"
-									>
-										Family Head
-									</label>
-									<input
-										id="author"
-										type="text"
-										value={author}
-										onChange={(e) => setAuthor(e.target.value)}
-										autoComplete="off"
-										className="grow p-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-									/>
-								</div>
+								<RepeatableField
+									label="Family Head(s)"
+									values={authors}
+									setValues={setAuthors}
+									placeholder="Enter family head name"
+								/>
 
 								<div>
 									<label

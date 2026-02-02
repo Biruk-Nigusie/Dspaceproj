@@ -19,9 +19,9 @@ const MetadataTreeFilter = ({
 
 		const options = {
 			source: {},
-			registrationDate: {},
-			language: {},
-			houseHead: {},
+			year: {},
+			community: {},
+			collection: {},
 		};
 
 		resources.forEach((resource) => {
@@ -31,43 +31,29 @@ const MetadataTreeFilter = ({
 
 			// Registration Date
 			if (resource.year) {
-				options.registrationDate[resource.year] =
-					(options.registrationDate[resource.year] || 0) + 1;
+				options.year[resource.year] =
+					(options.year[resource.year] || 0) + 1;
 			}
 
-			// Language
-			if (resource.language) {
-				const lang =
-					resource.language === "en"
-						? "English"
-						: resource.language === "am"
-							? "Amharic"
-							: resource.language;
-				options.language[lang] = (options.language[lang] || 0) + 1;
+			if (resource.community) {
+				options.community[resource.community] =
+					(options.community[resource.community] || 0) + 1;
 			}
 
-			// Author - limit to top frequent ones to avoid massive list
-			if (resource.authors) {
-				// Simple split by comma if multiple authors
-				const authorsList = resource.authors.split(",").map((a) => a.trim());
-				authorsList.forEach((author) => {
-					if (author) {
-						options.houseHead[author] = (options.houseHead[author] || 0) + 1;
-					}
-				});
+			if (resource.collection) {
+				options.collection[resource.collection] =
+					(options.collection[resource.collection] || 0) + 1;
 			}
 		});
 
 		// Sort keys and take top authors
 		const sortedOptions = {
 			source: Object.entries(options.source).sort((a, b) => b[1] - a[1]),
-			registrationDate: Object.entries(options.registrationDate)
+			year: Object.entries(options.year)
 				.sort((a, b) => b[0] - a[0])
 				.reverse(), // Newest first
-			language: Object.entries(options.language).sort((a, b) => b[1] - a[1]),
-			houseHead: Object.entries(options.houseHead)
-				.sort((a, b) => b[1] - a[1])
-				.slice(0, 10), // Top 10 authors
+			community: Object.entries(options.community).sort((a, b) => b[1] - a[1]),
+			collection: Object.entries(options.collection).sort((a, b) => b[1] - a[1]),
 		};
 
 		return sortedOptions;
@@ -117,7 +103,7 @@ const MetadataTreeFilter = ({
 			selectedFilters[category] && selectedFilters[category].length > 0;
 
 		return (
-			<div className="mb-2">
+			<div>
 				<button
 					type="button"
 					onClick={() => toggleNode(category)}
@@ -210,38 +196,23 @@ const MetadataTreeFilter = ({
 				)}
 			</div>
 
-			<div className="p-3 max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar">
+			<div className="p-3 max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar divide-dashed divide-muted-foreground/50 divide-y [&>div]:not-first:pt-2 [&>div]:not-last:pb-4">
 				<TreeNode
 					label="Source"
 					category="source"
 					items={filterOptions.source}
 				/>
-				<div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
 				<TreeNode
-					label="Resource Type"
-					category="type"
-					items={filterOptions.type}
+					label="Sub City"
+					category="community"
+					items={filterOptions.community}
 				/>
-				<div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-				<TreeNode label="Year" category="year" items={filterOptions.year} />
-				<div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
 				<TreeNode
-					label="Language"
-					category="language"
-					items={filterOptions.language}
+					label="Woreda"
+					category="collection"
+					items={filterOptions.collection}
 				/>
-				<div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-				<TreeNode
-					label="House number"
-					category="author"
-					items={filterOptions.author}
-				/>
-				<div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-				<TreeNode
-					label="Head of House"
-					category="publisher"
-					items={filterOptions.publisher}
-				/>
+				<TreeNode label="Registration Date" category="year" items={filterOptions.year} />
 			</div>
 		</div>
 	);

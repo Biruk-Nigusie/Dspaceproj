@@ -10,12 +10,10 @@ import {
 	Users,
 	X,
 } from "lucide-react";
-import { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import HowItWorks from "../components/HowItWorks";
 import MetadataTreeFilter from "../components/MetadataTreeFilter";
 import Card from "../components/UI/Card";
-import { AuthContext } from "../contexts/AuthContext";
 import dspaceService from "../services/dspaceService";
 import { ORG_NAME } from "../utils/constants";
 import CatalogModal from "./CatalogModal";
@@ -95,28 +93,9 @@ const Home = () => {
 		totalElements: 0,
 	});
 
-	const { user, token, djangoToken } = useContext(AuthContext);
-	const navigate = useNavigate();
-
-	// Debounced search effect
-	useEffect(() => {
-		const delayDebounceFn = setTimeout(() => {
-			if (searchQuery !== undefined) {
-				if (displayMode === "cataloged") {
-					fetchCatalogedResources(searchQuery);
-				} else if (selectedCollections.length > 0) {
-					fetchDspaceItemsByCollections(selectedCollections);
-				} else {
-					fetchAllResources(searchQuery);
-				}
-			}
-		}, 500);
-
-		return () => clearTimeout(delayDebounceFn);
-	}, [searchQuery, selectedCollections, displayMode]);
 
 	// Fetch all resources (using DSpace search)
-	const fetchAllResources = async (query = "") => {
+	const fetchAllResources = useCallback(async (query = "") => {
 		setLoading(true);
 		try {
 			// Use DSpace service to search
@@ -124,21 +103,29 @@ const Home = () => {
 
 			// Transform DSpace items to common resource format
 			// Filter out collections - only include actual items
-			const mappedResults = results
-				.filter((item) => {
-					const type = item._embedded?.indexableObject?.type;
-					return type === "item"; // Only items, not collections
-				})
-				.map((item) => {
+			const mappedResults = await Promise.all(
+				results.map(async (item) => {
+					const owningCollectionLink =
+						item._embedded?.indexableObject?._links.owningCollection?.href.split(
+							"/server/api",
+						)[1];
+
+					const owningCollection = await dspaceService.getOwningCollection(
+						owningCollectionLink,
+					);
+
+					const parentCommunityLink =
+						owningCollection?._links.parentCommunity?.href.split("/server/api")[1];
+
+					const parentCommunity = await dspaceService.getParentCommunity(
+						parentCommunityLink,
+					);
+
 					const metadata = item._embedded?.indexableObject?.metadata || {};
-					const getVal = (key) => {
-						const mk = metadata[key];
-						return mk && mk.length > 0 ? mk[0].value : "";
-					};
-					const getValList = (key) => {
-						const mk = metadata[key];
-						return mk ? mk.map((m) => m.value).join(", ") : "";
-					};
+
+					const getVal = (key) => metadata[key]?.[0]?.value || "";
+					const getValList = (key) =>
+						metadata[key]?.map((m) => m.value).join(", ") || "";
 
 					return {
 						id: item._embedded?.indexableObject?.uuid,
@@ -147,8 +134,7 @@ const Home = () => {
 						year: getVal("dc.date.issued")?.substring(0, 4),
 						publisher: getVal("dc.publisher"),
 						source: "dspace",
-						description:
-							getVal("dc.description") || getVal("dc.description.abstract"),
+						description: getVal("dc.description") || getVal("dc.description.abstract"),
 						abstract: getVal("dc.description.abstract"),
 						external_id:
 							item._embedded?.indexableObject?.handle ||
@@ -164,8 +150,14 @@ const Home = () => {
 						issn: getVal("dc.identifier.issn"),
 						subjects: getValList("dc.subject"),
 						format: getVal("dc.format"),
+
+						// enrich
+						collection: owningCollection.name,
+						community: parentCommunity.name,
 					};
-				});
+				}),
+			);
+
 
 			setAllResources(mappedResults);
 			setCurrentPage(1);
@@ -175,10 +167,10 @@ const Home = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
 
 	// Fetch items from Koha (Cataloged)
-	const fetchCatalogedResources = async (query = "") => {
+	const fetchCatalogedResources = useCallback(async (query = "") => {
 		setLoading(true);
 		try {
 			const response = await axios.get("/api/resources/search/", {
@@ -204,9 +196,9 @@ const Home = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
 
-	const fetchSystemStats = async () => {
+	const fetchSystemStats = useCallback(async () => {
 		try {
 			setStats({
 				totalResources: 12457,
@@ -217,28 +209,21 @@ const Home = () => {
 		} catch (error) {
 			console.error("Error fetching stats:", error);
 		}
-	};
+	}, []);
 
 	const handleSearch = (e) => {
 		e.preventDefault();
 		// Search is handled by useEffect now
 	};
 
-	const fetchCollections = async () => {
+	const fetchCollections = useCallback(async () => {
 		try {
 			const collectionList = await dspaceService.getCollections();
 			setCollections(collectionList || []);
 		} catch (error) {
 			console.error("Error fetching collections:", error);
 		}
-	};
-
-	useEffect(() => {
-		// Initial fetch
-		fetchAllResources();
-		fetchSystemStats();
-		fetchCollections();
-	}, [fetchAllResources, fetchCollections, fetchSystemStats]);
+	}, []);
 
 	const handleCatalogSubmit = async () => {
 		try {
@@ -247,10 +232,10 @@ const Home = () => {
 
 			const config = activeToken
 				? {
-						headers: {
-							Authorization: `Token ${activeToken}`,
-						},
-					}
+					headers: {
+						Authorization: `Token ${activeToken}`,
+					},
+				}
 				: {};
 
 			const response = await axios.post(
@@ -283,8 +268,7 @@ const Home = () => {
 		} catch (error) {
 			console.error("Catalog error:", error);
 			alert(
-				`Failed to catalog in Koha: ${
-					error.response?.data?.error || error.message
+				`Failed to catalog in Koha: ${error.response?.data?.error || error.message
 				}`,
 			);
 		}
@@ -388,98 +372,104 @@ const Home = () => {
 	};
 
 	// Fetch items from specific DSpace collections
-	const fetchDspaceItemsByCollections = async (collections) => {
-		if (!collections || collections.length === 0) {
-			return;
-		}
-
-		setLoading(true);
-		try {
-			// Fetch items from each collection and combine results
-			const allItems = [];
-
-			for (const collection of collections) {
-				const collectionId = collection.uuid || collection.id;
-				// Use DSpace discover API to search within a specific collection
-				const params = new URLSearchParams({
-					query: searchQuery || "*",
-					scope: collectionId,
-					page: "0",
-					size: "100",
-				});
-
-				const response = await fetch(
-					`/api/dspace/discover/search/objects?${params}`,
-					{
-						credentials: "include",
-						headers: dspaceService.getCsrfHeaders({
-							Accept: "application/json",
-						}),
-					},
-				);
-
-				if (response.ok) {
-					const data = await response.json();
-					const items = data._embedded?.searchResult?._embedded?.objects || [];
-
-					// Transform items to common format and filter out collections
-					const transformedItems = items
-						.filter((item) => {
-							const type = item._embedded?.indexableObject?.type;
-							return type === "item"; // Only items, not collections
-						})
-						.map((item) => {
-							const metadata = item._embedded?.indexableObject?.metadata || {};
-							const getVal = (key) => {
-								const mk = metadata[key];
-								return mk && mk.length > 0 ? mk[0].value : "";
-							};
-							const getValList = (key) => {
-								const mk = metadata[key];
-								return mk ? mk.map((m) => m.value).join(", ") : "";
-							};
-
-							return {
-								id: item._embedded?.indexableObject?.uuid,
-								title:
-									getVal("dc.title") || item._embedded?.indexableObject?.name,
-								authors: getValList("dc.contributor.author"),
-								year: getVal("dc.date.issued")?.substring(0, 4),
-								publisher: getVal("dc.publisher"),
-								source: "dspace",
-								description:
-									getVal("dc.description") || getVal("dc.description.abstract"),
-								abstract: getVal("dc.description.abstract"),
-								external_id:
-									item._embedded?.indexableObject?.handle ||
-									item._embedded?.indexableObject?.uuid,
-								resource_type: getVal("dc.type"),
-								language: getVal("dc.language"),
-								citation: getVal("dc.identifier.citation"),
-								sponsors: getVal("dc.description.sponsorship"),
-								series: getVal("dc.relation.ispartofseries"),
-								reportNo:
-									getVal("dc.identifier.other") ||
-									getVal("dc.identifier.govdoc"),
-								isbn: getVal("dc.identifier.isbn"),
-								issn: getVal("dc.identifier.issn"),
-								subjects: getValList("dc.subject"),
-								format: getVal("dc.format"),
-							};
-						});
-
-					allItems.push(...transformedItems);
-				}
+	const fetchDspaceItemsByCollections = useCallback(
+		async (collections) => {
+			if (!collections || collections.length === 0) {
+				return;
 			}
 
-			setAllResources(allItems);
-			setCurrentPage(1);
-		} catch (error) {
-			console.error("Error fetching collection items:", error);
-		} finally {
-			setLoading(false);
-		}
-	};
+			setLoading(true);
+			try {
+				// Fetch items from each collection and combine results
+				const allItems = [];
+
+				for (const collection of collections) {
+					const collectionId = collection.uuid || collection.id;
+					// Use DSpace discover API to search within a specific collection
+					const params = new URLSearchParams({
+						query: searchQuery || "*",
+						scope: collectionId,
+						page: "0",
+						size: "100",
+					});
+
+					const response = await fetch(
+						`/api/dspace/discover/search/objects?${params}`,
+						{
+							credentials: "include",
+							headers: dspaceService.getCsrfHeaders({
+								Accept: "application/json",
+							}),
+						},
+					);
+
+					if (response.ok) {
+						const data = await response.json();
+						const items =
+							data._embedded?.searchResult?._embedded?.objects || [];
+
+						// Transform items to common format and filter out collections
+						const transformedItems = items
+							.filter((item) => {
+								const type = item._embedded?.indexableObject?.type;
+								return type === "item"; // Only items, not collections
+							})
+							.map((item) => {
+								const metadata =
+									item._embedded?.indexableObject?.metadata || {};
+								const getVal = (key) => {
+									const mk = metadata[key];
+									return mk && mk.length > 0 ? mk[0].value : "";
+								};
+								const getValList = (key) => {
+									const mk = metadata[key];
+									return mk ? mk.map((m) => m.value).join(", ") : "";
+								};
+
+								return {
+									id: item._embedded?.indexableObject?.uuid,
+									title:
+										getVal("dc.title") || item._embedded?.indexableObject?.name,
+									authors: getValList("dc.contributor.author"),
+									year: getVal("dc.date.issued")?.substring(0, 4),
+									publisher: getVal("dc.publisher"),
+									source: "dspace",
+									description:
+										getVal("dc.description") ||
+										getVal("dc.description.abstract"),
+									abstract: getVal("dc.description.abstract"),
+									external_id:
+										item._embedded?.indexableObject?.handle ||
+										item._embedded?.indexableObject?.uuid,
+									resource_type: getVal("dc.type"),
+									language: getVal("dc.language"),
+									citation: getVal("dc.identifier.citation"),
+									sponsors: getVal("dc.description.sponsorship"),
+									series: getVal("dc.relation.ispartofseries"),
+									reportNo:
+										getVal("dc.identifier.other") ||
+										getVal("dc.identifier.govdoc"),
+									isbn: getVal("dc.identifier.isbn"),
+									issn: getVal("dc.identifier.issn"),
+									subjects: getValList("dc.subject"),
+									format: getVal("dc.format"),
+								};
+							});
+
+						allItems.push(...transformedItems);
+					}
+				}
+
+				setAllResources(allItems);
+				setCurrentPage(1);
+			} catch (error) {
+				console.error("Error fetching collection items:", error);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[searchQuery],
+	);
 
 	const clearCollectionFilter = () => {
 		setSelectedCollections([]);
@@ -518,18 +508,12 @@ const Home = () => {
 				let resourceValue;
 				if (category === "source") {
 					resourceValue = resource.source_name || resource.source || "Unknown";
-				} else if (category === "type") {
-					resourceValue = resource.resource_type || "Unknown";
+				} else if (category === "community") {
+					resourceValue = resource.community || "Unknown";
+				} else if (category === "collection") {
+					resourceValue = resource.collection || "Unknown";
 				} else if (category === "year") {
 					resourceValue = resource.year;
-				} else if (category === "language") {
-					const lang =
-						resource.language === "en"
-							? "English"
-							: resource.language === "am"
-								? "Amharic"
-								: resource.language;
-					resourceValue = lang;
 				} else if (category === "author") {
 					// Provide loose matching for authors
 					const authors = (resource.authors || "").toLowerCase();
@@ -538,8 +522,6 @@ const Home = () => {
 					);
 					if (!match) return false;
 					continue; // Skip the equality check below for authors
-				} else if (category === "publisher") {
-					resourceValue = resource.publisher || "Unknown";
 				}
 
 				if (resourceValue === null || resourceValue === undefined) {
@@ -569,6 +551,37 @@ const Home = () => {
 			);
 		}
 	};
+
+	useEffect(() => {
+		// Initial fetch
+		fetchAllResources();
+		fetchSystemStats();
+		fetchCollections();
+	}, [fetchAllResources, fetchCollections, fetchSystemStats]);
+
+	// Debounced search effect
+	useEffect(() => {
+		const delayDebounceFn = setTimeout(() => {
+			if (searchQuery !== undefined) {
+				if (displayMode === "cataloged") {
+					fetchCatalogedResources(searchQuery);
+				} else if (selectedCollections.length > 0) {
+					fetchDspaceItemsByCollections(selectedCollections);
+				} else {
+					fetchAllResources(searchQuery);
+				}
+			}
+		}, 500);
+
+		return () => clearTimeout(delayDebounceFn);
+	}, [
+		searchQuery,
+		selectedCollections,
+		displayMode,
+		fetchAllResources,
+		fetchCatalogedResources,
+		fetchDspaceItemsByCollections,
+	]);
 
 	return (
 		<div className="min-h-screen bg-white">
@@ -607,7 +620,7 @@ const Home = () => {
 
 					<div className="flex justify-between items-center mb-6">
 						<h3 className="text-2xl font-bold text-gray-900">
-							Recent Records and Cataloges
+							Recent Records and Catalogs
 							<span className="text-gray-500 text-lg ml-2">
 								({resourcesToDisplay.length} results)
 							</span>
@@ -675,16 +688,16 @@ const Home = () => {
 											)}
 											{dspacePagination.number <
 												dspacePagination.totalPages - 1 && (
-												<button
-													type="button"
-													onClick={() =>
-														handleDspacePageChange(dspacePagination.number + 1)
-													}
-													className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
-												>
-													Next
-												</button>
-											)}
+													<button
+														type="button"
+														onClick={() =>
+															handleDspacePageChange(dspacePagination.number + 1)
+														}
+														className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
+													>
+														Next
+													</button>
+												)}
 										</div>
 									</div>
 								</div>
@@ -699,22 +712,20 @@ const Home = () => {
 							<button
 								type="button"
 								onClick={() => handleDisplayModeChange("digital")}
-								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${
-									displayMode === "digital"
-										? "bg-blue-600 text-white"
-										: "border border-gray-300 text-gray-700 hover:bg-gray-100"
-								}`}
+								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${displayMode === "digital"
+									? "bg-blue-600 text-white"
+									: "border border-gray-300 text-gray-700 hover:bg-gray-100"
+									}`}
 							>
 								Digital
 							</button>
 							<button
 								type="button"
 								onClick={() => handleDisplayModeChange("cataloged")}
-								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${
-									displayMode === "cataloged"
-										? "bg-blue-600 text-white"
-										: "border border-gray-300 text-gray-700 hover:bg-gray-100"
-								}`}
+								className={`px-4 py-2 rounded-md text-sm transition-colors cursor-pointer ${displayMode === "cataloged"
+									? "bg-blue-600 text-white"
+									: "border border-gray-300 text-gray-700 hover:bg-gray-100"
+									}`}
 							>
 								Cataloged
 							</button>
@@ -755,17 +766,16 @@ const Home = () => {
 												window.scrollTo({
 													top: document.querySelector("#resource-section")
 														? document.querySelector("#resource-section")
-																.offsetTop - 100
+															.offsetTop - 100
 														: 0,
 													behavior: "smooth",
 												});
 											}}
 											disabled={currentPage === 1}
-											className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${
-												currentPage === 1
-													? "opacity-50 cursor-not-allowed"
-													: "cursor-pointer"
-											}`}
+											className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage === 1
+												? "opacity-50 cursor-not-allowed"
+												: "cursor-pointer"
+												}`}
 										>
 											Previous
 										</button>
@@ -781,7 +791,7 @@ const Home = () => {
 												window.scrollTo({
 													top: document.querySelector("#resource-section")
 														? document.querySelector("#resource-section")
-																.offsetTop - 100
+															.offsetTop - 100
 														: 0,
 													behavior: "smooth",
 												});
@@ -790,12 +800,11 @@ const Home = () => {
 												currentPage ===
 												Math.ceil(resourcesToDisplay.length / pageSize)
 											}
-											className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${
-												currentPage ===
+											className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage ===
 												Math.ceil(resourcesToDisplay.length / pageSize)
-													? "opacity-50 cursor-not-allowed"
-													: "cursor-pointer"
-											}`}
+												? "opacity-50 cursor-not-allowed"
+												: "cursor-pointer"
+												}`}
 										>
 											Next
 										</button>
@@ -832,11 +841,10 @@ const Home = () => {
 														setCurrentPage(Math.max(1, currentPage - 1));
 													}}
 													disabled={currentPage === 1}
-													className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${
-														currentPage === 1
-															? "opacity-50 cursor-not-allowed"
-															: "cursor-pointer"
-													}`}
+													className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === 1
+														? "opacity-50 cursor-not-allowed"
+														: "cursor-pointer"
+														}`}
 												>
 													<span className="sr-only">Previous</span>
 													<svg
@@ -872,12 +880,11 @@ const Home = () => {
 														currentPage ===
 														Math.ceil(resourcesToDisplay.length / pageSize)
 													}
-													className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${
-														currentPage ===
+													className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage ===
 														Math.ceil(resourcesToDisplay.length / pageSize)
-															? "opacity-50 cursor-not-allowed"
-															: "cursor-pointer"
-													}`}
+														? "opacity-50 cursor-not-allowed"
+														: "cursor-pointer"
+														}`}
 												>
 													<span className="sr-only">Next</span>
 													<svg

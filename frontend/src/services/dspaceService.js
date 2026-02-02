@@ -171,6 +171,54 @@ class DSpaceService {
 		}
 	}
 
+	async getOwningCollection(url) {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+			const response = await fetch(`${DSPACE_API_URL}${url}`, {
+				credentials: "include",
+				headers: headers,
+			});
+
+			if (response.ok) {
+				const data = await response.json();
+				return data;
+			}
+			return [];
+		} catch {
+			return [];
+		}
+	}
+
+	async getParentCommunity(url) {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+			const response = await fetch(`${DSPACE_API_URL}${url}`, {
+				credentials: "include",
+				headers: headers,
+			});
+
+			if (response.ok) {
+				const data = await response.json();
+				return data;
+			}
+			return [];
+		} catch {
+			return [];
+		}
+	}
+
 	async getSubmitAuthorizedCollections(page = 0, size = 20) {
 		try {
 			const headers = this.getCsrfHeaders({
@@ -576,8 +624,15 @@ class DSpaceService {
 				query: query || "*",
 				page: "0",
 				size: String(limit),
+				dsoType: "item",
 			});
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
 			const response = await fetch(
 				`${DSPACE_API_URL}/discover/search/objects?${params}`,
 				{
@@ -591,8 +646,31 @@ class DSpaceService {
 				return data._embedded?.searchResult?._embedded?.objects || [];
 			}
 			return [];
-		} catch (error) {
+		} catch {
 			return [];
+		}
+	}
+
+	async getMySubmissions(userUuid) {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+			const response = await fetch(
+				`${DSPACE_API_URL}/submission/workspaceitems/search/findBySubmitter?uuid=${userUuid}`,
+				{
+					credentials: "include",
+					headers: headers,
+				},
+			);
+
+			return response.ok ? await response.json() : null;
+		} catch {
+			return null;
 		}
 	}
 

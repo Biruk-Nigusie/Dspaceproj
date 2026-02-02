@@ -120,16 +120,44 @@ export const AuthProvider = ({ children }) => {
 		return { success: false, message: "Use DSpace UI to register" };
 	};
 
+	const deleteCookie = (name) => {
+		const paths = ["/"];
+		const domains = [
+			window.location.hostname,
+			`.${window.location.hostname}`,
+		];
+
+		for (const path of paths) {
+			for (const domain of domains) {
+				document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path}; domain=${domain};`;
+			}
+		}
+	};
+
+	const deleteAuthCookies = () => {
+		[
+			"DSPACE-XSRF-COOKIE",
+			"DSPACE-XSRF-TOKEN",
+			"csrftoken",
+			"sessionid",
+			"dsAuthInfo"
+		].forEach(deleteCookie);
+	};
+
 	const logout = async () => {
 		try {
 			await dspaceService.logout();
 			localStorage.removeItem("dspaceAuthToken");
 			localStorage.removeItem("djangoToken");
+			localStorage.removeItem("dsAuthInfo")
+			deleteAuthCookies();
 			setUser(null);
 		} catch (error) {
 			console.error("Logout error:", error);
 			localStorage.removeItem("dspaceAuthToken");
 			localStorage.removeItem("djangoToken");
+			localStorage.removeItem("dsAuthInfo")
+			deleteAuthCookies();
 			setUser(null);
 		}
 	};

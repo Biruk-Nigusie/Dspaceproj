@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { FileTextIcon, Search } from "lucide-react";
 import { useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useAuth } from "../contexts/AuthContext";
@@ -45,7 +45,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 				url = resource.preview_url;
 			} else if (resource.external_id) {
 				url = `/api/resources/dspace-bitstream/${resource.external_id}/`;
-			} else if (resource.id && resource.id.startsWith("dspace_")) {
+			} else if (resource.id?.startsWith("dspace_")) {
 				const itemUuid = resource.id.replace("dspace_", "");
 				url = `/api/resources/dspace-bitstream/${itemUuid}/`;
 			}
@@ -67,7 +67,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 			);
 		} else if (resource.source === "dspace") {
 			const isHandle =
-				resource.external_id && resource.external_id.includes("/");
+				resource.external_id?.includes("/");
 			const path = isHandle ? "handle" : "items";
 			window.open(
 				`http://localhost:4000/${path}/${resource.external_id}`,
@@ -88,20 +88,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 	if (resources.length === 0) {
 		return (
 			<div className="text-center py-12 border border-gray-200 rounded-lg">
-				<svg
-					className="w-16 h-16 text-gray-400 mx-auto mb-4"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth={2}
-						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-					/>
-				</svg>
+				<FileTextIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
 				<h3 className="text-xl font-semibold text-gray-900 mb-2">
 					ምንም መዝገቦች አልተገኙም
 				</h3>
@@ -114,12 +101,17 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 
 	return (
 		<div className="bg-white rounded-lg border border-gray-200 p-2">
-			<div className="mb-6"></div>
 
 			<div className="overflow-x-auto">
 				<table className="min-w-full divide-y divide-gray-200">
 					<thead className="bg-gray-50">
 						<tr>
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Sub City
+							</th>
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								Woreda
+							</th>
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 								House number
 							</th>
@@ -127,13 +119,8 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								Head of House
 							</th>
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-								Publisher
+								Registration Date
 							</th>
-
-							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-								Issue date
-							</th>
-
 							<th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
 								Actions
 							</th>
@@ -146,27 +133,23 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								className="hover:bg-gray-50 cursor-pointer"
 								onClick={() => handleRowClick(resource)}
 							>
+								<td className="px-6 py-4 max-w-xs">{resource.community || "—"}</td>
+								<td className="px-6 py-4 max-w-xs">{resource.collection || "—"}</td>
 								<td className="px-6 py-4 max-w-xs">
-									<div className="text-sm font-medium text-blue-600 hover:underline">
-										{resource.title || "—"}
-									</div>
+									{resource.title || "—"}
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-700">
 									{resource.authors || resource.author || "—"}
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-700">
-									{resource.publisher || "—"}
-								</td>
-
-								<td className="px-6 py-4 text-sm text-gray-700">
 									{resource.year || "—"}
 								</td>
-
 								<td className="px-6 py-4 text-center">
 									<div className="flex items-center justify-center space-x-2">
 										{resource.source === "dspace" && (
 											<>
 												<button
+													type="button"
 													onClick={(e) => handlePreview(resource, e)}
 													disabled={previewLoading[resource.id]}
 													className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center cursor-pointer"
@@ -182,6 +165,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 												</button>
 												{isAuthenticated && (
 													<button
+														type="button"
 														onClick={(e) => {
 															e.stopPropagation();
 															onCatalogClick(resource);
@@ -195,6 +179,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 										)}
 										{resource.source === "koha" && (
 											<button
+												type="button"
 												onClick={(e) => {
 													e.stopPropagation();
 													handleRowClick(resource);
@@ -222,13 +207,14 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 									{resources.find(
 										(r) =>
 											r.id ===
-												Object.keys(previewLoading).find((id) =>
-													previewUrl.includes(id),
-												) || {},
+											Object.keys(previewLoading).find((id) =>
+												previewUrl.includes(id),
+											) || {},
 									)?.title || "Document Preview"}
 								</h3>
 								<div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 gap-4 text-sm">
 									<button
+										type="button"
 										onClick={() =>
 											setPageNumber((prev) => Math.max(prev - 1, 1))
 										}
@@ -252,6 +238,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 										Page {pageNumber} / {numPages || "--"}
 									</span>
 									<button
+										type="button"
 										onClick={() =>
 											setPageNumber((prev) => Math.min(prev + 1, numPages))
 										}
@@ -277,6 +264,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 
 								<div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 gap-4 text-sm">
 									<button
+										type="button"
 										onClick={() =>
 											setScale((prev) => Math.max(prev - 0.1, 0.5))
 										}
@@ -300,6 +288,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 										{Math.round(scale * 100)}%
 									</span>
 									<button
+										type="button"
 										onClick={() =>
 											setScale((prev) => Math.min(prev + 0.1, 3.0))
 										}
@@ -324,6 +313,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								<div className="h-6 w-px bg-gray-700 mx-2" />
 
 								<button
+									type="button"
 									onClick={handleDownload}
 									className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
 									title="Download File"
@@ -347,6 +337,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 							</div>
 
 							<button
+								type="button"
 								onClick={() => setShowPreviewModal(false)}
 								className="p-2 hover:bg-red-600/30 text-gray-400 hover:text-red-400 rounded-lg transition-all cursor-pointer"
 								aria-label="Close preview"

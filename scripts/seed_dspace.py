@@ -113,6 +113,34 @@ class DSpaceClient:
             return r.json().get("_embedded", {}).get("communities", [])
         return []
 
+    def delete_all_groups(self):
+        """
+        Deletes all non-system groups.
+        System groups (Anonymous, Administrator, etc.) are skipped.
+        """
+        print("⚠️  Preparing to delete ALL custom groups...")
+
+        r = self.session.get(f"{self.base_url}/eperson/groups", params={"size": 1000})
+        if not r.ok:
+            self._handle_error(r)
+
+        groups = r.json().get("_embedded", {}).get("groups", [])
+
+        protected = {"anonymous", "administrator", "administrators"}
+
+        for group in groups:
+            name = group.get("name", "").lower()
+
+            if name in protected:
+                print(f"   └── 🔒 Skipping system group: {group['name']}")
+                continue
+
+            res = self.session.delete(group["_links"]["self"]["href"])
+            if res.status_code == 204:
+                print(f"   └── 🗑️  Deleted group: {group['name']}")
+            else:
+                print(f"   └── ❌ Failed deleting {group['name']}: {res.status_code}")
+
     def delete_all_communities(self):
         """Finds every top-level community and deletes it."""
         print("⚠️  Preparing to delete ALL communities...")
@@ -194,6 +222,68 @@ class DSpaceClient:
 
         print("     └── 🔒 Anonymous access removed from collection")
 
+    def create_group(self, name):
+        payload = {"name": name}
+        r = self.session.post(f"{self.base_url}/eperson/groups", json=payload)
+        if r.status_code == 201:
+            print(f"     └── 👥 Group created: {name}")
+            return r.json()["uuid"]
+        return self._handle_error(r)
+
+    def add_users_to_group(self, group_uuid, users_email: list[str]):
+        for user_email in users_email:
+            r = self.session.get(
+                f"{self.base_url}/eperson/epersons/search/byEmail",
+                params={"email": user_email},
+            )
+            if not r.ok:
+                self._handle_error(r)
+
+            user_url = r.json()["_links"]["self"]["href"]
+
+            res = self.session.post(
+                f"{self.base_url}/eperson/groups/{group_uuid}/epersons",
+                data=user_url,
+                headers={"Content-Type": "text/uri-list"},
+            )
+
+            if res.status_code != 204:
+                self._handle_error(res)
+
+    def grant_read(self, group_uuid, resource_uuid, resource_type):
+        payload = {
+            "action": "READ",
+            "resourceType": resource_type,
+            "resource": resource_uuid,
+            "group": group_uuid,
+        }
+
+        r = self.session.post(
+            f"{self.base_url}/authz/resourcepolicies?resource={resource_uuid}&group={group_uuid}",
+            json=payload,
+        )
+        if r.status_code not in (200, 201):
+            self._handle_error(r)
+
+    def grant_collection_read_cascade(self, group_uuid, collection_uuid):
+        # Collection READ
+        self.grant_read(group_uuid, collection_uuid, "COLLECTION")
+
+        # Item + bitstream template policies
+        payload = {
+            "action": "READ",
+            "group": group_uuid,
+        }
+
+        r = self.session.post(
+            f"{self.base_url}/core/collections/{collection_uuid}/itemtemplate",
+            json=payload,
+        )
+        if r.status_code not in (200, 201):
+            self._handle_error(r)
+
+        print("     └── 🔐 READ granted on collection + future items/bitstreams")
+
     def activate_roles(self, collection_uuid):
         """Activates Admin, Submitter, Item Read, Bitstream Read, and Workflow roles."""
         # Standard roles
@@ -203,6 +293,7 @@ class DSpaceClient:
             "itemReadGroup",
             "bitstreamReadGroup",
         ]
+
         # Standard DSpace workflow steps
         workflow_roles = ["reviewer", "editor"]
 
@@ -224,6 +315,7 @@ class DSpaceClient:
     def add_users_to_collection_groups(
         self,
         collection_uuid: str,
+        collection_name: str,
         submitter_email: str = None,
         case_worker_email: str = None,
         reviewer_email: str = None,
@@ -239,15 +331,15 @@ class DSpaceClient:
 
         # Mapping of DSpace group endpoints to the email to add
         group_mapping = {
-            "submittersGroup": submitter_email,
-            "itemReadGroup": case_worker_email,
-            "bitstreamReadGroup": case_worker_email,
-            "workflowGroups/reviewer": reviewer_email,
-            "workflowGroups/editor": editor_email,
+            "submittersGroup": [submitter_email],
+            "itemReadGroup": [submitter_email, case_worker_email, editor_email],
+            "bitstreamReadGroup": [submitter_email, case_worker_email, editor_email],
+            "workflowGroups/reviewer": [reviewer_email],
+            "workflowGroups/editor": [editor_email],
         }
 
-        for endpoint, email in group_mapping.items():
-            if not email:
+        for endpoint, emails in group_mapping.items():
+            if not emails:
                 continue  # skip if no email provided
 
             # 1️⃣ Get the group UUID for this collection endpoint
@@ -260,32 +352,43 @@ class DSpaceClient:
                 print(f"⚠️ Could not find group for {endpoint}, skipping...")
                 continue
 
-            # 2️⃣ Search for the user by email
-            user_search = self.session.get(
-                f"{self.base_url}/eperson/epersons/search/byEmail",
-                params={"email": email},
-            )
-            if not user_search.ok:
-                self._handle_error(user_search)
+            for email in emails:
+                # 2️⃣ Search for the user by email
+                user_search = self.session.get(
+                    f"{self.base_url}/eperson/epersons/search/byEmail",
+                    params={"email": email},
+                )
+                if not user_search.ok:
+                    self._handle_error(user_search)
 
-            user_data = user_search.json()
-            if not user_data or "uuid" not in user_data:
-                print(f"⚠️ User {email} not found, skipping...")
-                continue
-            user_url = user_data["_links"]["self"]["href"]
+                user_data = user_search.json()
+                if not user_data or "uuid" not in user_data:
+                    print(f"⚠️ User {email} not found, skipping...")
+                    continue
+                user_url = user_data["_links"]["self"]["href"]
 
-            # 3️⃣ Add user to the group
-            add_url = f"{self.base_url}/eperson/groups/{group_uuid}/epersons"
-            res = self.session.post(
-                add_url,
-                data=user_url,
-                headers={"Content-Type": "text/uri-list"},
-            )
+                # 3️⃣ Add user to the group
+                add_url = f"{self.base_url}/eperson/groups/{group_uuid}/epersons"
+                res = self.session.post(
+                    add_url,
+                    data=user_url,
+                    headers={"Content-Type": "text/uri-list"},
+                )
 
-            if res.status_code in [204]:
-                print(f"     └── ✅ Added {email} to {endpoint}")
-            else:
-                self._handle_error(res)
+                if res.status_code in [204]:
+                    print(f"     └── ✅ Added {email} to {endpoint}")
+                else:
+                    self._handle_error(res)
+
+        read_group_name = f"{collection_name}_READ"
+
+        group_uuid = self.create_group(read_group_name)
+        self.add_users_to_group(
+            group_uuid, [case_worker_email, submitter_email, editor_email]
+        )
+        self.grant_collection_read_cascade(group_uuid, collection_uuid)
+
+        print(f"     └── 👮 Case worker added to {read_group_name}")
 
     def create_collection(self, parent_uuid, name):
         """Creates a collection for the Woreda within a Community."""
@@ -303,7 +406,7 @@ class DSpaceClient:
             coll_uuid = r.json().get("uuid")
             print(f"   └── 📁 Collection Created: {name}")
 
-            # self.remove_anonymous_access_from_collection(coll_uuid)
+            self.remove_anonymous_access_from_collection(coll_uuid)
             self.activate_roles(coll_uuid)
 
             return coll_uuid
@@ -318,22 +421,22 @@ def main():
     email = input(f"Email [{DEFAULT_EMAIL}]: ").strip() or DEFAULT_EMAIL
     password = getpass.getpass(f"Password for {email}: ") or DEFAULT_PASSWORD
 
-    # submitter_email = (
-    #     input(f"Submitter Email: [{DEFAULT_SUBMITTER_EMAIL}]: ").strip()
-    #     or DEFAULT_SUBMITTER_EMAIL
-    # )
-    # case_worker_email = (
-    #     input(f"Case Worker Email: [{DEFAULT_CASE_WORKER_EMAIL}]: ").strip()
-    #     or DEFAULT_CASE_WORKER_EMAIL
-    # )
-    # reviewer_email = (
-    #     input(f"Reviewer Email: [{DEFAULT_REVIEWER_EMAIL}]: ").strip()
-    #     or DEFAULT_REVIEWER_EMAIL
-    # )
-    # editor_email = (
-    #     input(f"Editor Email: [{DEFAULT_EDITOR_EMAIL}]: ").strip()
-    #     or DEFAULT_EDITOR_EMAIL
-    # )
+    submitter_email = (
+        input(f"Submitter Email: [{DEFAULT_SUBMITTER_EMAIL}]: ").strip()
+        or DEFAULT_SUBMITTER_EMAIL
+    )
+    case_worker_email = (
+        input(f"Case Worker Email: [{DEFAULT_CASE_WORKER_EMAIL}]: ").strip()
+        or DEFAULT_CASE_WORKER_EMAIL
+    )
+    reviewer_email = (
+        input(f"Reviewer Email: [{DEFAULT_REVIEWER_EMAIL}]: ").strip()
+        or DEFAULT_REVIEWER_EMAIL
+    )
+    editor_email = (
+        input(f"Editor Email: [{DEFAULT_EDITOR_EMAIL}]: ").strip()
+        or DEFAULT_EDITOR_EMAIL
+    )
 
     client = DSpaceClient(base_url)
 
@@ -357,6 +460,14 @@ def main():
                 client.delete_all_communities()
                 print("✨ Environment wiped clean.\n")
 
+            cleanup_groups = input(
+                "\nDo you want to DELETE all existing custom groups? (y/n): "
+            ).lower()
+
+            if cleanup_groups == "y":
+                client.delete_all_groups()
+                print("✨ Groups wiped clean.\n")
+
             # --- START SEED LOGIC ---
             print("\n🏗️  Starting DSpace Structure Seeding for Addis Ababa...")
 
@@ -367,15 +478,18 @@ def main():
                     for i in range(1, woreda_count + 1):
                         # Formatting: name_of_sub_city_woreda_number (e.g., Bole_Woreda_05)
                         woreda_name = f"{sub_city}_Woreda_{str(i).zfill(2)}"
-                        client.create_collection(community_uuid, woreda_name)
+                        coll_uuid = client.create_collection(
+                            community_uuid, woreda_name
+                        )
 
-                        # client.add_users_to_collection_groups(
-                        #     coll_uuid,
-                        #     submitter_email,
-                        #     case_worker_email,
-                        #     reviewer_email,
-                        #     editor_email,
-                        # )
+                        client.add_users_to_collection_groups(
+                            coll_uuid,
+                            woreda_name,
+                            submitter_email,
+                            case_worker_email,
+                            reviewer_email,
+                            editor_email,
+                        )
 
             print("\n✅ Seeding complete!")
             # --- END SEED LOGIC ---
