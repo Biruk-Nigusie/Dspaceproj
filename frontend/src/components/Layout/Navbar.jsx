@@ -96,10 +96,6 @@ const Navbar = () => {
     const handleResultClick = (result) => {
         setIsSearchOpen(false);
         setSearchQuery("");
-        // Assuming there's a way to view item, maybe navigate to home with scroll or search state
-        // For now, let's just log or navigate if there's a detail page
-        // navigate(`/item/${result.id}`); 
-        // If we want to trigger search on home page:
         navigate(`/?q=${encodeURIComponent(result.title)}`);
     };
 
@@ -132,15 +128,31 @@ const Navbar = () => {
                         <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
                             Enquiry for records and ISBN
                         </Link>
+                    </div>
 
+                    {/* User Actions */}
+                    <div className="flex items-center space-x-6 ml-4 flex-shrink-0">
 
-                        {/* Language Dropdown */}
+                        <div className="hidden lg:flex items-center space-x-4">
+                            {user && location.pathname !== '/editor' && (
+                                <Link to="/editor" className="bg-blue-900 text-white px-4 py-2 rounded-sm text-xs font-bold transition-all shadow-sm">
+                                    UPLOAD
+                                </Link>
+                            )}
+                            {user?.role === "admin" && (
+                                <Link to="/admin-choice" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm">
+                                    ADMIN
+                                </Link>
+                            )}
+                        </div>
+
+                        {/* Language Dropdown - Moved here, just before login button */}
                         <div className="relative" ref={langRef}>
                             <button
                                 onClick={() => setIsLangOpen(!isLangOpen)}
-                                className="flex items-center space-x-1 text-sm font-bold text-blue-900  px-3 py-1.5 rounded-sm  transition-all cursor-pointer"
+                                className="flex items-center space-x-1 text-sm font-bold text-blue-900 px-3 py-1.5 rounded-sm transition-all cursor-pointer"
                             >
-                                <Globe className="w-4 h-4 mr-1 ml-4" />
+                                <Globe className="w-4 h-4 mr-1" />
                                 <span>{language}</span>
                                 <ChevronDown className={`w-3 h-3 transition-transform ${isLangOpen ? 'rotate-180' : ''}`} />
                             </button>
@@ -155,48 +167,11 @@ const Navbar = () => {
                                     </button>
                                     <button
                                         onClick={() => { setLanguage("Amharic"); setIsLangOpen(false); }}
-                                        className={`w-full text-left px-4 py-2 text-xs font-bold  transition-colors ${language === "Amharic" ? "text-blue-900" : "text-gray-900"}`}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors ${language === "Amharic" ? "text-blue-900" : "text-gray-900"}`}
                                     >
                                         Amharic
                                     </button>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Search and User Actions */}
-                    <div className="flex items-center space-x-6 ml-4 flex-shrink-0">
-                        {/* Inline Search Input */}
-                        <div className="relative hidden xl:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onFocus={() => setIsSearchOpen(true)}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search collection..."
-                                className="bg-gray-200 hover:bg-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-900 border border-gray-200 rounded-lg py-2 pl-10 pr-4 text-sm outline-none transition-all w-60 placeholder:text-gray-400"
-                            />
-                        </div>
-
-                        {/* Mobile/Smaller screen search icon */}
-                        <button
-                            onClick={() => setIsSearchOpen(true)}
-                            className="xl:hidden p-2 hover:bg-gray-50 rounded-full transition-colors"
-                        >
-                            <Search className="w-5 h-5 text-gray-600" />
-                        </button>
-
-                        <div className="hidden lg:flex items-center space-x-4">
-                            {user && location.pathname !== '/editor' && (
-                                <Link to="/editor" className="bg-blue-900 text-white px-4 py-2 rounded-sm text-xs font-bold transition-all shadow-sm">
-                                    UPLOAD
-                                </Link>
-                            )}
-                            {user?.role === "admin" && (
-                                <Link to="/admin-choice" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm">
-                                    ADMIN
-                                </Link>
                             )}
                         </div>
 
@@ -218,7 +193,7 @@ const Navbar = () => {
                         ) : (
                             <Link
                                 to="/signin"
-                                className="bg-blue-900 text-white px-8 py-1.5 rounded-sm font-bold transition-all "
+                                className="bg-blue-900 text-white px-8 py-1.5 rounded-sm font-bold transition-all"
                             >
                                 Login
                             </Link>

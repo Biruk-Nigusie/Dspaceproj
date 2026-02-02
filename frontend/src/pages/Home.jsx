@@ -519,7 +519,77 @@ const Home = () => {
 
 
             {/* Hero Section */}
-            <Carousel />
+            <div className="relative">
+                <Carousel />
+
+                {/* Stats Ribbon - Positioned lower to avoid card overlap */}
+                <div className="absolute bottom-20 left-0 w-full bg-blue-900/90 backdrop-blur-md py-6 mt-10 z-30">
+    <div className="max-w-7xl mx-auto px-12 top-10 text-[12px]">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-2">
+            <div className="text-center border-r border-white/10 last:border-0">
+                <h3 className="text-2xl md:text-3xl lg:text-4xl font-black text-white mb-1">
+                    25,091
+                </h3>
+                <p className="text-blue-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Total</p>
+                <p className="text-blue-300/70 text-[20px] md:text-[20px] mt-1">Verified collection</p>
+            </div>
+            <div className="text-center border-r border-white/10 last:border-0">
+                <h3 className="text-2xl md:text-20xl lg:text-4xl font-black text-white mb-1">
+                    24,710
+                </h3>
+                <p className="text-blue-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Archive</p>
+                <p className="text-blue-300/70 text-[20px] md:text-[20px] mt-1">Historical manuscripts</p>
+            </div>
+            <div className="text-center border-r border-white/10 last:border-0">
+                <h3 className="text-2xl md:text-2xl lg:text-4xl font-black text-white mb-1">
+                    274
+                </h3>
+                <p className="text-blue-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Serial</p>
+                <p className="text-blue-300/70 text-[20px] md:text-[20px] mt-1">Periodical records</p>
+            </div>
+            <div className="text-center border-r border-white/10 last:border-0">
+                <h3 className="text-2xl md:text-2xl lg:text-4xl font-black text-white mb-1">
+                    68
+                </h3>
+                <p className="text-blue-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Printed Material</p>
+                <p className="text-blue-300/70 text-[20px] md:text-[20px] mt-1">Published volumes</p>
+            </div>
+            <div className="text-center last:border-0">
+                <h3 className="text-2xl md:text-2xl lg:text-4xl font-black text-white mb-1">
+                    39
+                </h3>
+                <p className="text-blue-200 text-[10px] md:text-xs font-bold uppercase tracking-widest">Multimedia</p>
+                <p className="text-blue-300/70 text-[20px] md:text-[20px] mt-1">Digital media assets</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+                {/* Search Bar positioned below the stats ribbon */}
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-full max-w-4xl px-4 py-4z-40">
+                    <div className="bg-white rounded-sm shadow-sm flex items-center border border-gray-200">
+                        <div className="relative flex-1 flex items-center">
+                            <Search className="absolute left-5 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search through archives, books, manuscripts and more..."
+                                className="w-full h-12 md:h-14 pl-14 pr-6 text-base rounded-l-sm focus:outline-none placeholder:text-gray-400 font-medium"
+                            />
+                        </div>
+                        <button
+                            onClick={() => fetchAllResources(searchQuery)}
+                            className="bg-blue-900 text-white h-12 md:h-14 px-8 rounded-r-sm font-bold hover:bg-blue-800 transition-all active:scale-95 cursor-pointer uppercase tracking-wider text-xs"
+                        >
+                            Search
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Spacer to account for the overlapping search bar at the bottom */}
+            <div className="h-20"></div>
 
 
 
@@ -780,94 +850,47 @@ const Home = () => {
                 onSubmit={handleCatalogSubmit}
             />
 
-            {/* Stats and Additional Sections - Same as before */}
-            <div className="max-w-7xl mx-auto px-4 py-12">
-                {/* System Overview */}
-                <section className="mb-16">
-                    <div className="text-center mb-12">
-                        <h2 className="text-4xl font-bold text-gray-900 mb-4">
-                            ብሔራዊ መዛግብት እና መጻሕፍት መድረክ
-                        </h2>
-                        <p className="text-xl text-gray-600 max-w-4xl mx-auto">
-                            የኢትዮጵያ ማዕከላዊ የመዛግብት እና መጻሕፍት መድረክ። ከ2016 ጀምሮ በማስረጃ ላይ የተመሰረተ የምርምር
-                            እና የህዝብ ብዛት ድግፍ።
-                        </p>
-                    </div>
 
-                    {/* Stats Overview */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                        <Card className="text-center bg-white hover:shadow-sm transition-shadow border border-gray-200">
-                            <BarChart3 className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
-                                {stats.totalResources.toLocaleString()}
+            {/* Guidelines for Submitters */}
+            <section className="mb-16">
+                <div className="bg-blue-50 rounded-2xl p-8">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">
+                        Guidelines for Submitters
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="text-center">
+                            <Book className="w-12 h-12 text-blue-900 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                File Formats
                             </h3>
-                            <p className="text-gray-600 font-medium">መዛግብት እና መጻሕፍት</p>
-                        </Card>
-                        <Card className="text-center bg-white  border border-gray-200">
-                            <Download className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
-                                {stats.monthlyDownloads.toLocaleString()}+
+                            <p className="text-gray-600">
+                                Accepted formats: PDF, EPUB, DOC, DOCX, TXT. Maximum file
+                                size: 50MB per file.
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <CheckCircle className="w-12 h-12 text-blue-900 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                Metadata Requirement
                             </h3>
-                            <p className="text-gray-600 font-medium">ወርሃዊ መዳረሻ</p>
-                        </Card>
-                        <Card className="text-center bg-white  transition-shadow border border-gray-200">
-                            <Users className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
-                                {stats.activeUsers.toLocaleString()}
+                            <p className="text-gray-600">
+                                All submissions must include accurate metadata including author,
+                                year, and subject keywords.
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <AlertCircle className="w-12 h-12 text-blue-900 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                                Review Process
                             </h3>
-                            <p className="text-gray-600 font-medium">የተመዘገቡ ተጠቃሚዎች</p>
-                        </Card>
-                        <Card className="text-center bg-white  transition-shadow border border-gray-200">
-                            <MapPin className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
-                                {stats.communities}
-                            </h3>
-                            <p className="text-gray-600 font-medium">ክልላዊ ቢሮዎች</p>
-                        </Card>
-                    </div>
-                </section>
-
-                {/* Guidelines for Submitters */}
-                <section className="mb-16">
-                    <div className="bg-blue-50 rounded-2xl p-8">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-6 text-center">
-                            Guidelines for Submitters
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="text-center">
-                                <Book className="w-12 h-12 text-blue-900 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                                    File Formats
-                                </h3>
-                                <p className="text-gray-600">
-                                    Accepted formats: PDF, EPUB, DOC, DOCX, TXT. Maximum file
-                                    size: 50MB per file.
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <CheckCircle className="w-12 h-12 text-blue-900 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                                    Metadata Requirement
-                                </h3>
-                                <p className="text-gray-600">
-                                    All submissions must include accurate metadata including author,
-                                    year, and subject keywords.
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <AlertCircle className="w-12 h-12 text-blue-900 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                                    Review Process
-                                </h3>
-                                <p className="text-gray-600">
-                                    Submissions are reviewed by librarians within 3 business days
-                                    before being published.
-                                </p>
-                            </div>
+                            <p className="text-gray-600">
+                                Submissions are reviewed by librarians within 3 business days
+                                before being published.
+                            </p>
                         </div>
                     </div>
-                </section>
-            </div>
+                </div>
+            </section>
         </div>
     );
 };

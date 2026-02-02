@@ -27,12 +27,12 @@ const Carousel = () => {
     ];
 
     return (
-        <div className="relative w-full h-[650px] bg-[#0A1A2F]">
+        <div className="relative w-full h-[900px] bg-[#0A1A2F]">
             {/* Background Image Layer */}
             <div className="absolute inset-0 z-0">
                 <Slider {...settings}>
                     {slides.map((slide, index) => (
-                        <div key={index} className="relative h-[650px]">
+                        <div key={index} className="relative h-[900px]">
                             <img
                                 src={slide.image}
                                 alt={slide.title}
@@ -44,42 +44,37 @@ const Carousel = () => {
                 </Slider>
             </div>
 
-            {/* Content Layer */}
-            <div className="relative z-30 h-full w-full max-w-[1440px] mx-auto px-8 flex flex-col justify-center">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Content Layer - Moved up */}
+            <div className="relative z-30 h-full w-full max-w-[1440px] mx-auto px-8 flex flex-col justify-start pt-24 md:pt-32">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
 
                     {/* Mission Text */}
-                    <div className="text-white max-w-2xl">
+                    <div className="text-white max-w-2xl mt-8">
                         <h1 className="text-5xl md:text-6xl font-black mb-6 leading-[1.1]">
                             Ethiopian Archives and <br />
                             <span>Library Service</span>
                         </h1>
                         <p className="text-xl text-gray-300 leading-relaxed mb-8">
-                            Preserving and providing access to <span className="text-white font-bold">100,000+ digitized records</span> of
+                            Preserving and providing access to <span className="text-white font-bold">25091 + digitized records</span> of
                             Archives, Microfilms, Newspapers, Magazines, Books, and Manuscripts
-                            that document Ethiopia’s history, culture, and intellectual heritage.
+                            that document Ethiopia's history, culture, and intellectual heritage.
                         </p>
                         <div className="flex flex-wrap gap-4">
-                            <button
-                                onClick={() => window.dispatchEvent(new CustomEvent('trigger-search'))}
-                                className="bg-white text-blue-900 px-10 py-3 rounded-sm font-bold active:scale-95 cursor-pointer"
-                            >
-                                Search Records
-                            </button>
+
                         </div>
                     </div>
 
                     {/* Info Panels */}
-                    <div className="space-y-6">
+                    <div className="space-y-2 mt-8">
                         {/* Opening Times */}
-                        <div className="bg-white p-8 rounded-xl">
+                        <div className="bg-white px-8 py-6 rounded-sm">
                             <h3 className="flex items-center text-2xl font-bold mb-6 text-gray-900 border-b border-gray-100 pb-4">
                                 <Clock className="w-6 h-6 mr-3 text-blue-900" /> Opening Times
                             </h3>
                             <div className="space-y-4 text-gray-600">
                                 <div className="flex justify-between items-center text-sm md:text-base">
                                     <span>Library: Mon - Sat</span>
-                                    <span className="font-bold text-gray-900">8:00 AM - 6:00 AM</span>
+                                    <span className="font-bold text-gray-900">8:00 AM - 6:00 PM</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm md:text-base">
                                     <span>Sunday</span>
@@ -93,7 +88,7 @@ const Carousel = () => {
                         </div>
 
                         {/* Contact */}
-                        <div className="bg-white p-8 rounded-xl">
+                        <div className="bg-white px-8 py-6 rounded-sm">
                             <h3 className="flex items-center text-2xl font-bold mb-6 text-gray-900 border-b border-gray-100 pb-4">
                                 <Phone className="w-6 h-6 mr-3 text-blue-900" /> Contact Details
                             </h3>

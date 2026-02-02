@@ -1,0 +1,130 @@
+1. Archive
+table columns list
+
+Reference Code
+ 
+Title
+ 
+Description 1
+ 
+Keywords
+ 
+Archive Type
+
+- under view more 
+
+CID:
+
+Reference Code:
+
+Archival Coverage Opening Date:
+
+Calendar Type:
+
+Archive Type:
+
+Level of Arrangement:
+
+Archival Quantity:
+
+Archival Medium:
+
+Provenance:
+
+Archive Accession Date:
+
+Calendar_Type:
+
+Archival Accession Means:
+
+Immediate source of acquisition or transfer:
+
+Description 1:
+
+Access Condition:
+
+Language:
+Archival Security Category:
+
+Processing Status:
+
+and two buttons preview and borrow
+2. Multimedia
+table columns list
+ 
+Title
+ 
+Authors
+ 
+Publisher
+ 
+Classification
+ 
+Subjects
+ 
+Item Type
+
+- under view more
+
+CID:
+Sub Title:
+Composer:
+Music Type:
+Accession Number / Barcode:
+Subjects:
+Publisher:
+Singer:
+Language:
+Physical Description:
+Classification:
+Poem Author:
+Melody Author:
+Place of Publication:
+Publication Date:
+Instrument:
+Instrument Players:
+Music Album:
+Type of Acquiring:
+Websites:
+and two buttons preview and borrow
+
+3.serial
+table columns list
+Title
+Authors
+Subjects
+Classification
+Offices
+Item Type
+- under view more
+CID:
+Accession Number / Barcode:
+Publisher:
+Publication Date:
+Classification:
+Language:
+Series Number:
+Subjects:
+Physical Description:
+Notes:
+Type of Acquiring:
+and two buttons preview and borrow
+4.Printed material
+- table columns list
+Title
+Authors
+Publication Date
+Subjects
+Offices
+Item Type
+Attached Documents
+- under view more
+CID:
+Sub Title:
+Authors:
+Publication Date:
+ISBN:
+Physical Description:
+Subjects:
+
+on preview modal show the title of the file at the top of the modal
