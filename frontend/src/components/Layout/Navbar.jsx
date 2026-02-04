@@ -119,11 +119,11 @@ const Navbar = () => {
 
                     {/* Main Navigation - Centered */}
                     <div className="hidden lg:flex flex-1 justify-center items-center space-x-10 px-8">
-                        <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
+                        <a href="http://127.0.0.1/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
                             NALA Library
-                        </Link>
-                        <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
-                            NALA Archives
+                        </a>
+                        <Link to="/catalog" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
+                            Library Catalog
                         </Link>
                         <Link to="/" className="text-sm font-bold text-blue-900 transition-colors uppercase tracking-wider">
                             Enquiry for records and ISBN

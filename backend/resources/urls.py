@@ -2,6 +2,11 @@ from django.urls import path
 from . import views, diagnostics, bulk_views
 
 urlpatterns = [
+    # New unified catalog endpoints
+    path('catalog/items/', views.get_catalog_items, name='get_catalog_items'),
+    path('catalog/collections/', views.get_catalog_collections, name='get_catalog_collections'),
+    
+    # Existing endpoints
     path('dspace-items/', views.get_dspace_items, name='get_dspace_items'),
     path('dspace/hierarchy/', views.get_dspace_hierarchy, name='get_dspace_hierarchy'),
     path('bitstream/<str:bitstream_uuid>/', views.get_bitstream, name='get_bitstream'),
@@ -26,7 +31,6 @@ urlpatterns = [
     path('bulk/update-metadata/', bulk_views.update_metadata, name='update_metadata'),
     path('<int:resource_id>/catalog/', views.catalog_resource, name='catalog_resource'),
     path('catalog-external/', views.catalog_external_dspace, name='catalog_external_dspace'),
-    path('koha-metadata/<int:biblio_id>/', views.get_koha_item_metadata, name='get_koha_item_metadata'),
     path('pdf/rotate/', views.pdf_rotate, name='pdf_rotate'),
     path('pdf/split/', views.pdf_split, name='pdf_split'),
     path('pdf/merge/', views.pdf_merge, name='pdf_merge'),

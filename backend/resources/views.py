@@ -7,6 +7,7 @@ from .models import Resource, SearchLog, DownloadLog, UploadedFile
 from .serializers import ResourceSerializer, DownloadLogSerializer, UploadedFileSerializer
 from .services import ResourceService
 from .real_dspace_api import RealDSpaceAPI
+from .unified_catalog_service import UnifiedCatalogService
 import os
 import json
 from django.shortcuts import redirect
@@ -420,6 +421,8 @@ def catalog_external_dspace(request):
             'abstract': data.get('abstract', ''),
             'sponsors': data.get('sponsors', ''),
             'dspace_url': data.get('dspace_url'),
+            'isbn_issn': data.get('isbn_issn', ''),
+            'call_number': data.get('call_number', ''),
             # Koha item fields
             'withdrawn': data.get('withdrawn'),
             'classification_source': data.get('classification_source'),
@@ -452,8 +455,40 @@ def catalog_external_dspace(request):
         # Catalog in Koha
         koha_result = ResourceService.catalog_in_koha(metadata, metadata['dspace_url'])
         
+        # LINKING STEP: Update DSpace item with the Koha biblio ID
+        try:
+            dspace_url = metadata.get('dspace_url', '')
+            # Extract handle or UUID from URL
+            item_id = None
+            if '/handle/' in dspace_url:
+                item_id = dspace_url.split('/handle/')[-1]
+            elif '/items/' in dspace_url:
+                item_id = dspace_url.split('/items/')[-1]
+            
+            if item_id:
+                print(f"🔗 Attempting to link DSpace item {item_id} to Koha biblio {koha_result.get('biblio_id')}")
+                dspace_api = RealDSpaceAPI()
+                
+                # If it's a handle, we need to resolve it to UUID because PATCH /items/{uuid} requires UUID
+                resolved_uuid = item_id
+                if '/' in item_id:
+                    item_obj = dspace_api.get_item_by_handle(item_id)
+                    if item_obj:
+                        resolved_uuid = item_obj.get('uuid')
+                
+                if resolved_uuid:
+                    # DSpace 7 metadata update format
+                    patches = [{
+                        "op": "add",
+                        "path": "/metadata/local.koha.id/0",
+                        "value": {"value": str(koha_result.get('biblio_id'))}
+                    }]
+                    dspace_api.update_item_metadata(resolved_uuid, patches)
+        except Exception as de:
+            print(f"⚠️ DSpace metadata link failed: {str(de)}")
+
         return Response({
-            'message': 'Successfully cataloged external DSpace item in Koha (bibliographic record + item)',
+            'message': 'Successfully cataloged and linked item in Koha',
             'koha_url': koha_result.get('opac_url'),
             'biblio_id': koha_result.get('biblio_id')
         })
@@ -779,26 +814,144 @@ def get_dspace_hierarchy(request):
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
-def get_koha_item_metadata(request, biblio_id):
+@permission_classes([AllowAny])
+def get_catalog_items(request):
+    """
+    Get cataloged items from all sources with dynamic filtering.
+    Query parameters:
+    - q: Search query
+    - source: Filter by source (koha, dspace)
+    - type: Filter by collection type (archive, printed, serial, multimedia)
+    - collection: Filter by specific collection UUID
+    - year: Filter by year
+    - author: Filter by author
+    - publisher: Filter by publisher
+    - limit: Number of items to return (default: 50)
+    """
     try:
-        from .koha_rest_api import KohaRestAPI
-        koha_api = KohaRestAPI()
-        if not koha_api.authenticate():
-            return Response({'error': 'Koha authentication failed'}, status=500)
+        catalog_service = UnifiedCatalogService()
         
-        # Get biblio details
-        biblio = koha_api.get_biblio_details(biblio_id)
-        if not biblio:
-            return Response({'error': 'Biblio not found'}, status=404)
+        # Get query parameters
+        query = request.GET.get('q', '')
+        limit = int(request.GET.get('limit', 50))
         
-        # Get items for this biblio
-        items = koha_api.get_biblio_items(biblio_id)
+        # Build filters
+        filters = {}
+        if request.GET.get('source'):
+            filters['source'] = request.GET.get('source')
+        if request.GET.get('type'):
+            filters['type'] = request.GET.get('type')
+        if request.GET.get('collection'):
+            filters['collection'] = request.GET.get('collection')
+        if request.GET.get('year'):
+            filters['year'] = request.GET.get('year')
+        if request.GET.get('author'):
+            filters['author'] = request.GET.get('author')
+        if request.GET.get('publisher'):
+            filters['publisher'] = request.GET.get('publisher')
+        
+        print(f"📚 Catalog search - Query: '{query}', Filters: {filters}, Limit: {limit}")
+        
+        # Get items
+        if query or filters:
+            items = catalog_service.search_unified_catalog(query, filters, limit)
+        else:
+            items = catalog_service.get_all_cataloged_items(limit, filters.get('source'))
+        
+        # Apply additional filters
+        items = catalog_service.apply_filters(items, filters)
+        
+        # Add loan URLs
+        for item in items:
+            item['loan_url'] = catalog_service.get_loan_url(item)
+        
+        # Group by collection type for better organization
+        grouped_items = {}
+        for item in items:
+            collection_type = item.get('collection_type', 'default')
+            if collection_type not in grouped_items:
+                grouped_items[collection_type] = []
+            grouped_items[collection_type].append(item)
         
         return Response({
-            'biblio': biblio,
-            'items': items
+            'items': items,
+            'grouped': grouped_items,
+            'total': len(items),
+            'query': query,
+            'filters': filters,
+            'available_types': list(grouped_items.keys())
         })
+        
     except Exception as e:
+        print(f"❌ Catalog items error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_catalog_collections(request):
+    """
+    Get available collections and metadata schemas from all sources.
+    """
+    try:
+        catalog_service = UnifiedCatalogService()
+        collections = catalog_service.get_available_collections()
+        
+        # Get metadata schemas for each type
+        schemas = {}
+        for collection_type in collections.get('types', []):
+            schemas[collection_type] = catalog_service.get_metadata_schema_for_type(collection_type)
+        
+        return Response({
+            'collections': collections,
+            'schemas': schemas,
+            'column_configs': {
+                'archive': [
+                    {'label': 'Title', 'field': 'title', 'sortable': True},
+                    {'label': 'Archival Type', 'field': 'archivalType', 'sortable': True},
+                    {'label': 'Year', 'field': 'year', 'sortable': True},
+                    {'label': 'Provenance', 'field': 'provenance', 'sortable': True},
+                    {'label': 'Quantity', 'field': 'quantity', 'sortable': True},
+                    {'label': 'Security', 'field': 'security', 'sortable': True}
+                ],
+                'printed': [
+                    {'label': 'Title', 'field': 'title', 'sortable': True},
+                    {'label': 'Author', 'field': 'authors', 'sortable': True},
+                    {'label': 'Publisher', 'field': 'publisher', 'sortable': True},
+                    {'label': 'Year', 'field': 'year', 'sortable': True},
+                    {'label': 'ISBN', 'field': 'isbn', 'sortable': True},
+                    {'label': 'Type', 'field': 'resource_type', 'sortable': True}
+                ],
+                'serial': [
+                    {'label': 'Title', 'field': 'title', 'sortable': True},
+                    {'label': 'Publisher', 'field': 'publisher', 'sortable': True},
+                    {'label': 'Year', 'field': 'year', 'sortable': True},
+                    {'label': 'ISSN', 'field': 'issn', 'sortable': True},
+                    {'label': 'Series', 'field': 'series', 'sortable': True},
+                    {'label': 'Type', 'field': 'resource_type', 'sortable': True}
+                ],
+                'multimedia': [
+                    {'label': 'Title', 'field': 'title', 'sortable': True},
+                    {'label': 'Author', 'field': 'authors', 'sortable': True},
+                    {'label': 'Year', 'field': 'year', 'sortable': True},
+                    {'label': 'Extent', 'field': 'extent', 'sortable': True},
+                    {'label': 'Medium', 'field': 'medium', 'sortable': True},
+                    {'label': 'Type', 'field': 'resource_type', 'sortable': True}
+                ],
+                'default': [
+                    {'label': 'Title', 'field': 'title', 'sortable': True},
+                    {'label': 'Author', 'field': 'authors', 'sortable': True},
+                    {'label': 'Publisher', 'field': 'publisher', 'sortable': True},
+                    {'label': 'Year', 'field': 'year', 'sortable': True},
+                    {'label': 'Type', 'field': 'resource_type', 'sortable': True},
+                    {'label': 'Source', 'field': 'source_name', 'sortable': True}
+                ]
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Collections error: {e}")
         return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])

@@ -313,14 +313,15 @@ class ResourceService:
             'title': metadata['title'],
             'authors': metadata.get('authors', ''),
             'description': metadata.get('abstract') or metadata.get('description', ''),
-            'year': metadata.get('date_year', ''),
+            'year': metadata.get('year') or metadata.get('date_year', ''),
             'subject': metadata.get('subject_keywords', ''),
             'publisher': metadata.get('publisher', ''),
             'series': metadata.get('series', ''),
             'language': metadata.get('language', 'en'),
             'resource_type': metadata.get('resource_type', 'Text'),
             'dspace_url': dspace_url,
-            'issn': metadata.get('issn', ''),
+            'issn': metadata.get('isbn_issn') or metadata.get('issn', ''),
+            'call_number': metadata.get('call_number', ''),
             'citation': metadata.get('citation', ''),
             'sponsors': metadata.get('sponsors', '')
         }

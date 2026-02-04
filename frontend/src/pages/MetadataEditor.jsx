@@ -23,6 +23,7 @@ import {
     Pencil,
     X,
 } from "lucide-react";
+import { toast } from "react-toastify";
 import dspaceService from "../services/dspaceService";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -162,12 +163,13 @@ const MetadataEditor = () => {
                 const blob = await response.blob();
                 const newFile = new File([blob], selectedFile.name, { type: 'application/pdf' });
                 updateFileInList(selectedFile.id, newFile);
+                toast.success('Rotated successfully');
             } else {
-                alert('Rotate failed');
+                toast.error('Rotate failed');
             }
         } catch (error) {
             console.error(error);
-            alert('Rotate error');
+            toast.error('Rotate error');
         }
     };
 
@@ -256,15 +258,14 @@ const MetadataEditor = () => {
 
                 setFiles(prev => [...prev, ...newFiles]);
                 setIsSplitModalOpen(false);
-                alert('Split successful! Files added to list.');
-
+                toast.success('Split successful! Files added to list.');
             } else {
                 const err = await response.json();
-                alert('Split failed: ' + (err.error || 'Unknown error'));
+                toast.error('Split failed: ' + (err.error || 'Unknown error'));
             }
         } catch (error) {
             console.error(error);
-            alert('Split error');
+            toast.error('Split error');
         }
     };
 
@@ -298,12 +299,13 @@ const MetadataEditor = () => {
                 const newFile = new File([blob], finalName, { type: 'application/pdf' });
                 updateFileInList(selectedFile.id, newFile, finalName);
                 setIsRenameModalOpen(false);
+                toast.success('Renamed successfully');
             } else {
-                alert('Rename failed');
+                toast.error('Rename failed');
             }
         } catch (error) {
             console.error(error);
-            alert('Rename error');
+            toast.error('Rename error');
         }
     };
 
@@ -335,7 +337,7 @@ const MetadataEditor = () => {
 
     const handleMergeSubmit = async () => {
         if (filesToMerge.length < 2) {
-            alert("Please select at least 2 files to merge.");
+            toast.warn("Please select at least 2 files to merge.");
             return;
         }
 
@@ -384,7 +386,7 @@ const MetadataEditor = () => {
 
                 setFiles(prev => [...prev, newFileItem]);
                 setIsMergeModalOpen(false);
-                alert('Merged file added to list');
+                toast.success('Merged file added to list');
 
                 // Automatically select the new merged file
                 // We need to wait for state update or pass the full object?
@@ -404,11 +406,11 @@ const MetadataEditor = () => {
                     handleFileSelect(newFileItem.id, newFileItem);
                 }, 100);
             } else {
-                alert('Merge failed');
+                toast.error('Merge failed');
             }
         } catch (error) {
             console.error(error);
-            alert('Merge error');
+            toast.error('Merge error');
         }
     };
 
@@ -466,7 +468,7 @@ const MetadataEditor = () => {
 
     const handleFinalUpload = async () => {
         if (uploading || files.length === 0) {
-            alert("Please select files to upload.");
+            toast.warn("Please select files to upload.");
             return;
         }
 
@@ -477,7 +479,7 @@ const MetadataEditor = () => {
             !confirmLicense ||
             !collectionId
         ) {
-            alert(
+            toast.warn(
                 "Please fill all mandatory fields: Title, Date of Issue, Type, Collection, and confirm the license."
             );
             return;
@@ -504,8 +506,6 @@ const MetadataEditor = () => {
                 otherTitles: otherTitles.filter(t => t.trim()),
                 description: description,
                 subjectKeywords: subjectKeywords.filter(k => k.trim()),
-                type: type,
-                language: language,
                 type: type,
                 language: language,
                 reportNumber: reportNumber,
@@ -546,7 +546,7 @@ const MetadataEditor = () => {
             // 5. Submit to workflow
             await dspaceService.submitWorkspaceItem(workspaceItem);
 
-            alert("Upload successful! Item submitted to workflow.");
+            toast.success("Upload successful! Item submitted to workflow.");
 
             // Reset form
             setFiles([]);
@@ -566,7 +566,7 @@ const MetadataEditor = () => {
             setConfirmLicense(false);
         } catch (e) {
             console.error("Critical upload error:", e);
-            alert("Upload failed: " + (e?.message || e));
+            toast.error("Upload failed: " + (e?.message || e));
         } finally {
             setUploading(false);
         }
@@ -635,7 +635,7 @@ const MetadataEditor = () => {
                                 onClick={() => setShowFileDropdown(!showFileDropdown)}
                                 className="flex items-center px-4 py-2 border border-blue-900/10 rounded-sm bg-blue-50/50 hover:bg-blue-50 transition-all text-xs font-bold cursor-pointer text-blue-900"
                             >
-                            
+
                                 <span>
                                     {selectedFile ? selectedFile.name : "VIEW FILES"}
                                 </span>

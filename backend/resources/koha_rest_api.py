@@ -69,22 +69,57 @@ class KohaRestAPI:
     
     def create_biblio(self, metadata):
         """Create new bibliographic record"""
-        if not self.token and not self.authenticate():
-            return None
+        print(f"🚀 Koha: Attempting to create biblio for: {metadata.get('title')}")
+        
+        if not self.token:
+            print("🔑 Koha: Token missing, authenticating...")
+            if not self.authenticate():
+                print("❌ Koha: Authentication failed")
+                return None
         
         try:
             # Convert metadata to MARC format
             marc_record = self._convert_to_marc(metadata)
             
-            response = requests.post(f"{self.base_url}/biblios", 
-                                   headers=self._get_headers("application/marc-in-json"),
-                                   json=marc_record)
+            headers = self._get_headers("application/marc-in-json")
+            print(f"📤 Koha: Sending POST to {self.base_url}/biblios")
+            # print(f"DEBUG Headers: {headers}")
             
-            if response.status_code == 200:
-                return response.json()
-            return None
+            response = requests.post(f"{self.base_url}/biblios", 
+                                   headers=headers,
+                                   json=marc_record,
+                                   timeout=10)
+            
+            print(f"📥 Koha: Status {response.status_code}")
+            
+            if response.status_code in (200, 201):
+                try:
+                    res_json = response.json()
+                    if not res_json and response.status_code == 201:
+                        # Sometimes 201 has no body, but we need biblionumber
+                        location = response.headers.get('Location', '')
+                        if location:
+                            bib_id = location.split('/')[-1]
+                            return {"id": int(bib_id)}
+                    return res_json
+                except Exception as je:
+                    print(f"⚠️ Koha: JSON parse error: {je}")
+                    # Try to extract ID from Location header
+                    location = response.headers.get('Location', '')
+                    if location:
+                        bib_id = location.split('/')[-1]
+                        return {"id": int(bib_id)}
+                    return None
+            else:
+                print(f"❌ Koha: create_biblio failed: {response.status_code} - {response.text}")
+                # Log a bit of the payload for debugging (truncated if too long)
+                payload_str = json.dumps(marc_record)
+                print(f"🔍 Koha: Payload: {payload_str[:500]}...")
+                return None
         except Exception as e:
-            print(f"Create biblio error: {e}")
+            print(f"❌ Koha: Create biblio exception: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def add_item(self, biblio_id, item_data):
@@ -99,20 +134,31 @@ class KohaRestAPI:
             
             if response.status_code == 201:
                 return response.json()
-            return None
+            else:
+                print(f"❌ Koha add_item failed: {response.status_code} - {response.text}")
+                return None
         except:
             return None
     
     def _convert_to_marc(self, metadata):
         """Convert metadata to MARC format with all fields"""
+        # Modern Koha REST API expects "leader" and "fields"
+        leader = "00000nam a2200000 i 4500"
         fields = []
+        
+        # Add 008 control field (standard for books/documents)
+        # Position 00-05: Date entered on file (YYMMDD)
+        # Position 07-10: Date 1 (Year)
+        year_str = str(metadata.get('year', '2024'))[:4].zfill(4)
+        c008 = f"240101s{year_str}    xx ||||| |||| 000 0 eng d"
+        fields.append({"008": c008})
         
         # Title (245)
         if metadata.get('title'):
             fields.append({
                 "245": {
                     "subfields": [{"a": metadata['title']}],
-                    "ind1": "0", "ind2": "0"
+                    "ind1": "1", "ind2": "0"
                 }
             })
         
@@ -213,6 +259,15 @@ class KohaRestAPI:
                 }
             })
         
+        # Call number (050)
+        if metadata.get('call_number'):
+            fields.append({
+                "050": {
+                    "subfields": [{"a": metadata['call_number']}],
+                    "ind1": " ", "ind2": "4"
+                }
+            })
+        
         # Notes (500)
         notes = 'Imported from DSpace'
         if metadata.get('dspace_url'):
@@ -225,4 +280,4 @@ class KohaRestAPI:
             }
         })
         
-        return {"fields": fields}
+        return {"leader": leader, "fields": fields}

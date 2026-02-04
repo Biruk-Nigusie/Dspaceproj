@@ -1333,7 +1333,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>identifier</dc-element>
-            <dc-qualifier>refcode</dc-qualifier>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Reference Code</label>
             <input-type>onebox</input-type>
@@ -1343,9 +1343,9 @@
     </row>
         <row>
         <field>
-            <dc-schema>local</dc-schema>
+            <dc-schema>dc</dc-schema>
             <dc-element>identifier</dc-element>
-            <dc-qualifier>cid</dc-qualifier>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>false</repeatable>
             <label>CID</label>
             <input-type>onebox</input-type>
@@ -1383,7 +1383,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>type</dc-element>
-            <dc-qualifier>archival</dc-qualifier>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Archive Type</label>
             <input-type value-pairs-name="archive_types">dropdown</input-type>
@@ -1422,8 +1422,8 @@
     <row>
         <field>
             <dc-schema>dc</dc-schema>
-            <dc-element>date</dc-element>
-            <dc-qualifier>calendartype</dc-qualifier>
+            <dc-element>description</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Calendar Type</label>
 <input-type value-pairs-name="calendar_types">dropdown</input-type>            <hint>Select the calendar system used</hint>
@@ -1433,9 +1433,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>arrangement</dc-element>
-            <dc-qualifier>level</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>description</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Level of Arrangement</label>
 <input-type value-pairs-name="arrangement_levels">dropdown</input-type>            <hint>Select the archival level</hint>
@@ -1445,9 +1445,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>archival</dc-element>
-            <dc-qualifier>quantity</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>format</dc-element>
+            <dc-qualifier>extent</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Archival Quantity</label>
             <input-type>onebox</input-type>
@@ -1458,8 +1458,8 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>archival</dc-element>
+            <dc-schema>dc</dc-schema>
+            <dc-element>format</dc-element>
             <dc-qualifier>medium</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Archival Medium</label>
@@ -1486,7 +1486,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>date</dc-element>
-            <dc-qualifier>accessioned</dc-qualifier>
+            <dc-qualifier>available</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Archive Accession Date</label>
             <input-type>date</input-type>
@@ -1565,9 +1565,9 @@
 </row>
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>accession</dc-element>
-            <dc-qualifier>means</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>description</dc-element>
+            <dc-qualifier>provenance</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Archival Accession Means</label>
 <input-type value-pairs-name="accession_means">dropdown</input-type>            <hint>How the archive was acquired</hint>
@@ -1615,9 +1615,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>archival</dc-element>
-            <dc-qualifier>security</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>rights</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Archival Security Category</label>
 <input-type value-pairs-name="security_categories">dropdown</input-type>            <hint>Security classification of the archive</hint>
@@ -1627,9 +1627,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>archival</dc-element>
-            <dc-qualifier>processing</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>description</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Processing Status</label>
 <input-type value-pairs-name="processing_statuses">dropdown</input-type>            <hint>Current processing state of the archive</hint>
@@ -1640,9 +1640,9 @@
     <!-- Physical Description -->
     <row>
         <field>
-            <dc-schema>local</dc-schema>
+            <dc-schema>dc</dc-schema>
             <dc-element>format</dc-element>
-            <dc-qualifier>physical</dc-qualifier>
+            <dc-qualifier>extent</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Physical Description</label>
             <input-type>textarea</input-type>
@@ -1798,7 +1798,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>format</dc-element>
-            <dc-qualifier>medium</dc-qualifier>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>File Format*</label>
             <input-type value-pairs-name="multimedia_formats">dropdown</input-type>
@@ -1824,8 +1824,9 @@
     <!-- Resolution (for video/images) -->
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>resolution</dc-element>
+            <dc-schema>dc</dc-schema>
+            <dc-element>format</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Resolution</label>
             <input-type>onebox</input-type>
@@ -1851,18 +1852,7 @@
     <!-- ========== PAGE 3: CONTEXT & RIGHTS ========== -->
     
     <!-- Language -->
-    <row>
-        <field>
-            <dc-schema>dc</dc-schema>
-            <dc-element>language</dc-element>
-            <dc-qualifier>iso</dc-qualifier>
-            <repeatable>false</repeatable>
-            <label>Primary Language</label>
-            <input-type value-pairs-name="common_iso_languages">dropdown</input-type>
-            <hint>Select the primary language of the content</hint>
-            <required></required>
-        </field>
-    </row>
+
     
     <!-- Publisher/Producer -->
     <row>
@@ -1963,9 +1953,9 @@
 <!-- Basic Identification -->
 <row>
     <field>
-        <dc-schema>local</dc-schema>
+        <dc-schema>dc</dc-schema>
         <dc-element>identifier</dc-element>
-        <dc-qualifier>cid</dc-qualifier>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>false</repeatable>
         <label>CID*</label>
         <input-type>onebox</input-type>
@@ -1992,7 +1982,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>contributor</dc-element>
-        <dc-qualifier>composer</dc-qualifier>
+        <dc-qualifier>author</dc-qualifier>
         <repeatable>true</repeatable>
         <label>Composer(s)</label>
         <input-type>onebox</input-type>
@@ -2005,7 +1995,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>contributor</dc-element>
-        <dc-qualifier>singer</dc-qualifier>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>true</repeatable>
         <label>Singer(s)/Performer(s)</label>
         <input-type>onebox</input-type>
@@ -2017,8 +2007,8 @@
 <row>
     <field>
         <dc-schema>dc</dc-schema>
-        <dc-element>type</dc-element>
-        <dc-qualifier>musictype</dc-qualifier>
+        <dc-element>subject</dc-element>
+        <dc-qualifier></dc-qualifier>
         <repeatable>false</repeatable>
         <label>Music Type/Genre</label>
         <input-type>onebox</input-type>
@@ -2031,7 +2021,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>relation</dc-element>
-        <dc-qualifier>ispartof</dc-qualifier>
+        <dc-qualifier>ispartofseries</dc-qualifier>
         <repeatable>false</repeatable>
         <label>Music Album</label>
         <input-type>onebox</input-type>
@@ -2071,8 +2061,8 @@
 <row>
     <field>
         <dc-schema>dc</dc-schema>
-        <dc-element>subject</dc-element>
-        <dc-qualifier>classification</dc-qualifier>
+        <dc-element>identifier</dc-element>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>false</repeatable>
         <label>Classification Number</label>
         <input-type>onebox</input-type>
@@ -2086,7 +2076,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>subject</dc-element>
-        <dc-qualifier>instrument</dc-qualifier>
+        <dc-qualifier></dc-qualifier>
         <repeatable>true</repeatable>
         <label>Instruments Used</label>
         <input-type>onebox</input-type>
@@ -2142,7 +2132,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>contributor</dc-element>
-        <dc-qualifier>poemauthor</dc-qualifier>
+        <dc-qualifier>author</dc-qualifier>
         <repeatable>true</repeatable>
         <label>Poem Author(s)/Lyricist(s)</label>
         <input-type>onebox</input-type>
@@ -2156,7 +2146,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>contributor</dc-element>
-        <dc-qualifier>melodyauthor</dc-qualifier>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>true</repeatable>
         <label>Melody Author(s)</label>
         <input-type>onebox</input-type>
@@ -2170,7 +2160,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>contributor</dc-element>
-        <dc-qualifier>instrumentplayer</dc-qualifier>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>true</repeatable>
         <label>Instrument Player(s)</label>
         <input-type>onebox</input-type>
@@ -2196,9 +2186,9 @@
 <!-- Track/Item Number -->
 <row>
     <field>
-        <dc-schema>local</dc-schema>
+        <dc-schema>dc</dc-schema>
         <dc-element>identifier</dc-element>
-        <dc-qualifier>tracknumber</dc-qualifier>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>false</repeatable>
         <label>Track/Item Number</label>
         <input-type>onebox</input-type>
@@ -2207,8 +2197,7 @@
     </field>
 </row>
 
-<!-- Also, update your Language field to allow multiple selections -->
-<!-- Find this existing row: -->
+
 <row>
     <field>
         <dc-schema>dc</dc-schema>
@@ -2266,7 +2255,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>identifier</dc-element>
-            <dc-qualifier>class</dc-qualifier>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Classification</label>
             <input-type>onebox</input-type>
@@ -2277,8 +2266,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>office</dc-element>
+            <dc-schema>dc</dc-schema>
+            <dc-element>contributor</dc-element>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>true</repeatable>
             <label>Offices</label>
             <input-type>onebox</input-type>
@@ -2291,7 +2281,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>type</dc-element>
-            <dc-qualifier>newspaper</dc-qualifier>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Item Type - News Papers</label>
             <input-type value-pairs-name="newspaper_types">dropdown</input-type>
@@ -2304,7 +2294,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>identifier</dc-element>
-            <dc-qualifier>cid</dc-qualifier>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>false</repeatable>
             <label>CID</label>
             <input-type>onebox</input-type>
@@ -2317,7 +2307,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>identifier</dc-element>
-            <dc-qualifier>accession</dc-qualifier>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>true</repeatable>
             <label>Accession Number / Barcode</label>
             <input-type>onebox</input-type>
@@ -2381,8 +2371,8 @@
     <row>
         <field>
             <dc-schema>dc</dc-schema>
-            <dc-element>description</dc-element>
-            <dc-qualifier>physical</dc-qualifier>
+            <dc-element>format</dc-element>
+            <dc-qualifier>extent</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Physical Description</label>
             <input-type>textarea</input-type>
@@ -2395,7 +2385,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>description</dc-element>
-            <dc-qualifier>note</dc-qualifier>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Notes</label>
             <input-type>onebox</input-type>
@@ -2406,9 +2396,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>acquisition</dc-element>
-            <dc-qualifier>type</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>description</dc-element>
+            <dc-qualifier>provenance</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Type of Acquiring</label>
             <input-type value-pairs-name="acquisition_types">dropdown</input-type>
@@ -2435,7 +2425,7 @@
     <field>
         <dc-schema>dc</dc-schema>
         <dc-element>identifier</dc-element>
-        <dc-qualifier>accession</dc-qualifier>
+        <dc-qualifier>other</dc-qualifier>
         <repeatable>false</repeatable>
         <label>Accession Number/ Barcode</label>
         <input-type>onebox</input-type>
@@ -2484,8 +2474,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>office</dc-element>
+            <dc-schema>dc</dc-schema>
+            <dc-element>contributor</dc-element>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>true</repeatable>
             <label>Offices</label>
             <input-type>onebox</input-type>
@@ -2509,9 +2500,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>attachment</dc-element>
-            <dc-qualifier>document</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>description</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>true</repeatable>
             <label>Attached Documents</label>
             <input-type>onebox</input-type>
@@ -2524,7 +2515,7 @@
         <field>
             <dc-schema>dc</dc-schema>
             <dc-element>identifier</dc-element>
-            <dc-qualifier>cid</dc-qualifier>
+            <dc-qualifier>other</dc-qualifier>
             <repeatable>false</repeatable>
             <label>CID</label>
             <input-type>onebox</input-type>
@@ -2562,8 +2553,8 @@
     <row>
         <field>
             <dc-schema>dc</dc-schema>
-            <dc-element>description</dc-element>
-            <dc-qualifier>physical</dc-qualifier>
+            <dc-element>format</dc-element>
+            <dc-qualifier>extent</dc-qualifier>
             <repeatable>false</repeatable>
             <label>Physical Description</label>
             <input-type>onebox</input-type>
@@ -2574,9 +2565,9 @@
     
     <row>
         <field>
-            <dc-schema>local</dc-schema>
-            <dc-element>cover</dc-element>
-            <dc-qualifier>image</dc-qualifier>
+            <dc-schema>dc</dc-schema>
+            <dc-element>relation</dc-element>
+            <dc-qualifier></dc-qualifier>
             <repeatable>false</repeatable>
             <label>Cover Image</label>
             <input-type>onebox</input-type>
@@ -2608,13 +2599,17 @@
 
     <name-map form-name="archiveForm" submission-name="archiveForm" />
     
-    <name-map form-name="multimediaSubmission" submission-name="multimediaSubmission" />
-   
-    <name-map form-name="serialStep" 
-    submission-name="serialForm"/>
+<name-map form-name="multimediaSubmission" submission-name="multimediaSubmission"/>   
+    <name-map form-name="serialStep" submission-name="serialStep"/>
 
-    <name-map form-name="printedStep" 
-submission-name="printedForm"/>
+    <name-map form-name="printedStep" submission-name="printedStep"/>
+    <name-map form-name="publicationStep" submission-name="Publication"/>
+<name-map form-name="personStep" submission-name="Person"/>
+<name-map form-name="projectStep" submission-name="Project"/>
+<name-map form-name="orgUnitStep" submission-name="OrgUnit"/>
+<name-map form-name="journalStep" submission-name="Journal"/>
+<name-map form-name="journalVolumeStep" submission-name="JournalVolume"/>
+<name-map form-name="journalIssueStep" submission-name="JournalIssue"/>
 </form-map>
 
 <form-value-pairs>

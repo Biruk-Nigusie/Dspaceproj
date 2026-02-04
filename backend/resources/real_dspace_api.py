@@ -260,6 +260,52 @@ class RealDSpaceAPI:
             import traceback
             traceback.print_exc()
             return False
+
+    def update_item_metadata(self, item_uuid, metadata_patches):
+        """
+        Update metadata for an archived item using JSON PATCH.
+        metadata_patches: list of patch operations, e.g. 
+        [{"op": "add", "path": "/metadata/local.koha.id/0", "value": {"value": "123"}}]
+        """
+        try:
+            if not self.client.logged_in:
+                if not self.authenticate():
+                    return False
+
+            url = f"{self.base_url}/core/items/{item_uuid}"
+            headers = self.client._get_csrf_headers({
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            })
+            
+            # DSpace 7 expects a very specific format for metadata updates via PATCH.
+            # Often it's easier to use the /metadata endpoint with POST (replace metadata)
+            # or DELETE then POST. But let's try PATCH first.
+            
+            response = self.client.session.patch(url, headers=headers, json=metadata_patches)
+            
+            if response.status_code in (200, 204):
+                print(f"✅ Metadata updated for item {item_uuid}")
+                return True
+            else:
+                print(f"❌ Failed to update item metadata: {response.status_code} - {response.text}")
+                # Fallback: Try POST to /metadata endpoint if PATCH is not supported/configured
+                return self._update_item_metadata_post(item_uuid, metadata_patches)
+        except Exception as e:
+            print(f"DSpace item metadata update error: {e}")
+            return False
+
+    def _update_item_metadata_post(self, item_uuid, metadata_patches):
+        """Fallback: Update metadata using POST to /metadata endpoint"""
+        try:
+            # Convert patches to metadata format
+            # This is complex because we need the full metadata state to replace it,
+            # or use the selective field endpoints if available.
+            # For now, let's just log and return false as PATCH is the standard.
+            print(f"⚠️ Falling back to POST metadata update is not fully implemented for {item_uuid}")
+            return False
+        except Exception:
+            return False
     
     def submit_workspace_item(self, workspace_id):
         """Submit workspace item using real client"""

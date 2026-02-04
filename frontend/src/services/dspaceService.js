@@ -511,9 +511,12 @@ class DSpaceService {
         }
     }
 
-    async searchItems(query, limit = 100) {
+    async searchItems(query, limit = 100, scope = null) {
         try {
             const params = new URLSearchParams({ query: query || "*", page: "0", size: String(limit) });
+            if (scope) {
+                params.append("scope", scope);
+            }
             const headers = this.getCsrfHeaders({ Accept: "application/json" });
             const response = await fetch(`${DSPACE_API_URL}/discover/search/objects?${params}`, {
                 credentials: "include",
