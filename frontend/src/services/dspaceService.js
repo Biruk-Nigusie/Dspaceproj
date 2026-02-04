@@ -1,4 +1,3 @@
-// Use proxy to avoid CORS issues - proxy forwards /api/dspace to http://localhost:8080/server/api
 const DSPACE_API_URL = "/api/dspace";
 
 class DSpaceService {
@@ -401,34 +400,10 @@ class DSpaceService {
 		}
 	}
 
-	async updateMetadata(workspaceItemId, metadata) {
+	async updateMetadata(workspaceItemId, metadataFields) {
 		const metadataUpdates = [];
-		const author = metadata.author || [];
-		const subjectKeywords = metadata.subjectKeywords || [];
-		const otherTitles = metadata.otherTitles || [];
-		const dateIssued = metadata.dateIssued || metadata.publicationDate || "";
 
-		let seriesFormatted = metadata.series || [];
-		const reportNum = (metadata.reportNumber || "").trim();
-		if (reportNum) {
-			if (seriesFormatted.length > 0) {
-				seriesFormatted = seriesFormatted.map((s) => `${s}; ${reportNum}`);
-			} else {
-				seriesFormatted = [`; ${reportNum}`];
-			}
-		}
-
-		const dcFields = {
-			"dc.title": metadata.title,
-			"dc.contributor.author": author,
-			"dc.description.abstract": metadata.abstract,
-			"dc.description": metadata.description,
-			"dc.identifier.citation": metadata.citation,
-			"dc.date.issued": dateIssued,
-			"dc.type": metadata.type,
-		};
-
-		for (const [field, raw] of Object.entries(dcFields)) {
+		for (const [field, raw] of Object.entries(metadataFields)) {
 			if (!raw) continue;
 			const vals = Array.isArray(raw) ? raw : [raw];
 			const cleaned = vals.map((v) => String(v).trim()).filter(Boolean);
@@ -439,41 +414,6 @@ class DSpaceService {
 					path: `/sections/traditionalpageone/${field}`,
 					value: cleaned.map((v) => ({ value: v })),
 				});
-			}
-		}
-
-		// Handle dynamic identifiers
-		if (metadata.identifiers && Array.isArray(metadata.identifiers)) {
-			const idMap = {
-				ISSN: "dc.identifier.issn",
-				ISBN: "dc.identifier.isbn",
-				ISMN: "dc.identifier.ismn",
-				URI: "dc.identifier.uri",
-				"Gov't Doc #": "dc.identifier.govdoc",
-				Other: "dc.identifier.other",
-			};
-
-			for (const idObj of metadata.identifiers) {
-				const val = (idObj.value || "").trim();
-				// Skip empty values strictly
-				if (!val) continue;
-
-				const field = idMap[idObj.type] || "dc.identifier.other";
-
-				// CRITICAL: Check if this field/value combo was already added via fixed fields
-				// This prevents "Report No." (mapped to govdoc) from being added AGAIN if the user also put it in the dynamic list
-				// OR if the dynamic list tries to add to "other" and "Accession No" (mapped to other) already added it.
-				const alreadyExists = metadataUpdates.some(
-					(u) => u.path.endsWith(field) && u.value.some((v) => v.value === val),
-				);
-
-				if (!alreadyExists) {
-					metadataUpdates.push({
-						op: "add",
-						path: `/sections/traditionalpageone/${field}`,
-						value: [{ value: val }],
-					});
-				}
 			}
 		}
 
@@ -492,10 +432,8 @@ class DSpaceService {
 			}
 
 			const FIELD_SECTION_MAP = {
-				"dc.subject": "traditionalpagetwo",
-				"dc.description.abstract": "traditionalpagetwo",
-				"dc.description": "traditionalpagetwo",
-				"dc.description.sponsorship": "traditionalpagetwo",
+				"crvs.family.count": "traditionalpagetwo",
+				"crvs.description.summary": "traditionalpagetwo",
 			};
 
 			const batch = metadataUpdates.map((p) => {
@@ -547,7 +485,7 @@ class DSpaceService {
 			);
 
 			return response.ok;
-		} catch (error) {
+		} catch {
 			return false;
 		}
 	}
@@ -608,6 +546,10 @@ class DSpaceService {
 				headers: headers,
 				body: workspaceUri,
 			});
+			console.log(
+				"🚀 ~ DSpaceService ~ submitWorkspaceItem ~ response:",
+				response,
+			);
 
 			if (response.ok || response.status === 201 || response.status === 202) {
 				return await response.json().catch(() => ({ id: workspaceItemId }));

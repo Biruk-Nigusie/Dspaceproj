@@ -31,8 +31,7 @@ const MetadataTreeFilter = ({
 
 			// Registration Date
 			if (resource.year) {
-				options.year[resource.year] =
-					(options.year[resource.year] || 0) + 1;
+				options.year[resource.year] = (options.year[resource.year] || 0) + 1;
 			}
 
 			if (resource.community) {
@@ -53,7 +52,9 @@ const MetadataTreeFilter = ({
 				.sort((a, b) => b[0] - a[0])
 				.reverse(), // Newest first
 			community: Object.entries(options.community).sort((a, b) => b[1] - a[1]),
-			collection: Object.entries(options.collection).sort((a, b) => b[1] - a[1]),
+			collection: Object.entries(options.collection).sort(
+				(a, b) => b[1] - a[1],
+			),
 		};
 
 		return sortedOptions;
@@ -107,7 +108,11 @@ const MetadataTreeFilter = ({
 				<button
 					type="button"
 					onClick={() => toggleNode(category)}
-					className={`flex items-center w-full p-2 rounded-md hover:bg-gray-100 transition-colors cursor-pointer ${hasActiveFilter ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"}`}
+					className={`flex items-center w-full p-2 rounded-md hover:bg-gray-100 transition-colors cursor-pointer ${
+						hasActiveFilter
+							? "bg-blue-50 text-blue-700 font-medium"
+							: "text-gray-700"
+					}`}
 				>
 					{isExpanded ? (
 						<ChevronDown className="w-4 h-4 mr-1" />
@@ -130,7 +135,11 @@ const MetadataTreeFilter = ({
 								<div key={itemLabel} className="flex items-center group">
 									<label className="flex items-center w-full cursor-pointer py-1 pr-2 rounded hover:bg-gray-50">
 										<div
-											className={`w-4 h-4 mr-2 border rounded flex items-center justify-center transition-colors ${isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 group-hover:border-blue-400"}`}
+											className={`w-4 h-4 mr-2 border rounded flex items-center justify-center transition-colors ${
+												isSelected
+													? "bg-blue-600 border-blue-600"
+													: "border-gray-300 group-hover:border-blue-400"
+											}`}
 										>
 											{isSelected && (
 												<svg
@@ -156,7 +165,11 @@ const MetadataTreeFilter = ({
 											onChange={() => toggleFilter(category, itemLabel)}
 										/>
 										<span
-											className={`text-sm truncate mr-2 ${isSelected ? "text-blue-900 font-medium" : "text-gray-600"}`}
+											className={`text-sm truncate mr-2 ${
+												isSelected
+													? "text-blue-900 font-medium"
+													: "text-gray-600"
+											}`}
 										>
 											{itemLabel}
 										</span>
@@ -212,7 +225,11 @@ const MetadataTreeFilter = ({
 					category="collection"
 					items={filterOptions.collection}
 				/>
-				<TreeNode label="Registration Date" category="year" items={filterOptions.year} />
+				<TreeNode
+					label="Registration Date"
+					category="year"
+					items={filterOptions.year}
+				/>
 			</div>
 		</div>
 	);

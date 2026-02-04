@@ -11,7 +11,8 @@ import {
 	FileText,
 	Image,
 	Merge,
-	Pencil, PlusCircleIcon,
+	Pencil,
+	PlusCircleIcon,
 	ChevronRight as RightIcon,
 	RotateCw,
 	Scissors,
@@ -19,7 +20,7 @@ import {
 	Upload,
 	X,
 	ZoomIn,
-	ZoomOut
+	ZoomOut,
 } from "lucide-react";
 import { useRef } from "react";
 import dspaceService from "../services/dspaceService";
@@ -38,28 +39,33 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
 
 	return (
 		<div>
-			<label className="block text-sm font-medium text-gray-700 mb-1">
+			<label
+				htmlFor={`repeatable-field-container-${label}`}
+				className="block text-sm font-medium text-gray-700 mb-1"
+			>
 				{label}
 			</label>
-			{values.map((value, index) => (
-				<div key={index} className="flex items-center mb-2">
-					<input
-						type="text"
-						value={value}
-						onChange={(e) => updateField(index, e.target.value)}
-						placeholder={placeholder}
-						autoComplete="off"
-						className="grow p-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
-					/>
-					<button
-						type="button"
-						onClick={() => removeField(index)}
-						className="ml-2 text-red-600 hover:text-red-800 cursor-pointer"
-					>
-						<Trash2 size={18} />
-					</button>
-				</div>
-			))}
+			<div id={`repeatable-field-container-${label}`}>
+				{values.map((value, index) => (
+					<div key={index} className="flex items-center mb-2">
+						<input
+							type="text"
+							value={value}
+							onChange={(e) => updateField(index, e.target.value)}
+							placeholder={placeholder}
+							autoComplete="off"
+							className="grow p-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
+						/>
+						<button
+							type="button"
+							onClick={() => removeField(index)}
+							className="ml-2 text-red-600 hover:text-red-800 cursor-pointer"
+						>
+							<Trash2 size={18} />
+						</button>
+					</div>
+				))}
+			</div>
 			<button
 				type="button"
 				onClick={addField}
@@ -73,11 +79,12 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
 };
 
 const MetadataEditor = () => {
+	// File
 	const [files, setFiles] = useState([]);
 	const [selectedFileId, setSelectedFileId] = useState(null);
 	const selectedFile = files.find((f) => f.id === selectedFileId);
 
-	// Form state
+	// Collections
 	const [collections, setCollections] = useState([]);
 	const [collectionId, setCollectionId] = useState("");
 	const [collectionPage, setCollectionPage] = useState(0);
@@ -85,12 +92,18 @@ const MetadataEditor = () => {
 	const [loadingCollections, setLoadingCollections] = useState(false);
 	const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
 
-	const [authors, setAuthors] = useState([""]); // Family head
-	const [title, setTitle] = useState(""); // House identifier (House Number + Family Head Name)
-	const [dateOfIssue, setDateOfIssue] = useState(""); // Registration date
-	const [familyHeadNationalID, setFamilyHeadNationalID] = useState("");
-	const [abstractText, setAbstractText] = useState(""); // Family count
-	const [description, setDescription] = useState(""); // Family summary
+	// Metadata
+	const [houseNumber, setHouseNumber] = useState("");
+	const [husbandName, setHusbandName] = useState("");
+	const [wifeName, setWifeName] = useState("");
+	const [additionalFamilyHeads, setAdditionalFamilyHeads] = useState([""]);
+	const [nationalID, setNationalID] = useState("");
+	const [dateOfRegistration, setDateOfRegistration] = useState("");
+	const [identifiers, setIdentifiers] = useState([
+		{ type: "Other", value: "" },
+	]);
+	const [familyCount, setFamilyCount] = useState(0);
+	const [familySummary, setFamilySummary] = useState("");
 
 	// PDF viewer states
 	const [primaryFileId, setPrimaryFileId] = useState(null);
@@ -506,15 +519,15 @@ const MetadataEditor = () => {
 		setPdfError(null);
 	};
 
-	const handleFinalUpload = async () => {
+	const handleSubmit = async () => {
 		if (uploading || files.length === 0) {
 			alert("Please select files to upload.");
 			return;
 		}
 
-		if (!title || !dateOfIssue || !collectionId) {
+		if (!houseNumber || !collectionId || !wifeName || !husbandName) {
 			alert(
-				"Please fill all mandatory fields: Title, Date of Issue, and Collection",
+				"Please fill all mandatory fields: House Number, Wife Name, Husband Name, and Collection",
 			);
 			return;
 		}
@@ -532,23 +545,63 @@ const MetadataEditor = () => {
 			// 1. Create workspace item
 			const workspaceItem =
 				await dspaceService.createWorkspaceItem(collectionId);
-			console.log("🚀 ~ handleFinalUpload ~ workspaceItem:", workspaceItem);
 			const workspaceItemId = workspaceItem.id;
 
 			// 2. Update metadata
-			const metadata = {
-				title: title,
-				author: authors.filter(a => a.trim()),
-				description: description,
-				type: "Other",
-				dateIssued: dateOfIssue,
-				abstract: abstractText,
-				identifiers: [{ Other: familyHeadNationalID }],
+			// Process identifiers
+			const identifierMap = {
+				ISBN: "dc.identifier.isbn",
+				ISSN: "dc.identifier.issn",
+				ISMN: "dc.identifier.ismn",
+				URI: "dc.identifier.uri",
+				"Gov't Doc #": "dc.identifier.govdoc",
+				Other: "dc.identifier.other",
 			};
+
+			const processedIdentifiers = {};
+			const otherIdentifiers = [];
+
+			identifiers.forEach((id) => {
+				if (!id.value || !id.value.trim()) return;
+
+				if (id.type === "Other") {
+					otherIdentifiers.push(id.value);
+				} else {
+					const key = identifierMap[id.type];
+					if (key) {
+						processedIdentifiers[key] = id.value;
+					}
+				}
+			});
+
+			if (otherIdentifiers.length > 0) {
+				processedIdentifiers["dc.identifier.other"] = otherIdentifiers;
+			}
+
+			const rawMetadata = {
+				"crvs.identifier.houseFamilyKey": `${houseNumber} - ${husbandName} - ${wifeName}`,
+				"crvs.head.husband": husbandName,
+				"crvs.head.wife": wifeName,
+				"crvs.head.additional": additionalFamilyHeads.filter((a) => a.trim()),
+				"crvs.head.nationalID": nationalID,
+				"crvs.date.registration": dateOfRegistration,
+				"crvs.family.count": familyCount,
+				"crvs.description.summary": familySummary,
+				...processedIdentifiers,
+			};
+
+			// Filter empty fields
+			const metadataFields = Object.fromEntries(
+				Object.entries(rawMetadata).filter(([_, v]) => {
+					if (Array.isArray(v)) return v.length > 0;
+					return v !== null && v !== undefined && v !== "";
+				}),
+			);
+			console.log("🚀 ~ handleSubmit ~ metadataFields:", metadataFields);
 
 			const metaSuccess = await dspaceService.updateMetadata(
 				workspaceItemId,
-				metadata,
+				metadataFields,
 			);
 			if (!metaSuccess) {
 				console.error(
@@ -585,14 +638,19 @@ const MetadataEditor = () => {
 			alert("Upload successful! Item submitted to workflow.");
 
 			// Reset form
+			setCollectionId("");
 			setFiles([]);
 			setPrimaryFileId(null);
 			setSelectedFileId(null);
-			setTitle("");
-			setAuthors([""]);
-			setDescription("");
-			setAbstractText("");
-			setDateOfIssue("");
+			setHouseNumber("");
+			setHusbandName("");
+			setWifeName("");
+			setAdditionalFamilyHeads([""]);
+			setNationalID("");
+			setDateOfRegistration("");
+			setFamilyCount("");
+			setFamilySummary("");
+			setIdentifiers([[{ type: "Other", value: "" }]]);
 		} catch (e) {
 			console.error("Critical upload error:", e);
 			alert(`Upload failed: ${e?.message || e}`);
@@ -621,11 +679,31 @@ const MetadataEditor = () => {
 		setPdfError(null);
 	};
 
-	const onDocumentLoadError = (error) => setPdfError("Failed to load PDF.");
+	const handleIdentifierChange = (index, field, value) => {
+		const newIdentifiers = [...identifiers];
+		newIdentifiers[index][field] = value;
+		setIdentifiers(newIdentifiers);
+	};
+	const addIdentifier = () => {
+		setIdentifiers([...identifiers, { type: "Other", value: "" }]);
+	};
+	const removeIdentifier = (index) =>
+		setIdentifiers(identifiers.filter((_, i) => i !== index));
+
+	const onDocumentLoadError = (_error) => setPdfError("Failed to load PDF.");
 	const changePage = (offset) =>
 		setPageNumber((prev) => Math.min(Math.max(prev + offset, 1), numPages));
 	const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3.0));
 	const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5));
+
+	const identifierOptions = [
+		"Other",
+		"ISSN",
+		"ISMN",
+		"Gov't Doc #",
+		"URI",
+		"ISBN",
+	];
 
 	return (
 		<div className="flex flex-col h-screen bg-gray-50">
@@ -656,8 +734,9 @@ const MetadataEditor = () => {
 									{selectedFile ? selectedFile.name : "Select File"}
 								</span>
 								<ChevronDown
-									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${showFileDropdown ? "rotate-180" : ""
-										}`}
+									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${
+										showFileDropdown ? "rotate-180" : ""
+									}`}
 								/>
 							</button>
 							{showFileDropdown && (
@@ -724,7 +803,7 @@ const MetadataEditor = () => {
 						</div>
 						<button
 							type="button"
-							onClick={handleFinalUpload}
+							onClick={handleSubmit}
 							disabled={uploading || files.length === 0}
 							className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:bg-gray-400"
 						>
@@ -743,7 +822,7 @@ const MetadataEditor = () => {
 							<form
 								onSubmit={(e) => {
 									e.preventDefault();
-									handleFinalUpload();
+									handleSubmit();
 								}}
 								className="space-y-6"
 							>
@@ -770,12 +849,13 @@ const MetadataEditor = () => {
 											>
 												{collectionId
 													? collections.find((c) => c.uuid === collectionId)
-														?.name || "Select a collection"
+															?.name || "Select a collection"
 													: "Select a collection"}
 											</span>
 											<ChevronDown
-												className={`w-4 h-4 text-gray-500 transition-transform ${showCollectionDropdown ? "rotate-180" : ""
-													}`}
+												className={`w-4 h-4 text-gray-500 transition-transform ${
+													showCollectionDropdown ? "rotate-180" : ""
+												}`}
 											/>
 										</button>
 										{showCollectionDropdown && (
@@ -803,10 +883,11 @@ const MetadataEditor = () => {
 																	setCollectionId(c.uuid);
 																	setShowCollectionDropdown(false);
 																}}
-																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${collectionId === c.uuid
-																	? "bg-blue-100 text-blue-900"
-																	: "text-gray-900"
-																	}`}
+																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${
+																	collectionId === c.uuid
+																		? "bg-blue-100 text-blue-900"
+																		: "text-gray-900"
+																}`}
 															>
 																{c.name}
 															</button>
@@ -829,44 +910,78 @@ const MetadataEditor = () => {
 									</div>
 								</div>
 
-								<RepeatableField
-									label="Family Head(s)"
-									values={authors}
-									setValues={setAuthors}
-									placeholder="Enter family head name"
-								/>
-
 								<div>
 									<label
-										htmlFor="familyHeadNationalId"
-										className="block text-sm font-medium text-gray-700 mb-1"
+										htmlFor="houseNumber"
+										className="block text-sm font-medium text-gray-700"
 									>
-										Family Head National ID
+										House Number *
 									</label>
 									<input
-										id="familyHeadNationalId"
+										id="houseNumber"
 										type="text"
-										value={familyHeadNationalID}
-										onChange={(e) => setFamilyHeadNationalID(e.target.value)}
-										autoComplete="off"
-										className="grow p-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+										value={houseNumber}
+										onChange={(e) => setHouseNumber(e.target.value)}
+										required
+										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									/>
 								</div>
 
 								<div>
 									<label
-										htmlFor="title"
+										htmlFor="husbandName"
 										className="block text-sm font-medium text-gray-700"
 									>
-										House Identifier *
+										Husband Name *
 									</label>
 									<input
-										id="title"
+										id="husbandName"
 										type="text"
-										value={title}
-										onChange={(e) => setTitle(e.target.value)}
+										value={husbandName}
+										onChange={(e) => setHusbandName(e.target.value)}
 										required
 										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+									/>
+								</div>
+
+								<div>
+									<label
+										htmlFor="wifeName"
+										className="block text-sm font-medium text-gray-700"
+									>
+										Wife Name *
+									</label>
+									<input
+										id="wifeName"
+										type="text"
+										value={wifeName}
+										onChange={(e) => setWifeName(e.target.value)}
+										required
+										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+									/>
+								</div>
+
+								<RepeatableField
+									label="Additional Family Head(s)"
+									values={additionalFamilyHeads}
+									setValues={setAdditionalFamilyHeads}
+									placeholder="Enter additional family head name"
+								/>
+
+								<div>
+									<label
+										htmlFor="nationalID"
+										className="block text-sm font-medium text-gray-700 mb-1"
+									>
+										Family Head National ID
+									</label>
+									<input
+										id="nationalID"
+										type="text"
+										value={nationalID}
+										onChange={(e) => setNationalID(e.target.value)}
+										autoComplete="off"
+										className="grow p-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
 									/>
 								</div>
 
@@ -875,13 +990,13 @@ const MetadataEditor = () => {
 										htmlFor="registrationDate"
 										className="block text-sm font-medium text-gray-700"
 									>
-										Registration Date *
+										Registration Date
 									</label>
 									<input
 										id="registrationDate"
 										type="date"
-										value={dateOfIssue}
-										onChange={(e) => setDateOfIssue(e.target.value)}
+										value={dateOfRegistration}
+										onChange={(e) => setDateOfRegistration(e.target.value)}
 										required
 										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									/>
@@ -889,104 +1004,177 @@ const MetadataEditor = () => {
 
 								<div>
 									<label
-										htmlFor="abstract"
+										htmlFor="familyCount"
 										className="block text-sm font-medium text-gray-700"
 									>
 										Family Count
 									</label>
 									<input
-										id="abstract"
-										type="text"
-										value={abstractText}
-										onChange={(e) => setAbstractText(e.target.value)}
+										id="familyCount"
+										type="number"
+										value={familyCount}
+										onChange={(e) => setFamilyCount(e.target.value)}
 										autoComplete="off"
 										className="grow p-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
 									/>
 								</div>
+
 								<div>
 									<label
-										htmlFor="description"
+										htmlFor="familySummary"
 										className="block text-sm font-medium text-gray-700"
 									>
 										Family Summary
 									</label>
 									<textarea
-										id="description"
-										value={description}
-										onChange={(e) => setDescription(e.target.value)}
+										id="familySummary"
+										value={familySummary}
+										onChange={(e) => setFamilySummary(e.target.value)}
 										rows="3"
 										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									></textarea>
 								</div>
 
+								<div>
+									<label
+										htmlFor="identifiers"
+										className="block text-sm font-medium text-gray-700 mb-1"
+									>
+										Identifiers
+									</label>
+									<div id="identifiers">
+										{identifiers.map((id, index) => (
+											<div key={index} className="flex space-x-2 mb-2">
+												<select
+													value={id.type}
+													onChange={(e) =>
+														handleIdentifierChange(
+															index,
+															"type",
+															e.target.value,
+														)
+													}
+													className="p-2 border border-gray-300 rounded-sm bg-white"
+												>
+													{identifierOptions
+														.filter(
+															(t) =>
+																t === "Other" ||
+																t === id.type ||
+																!identifiers.some((i) => i.type === t),
+														)
+														.map((t) => (
+															<option key={t} value={t}>
+																{t}
+															</option>
+														))}
+												</select>
+												<input
+													type="text"
+													placeholder="Enter identifier"
+													value={id.value}
+													onChange={(e) =>
+														handleIdentifierChange(
+															index,
+															"value",
+															e.target.value,
+														)
+													}
+													autoComplete="off"
+													className="grow p-2 border border-gray-300 rounded-sm"
+												/>
+												<button
+													type="button"
+													onClick={() => removeIdentifier(index)}
+													className="text-red-400 hover:text-red-700 cursor-pointer"
+												>
+													<Trash2 size={18} />
+												</button>
+											</div>
+										))}
+									</div>
+									<button
+										type="button"
+										onClick={addIdentifier}
+										className="flex items-center text-sm text-blue-900 hover:text-blue-800"
+									>
+										<PlusCircleIcon size={16} className="mr-1" /> Add Identifier
+									</button>
+								</div>
+
 								{/* File List Section */}
 								<div>
-									<label className="block text-sm font-medium text-gray-700 mb-2">
+									<label
+										htmlFor="file-input"
+										className="block text-sm font-medium text-gray-700 mb-2"
+									>
 										Primary file
 									</label>
-									{files.length > 0 ? (
-										<div className="space-y-2">
-											{files.map((file) => (
-												<div
-													key={file.id}
-													className="flex items-center justify-between p-2 bg-white rounded"
-												>
-													<div className="flex items-center overflow-hidden">
-														<div className="mr-2 text-gray-500">
-															{getFileIcon(file.type)}
-														</div>
-														<span
-															className="text-sm truncate max-w-[150px]"
-															title={file.name}
-														>
-															{file.name}
-														</span>
-													</div>
-													<div className="flex items-center ml-2">
-														<label className="inline-flex items-center cursor-pointer">
-															<input
-																type="radio"
-																name="primaryFile"
-																checked={
-																	primaryFileId === file.id ||
-																	(!primaryFileId && files[0].id === file.id)
-																}
-																onChange={() => setPrimaryFileId(file.id)}
-																className="form-radio h-4 w-4 text-blue-600 border-gray-300"
-															/>
-															<span className="ml-1 text-xs text-gray-600">
-																Primary
+									<div id="file-input">
+										{files.length > 0 ? (
+											<div className="space-y-2">
+												{files.map((file) => (
+													<div
+														key={file.id}
+														className="flex items-center justify-between p-2 bg-white rounded"
+													>
+														<div className="flex items-center overflow-hidden">
+															<div className="mr-2 text-gray-500">
+																{getFileIcon(file.type)}
+															</div>
+															<span
+																className="text-sm truncate max-w-[150px]"
+																title={file.name}
+															>
+																{file.name}
 															</span>
-														</label>
-														<button
-															type="button"
-															onClick={() => {
-																if (
-																	window.confirm(
-																		"Are you sure you want to remove this file?",
-																	)
-																) {
-																	const newFiles = files.filter(
-																		(f) => f.id !== file.id,
-																	);
-																	setFiles(newFiles);
-																	if (selectedFileId === file.id)
-																		setSelectedFileId(null);
-																}
-															}}
-															className="ml-2 text-red-400 hover:text-red-600 cursor-pointer"
-														>
-															<Trash2 size={14} />
-														</button>
+														</div>
+														<div className="flex items-center ml-2">
+															<label className="inline-flex items-center cursor-pointer">
+																<input
+																	type="radio"
+																	name="primaryFile"
+																	checked={
+																		primaryFileId === file.id ||
+																		(!primaryFileId && files[0].id === file.id)
+																	}
+																	onChange={() => setPrimaryFileId(file.id)}
+																	className="form-radio h-4 w-4 text-blue-600 border-gray-300"
+																/>
+																<span className="ml-1 text-xs text-gray-600">
+																	Primary
+																</span>
+															</label>
+															<button
+																type="button"
+																onClick={() => {
+																	if (
+																		window.confirm(
+																			"Are you sure you want to remove this file?",
+																		)
+																	) {
+																		const newFiles = files.filter(
+																			(f) => f.id !== file.id,
+																		);
+																		setFiles(newFiles);
+																		if (selectedFileId === file.id)
+																			setSelectedFileId(null);
+																	}
+																}}
+																className="ml-2 text-red-400 hover:text-red-600 cursor-pointer"
+															>
+																<Trash2 size={14} />
+															</button>
+														</div>
 													</div>
-												</div>
-											))}
-										</div>
-									) : (
-										<p className="text-sm text-gray-500 italic">
-											No files selected.
-										</p>
-									)}
+												))}
+											</div>
+										) : (
+											<p className="text-sm text-gray-500 italic">
+												No files selected.
+											</p>
+										)}
+									</div>
 								</div>
 							</form>
 						) : (
