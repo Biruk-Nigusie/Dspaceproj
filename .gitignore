@@ -28,3 +28,6 @@ test.txt
 koha.txt
 *.log
 ql -U *
+
+# Sample data folder
+sample_data/
