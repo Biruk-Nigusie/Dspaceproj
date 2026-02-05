@@ -66,11 +66,12 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 				"_blank",
 			);
 		} else if (resource.source === "dspace") {
-			const isHandle =
-				resource.external_id?.includes("/");
+			const isHandle = resource.external_id?.includes("/");
 			const path = isHandle ? "handle" : "items";
 			window.open(
-				`http://localhost:4000/${path}/${resource.external_id}`,
+				`${import.meta.env.VITE_DSPACE_FRONTEND_URL}/${path}/${
+					resource.external_id
+				}`,
 				"_blank",
 			);
 		}
@@ -79,7 +80,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 	if (loading) {
 		return (
 			<div className="text-center py-12">
-				<div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800"></div>
+				<div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800" />
 				<p className="mt-4 text-gray-600 text-lg">መዛግብት እና መጻሕፍት በመጫን ላይ...</p>
 			</div>
 		);
@@ -101,7 +102,6 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 
 	return (
 		<div className="bg-white rounded-lg border border-gray-200 p-2">
-
 			<div className="overflow-x-auto">
 				<table className="min-w-full divide-y divide-gray-200">
 					<thead className="bg-gray-50">
@@ -113,7 +113,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								Woreda
 							</th>
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-								House number
+								House Identifier
 							</th>
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 								Head of House
@@ -133,16 +133,18 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								className="hover:bg-gray-50 cursor-pointer"
 								onClick={() => handleRowClick(resource)}
 							>
-								<td className="px-6 py-4 max-w-xs">{resource.community || "—"}</td>
-								<td className="px-6 py-4 max-w-xs">{resource.collection || "—"}</td>
 								<td className="px-6 py-4 max-w-xs">
-									{resource.title || "—"}
+									{resource.community || "—"}
+								</td>
+								<td className="px-6 py-4 max-w-xs">
+									{resource.collection || "—"}
+								</td>
+								<td className="px-6 py-4 max-w-xs">{resource.houseFamilyKey || "—"}</td>
+								<td className="px-6 py-4 text-sm text-gray-700">
+									{resource.husband || "—"}
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-700">
-									{resource.authors || resource.author || "—"}
-								</td>
-								<td className="px-6 py-4 text-sm text-gray-700">
-									{resource.year || "—"}
+									{resource.dateOfRegistration || "—"}
 								</td>
 								<td className="px-6 py-4 text-center">
 									<div className="flex items-center justify-center space-x-2">
@@ -156,7 +158,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 												>
 													{previewLoading[resource.id] ? (
 														<>
-															<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+															<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />
 															Loading...
 														</>
 													) : (
@@ -207,9 +209,9 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 									{resources.find(
 										(r) =>
 											r.id ===
-											Object.keys(previewLoading).find((id) =>
-												previewUrl.includes(id),
-											) || {},
+												Object.keys(previewLoading).find((id) =>
+													previewUrl.includes(id),
+												) || {},
 									)?.title || "Document Preview"}
 								</h3>
 								<div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 gap-4 text-sm">
@@ -364,14 +366,16 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 							<div className="flex flex-col items-center py-8 min-h-full">
 								{pdfLoading && (
 									<div className="flex flex-col items-center justify-center p-12">
-										<div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+										<div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
 										<p className="mt-4 text-gray-600 font-medium">
 											መረጃው በመጫን ላይ ነው...
 										</p>
 									</div>
 								)}
 								<div
-									className={`transition-opacity duration-300 ${pdfLoading ? "opacity-0 h-0" : "opacity-100 shadow-2xl"}`}
+									className={`transition-opacity duration-300 ${
+										pdfLoading ? "opacity-0 h-0" : "opacity-100 shadow-2xl"
+									}`}
 								>
 									<Document
 										file={previewUrl}
