@@ -113,7 +113,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								Woreda
 							</th>
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-								House number
+								House Identifier
 							</th>
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 								Head of House
@@ -139,12 +139,12 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
 								<td className="px-6 py-4 max-w-xs">
 									{resource.collection || "—"}
 								</td>
-								<td className="px-6 py-4 max-w-xs">{resource.title || "—"}</td>
+								<td className="px-6 py-4 max-w-xs">{resource.houseFamilyKey || "—"}</td>
 								<td className="px-6 py-4 text-sm text-gray-700">
-									{resource.authors || resource.author || "—"}
+									{resource.husband || "—"}
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-700">
-									{resource.year || "—"}
+									{resource.dateOfRegistration || "—"}
 								</td>
 								<td className="px-6 py-4 text-center">
 									<div className="flex items-center justify-center space-x-2">

@@ -129,27 +129,17 @@ const Home = () => {
 
 					return {
 						id: item._embedded?.indexableObject?.uuid,
-						title: getVal("dc.title") || item._embedded?.indexableObject?.name,
-						authors: getValList("dc.contributor.author"),
-						year: getVal("dc.date.issued")?.substring(0, 4),
-						publisher: getVal("dc.publisher"),
+						houseFamilyKey: getVal("crvs.identifier.houseFamilyKey") || item._embedded?.indexableObject?.name,
+						husband: getValList("crvs.head.husband"),
+						wife: getValList("crvs.head.wife"),
+						dateOfRegistration: getVal("crvs.date.registration")?.substring(0, 4),
 						source: "dspace",
-						description: getVal("dc.description") || getVal("dc.description.abstract"),
-						abstract: getVal("dc.description.abstract"),
+						familySummary: getVal("crvs.description.summary"),
 						external_id:
 							item._embedded?.indexableObject?.handle ||
 							item._embedded?.indexableObject?.uuid,
-						resource_type: getVal("dc.type"),
-						language: getVal("dc.language"),
-						citation: getVal("dc.identifier.citation"),
-						sponsors: getVal("dc.description.sponsorship"),
-						series: getVal("dc.relation.ispartofseries"),
-						reportNo:
-							getVal("dc.identifier.other") || getVal("dc.identifier.govdoc"),
 						isbn: getVal("dc.identifier.isbn"),
 						issn: getVal("dc.identifier.issn"),
-						subjects: getValList("dc.subject"),
-						format: getVal("dc.format"),
 
 						// enrich
 						collection: owningCollection.name,
@@ -157,6 +147,7 @@ const Home = () => {
 					};
 				}),
 			);
+			console.log("🚀 ~ Home ~ mappedResults:", mappedResults)
 
 
 			setAllResources(mappedResults);
@@ -428,31 +419,17 @@ const Home = () => {
 
 								return {
 									id: item._embedded?.indexableObject?.uuid,
-									title:
-										getVal("dc.title") || item._embedded?.indexableObject?.name,
-									authors: getValList("dc.contributor.author"),
-									year: getVal("dc.date.issued")?.substring(0, 4),
-									publisher: getVal("dc.publisher"),
+									houseFamilyKey: getVal("crvs.identifier.houseFamilyKey") || item._embedded?.indexableObject?.name,
+									husband: getValList("crvs.head.husband"),
+									wife: getValList("crvs.head.wife"),
+									dateOfRegistration: getVal("crvs.date.registration")?.substring(0, 4),
 									source: "dspace",
-									description:
-										getVal("dc.description") ||
-										getVal("dc.description.abstract"),
-									abstract: getVal("dc.description.abstract"),
+									familySummary: getVal("crvs.description.summary"),
 									external_id:
 										item._embedded?.indexableObject?.handle ||
 										item._embedded?.indexableObject?.uuid,
-									resource_type: getVal("dc.type"),
-									language: getVal("dc.language"),
-									citation: getVal("dc.identifier.citation"),
-									sponsors: getVal("dc.description.sponsorship"),
-									series: getVal("dc.relation.ispartofseries"),
-									reportNo:
-										getVal("dc.identifier.other") ||
-										getVal("dc.identifier.govdoc"),
 									isbn: getVal("dc.identifier.isbn"),
 									issn: getVal("dc.identifier.issn"),
-									subjects: getValList("dc.subject"),
-									format: getVal("dc.format"),
 								};
 							});
 
