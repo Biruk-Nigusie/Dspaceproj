@@ -131,6 +131,22 @@ const MetadataEditor = () => {
     const [placeOfPublication, setPlaceOfPublication] = useState("");
     const [acquisitionMethod, setAcquisitionMethod] = useState("");
     const [musicAlbum, setMusicAlbum] = useState("");
+    const [contributors, setContributors] = useState([""]);
+    const [format, setFormat] = useState("");
+    const [resolution, setResolution] = useState("");
+    const [fileSize, setFileSize] = useState("");
+    const [rights, setRights] = useState("");
+    const [license, setLicense] = useState("");
+    const [accessLevel, setAccessLevel] = useState("");
+    const [notes, setNotes] = useState("");
+    const [musicType, setMusicType] = useState("");
+    const [instruments, setInstruments] = useState([""]);
+    const [relatedUrls, setRelatedUrls] = useState([""]);
+    const [lyricists, setLyricists] = useState([""]);
+    const [melodyAuthors, setMelodyAuthors] = useState([""]);
+    const [instrumentPlayers, setInstrumentPlayers] = useState([""]);
+    const [trackTitles, setTrackTitles] = useState("");
+    const [trackNumber, setTrackNumber] = useState("");
 
     // Serial-specific fields
     const [classification, setClassification] = useState("");
@@ -143,6 +159,10 @@ const MetadataEditor = () => {
     const [attachedDocuments, setAttachedDocuments] = useState("");
     const [subtitle, setSubtitle] = useState("");
     const [isbn, setIsbn] = useState([""]);
+    const [edition, setEdition] = useState("");
+
+    // Archive additional fields
+    const [accessionMeans, setAccessionMeans] = useState("");
 
     // PDF viewer states
     const [numPages, setNumPages] = useState(null);
@@ -444,14 +464,14 @@ const MetadataEditor = () => {
         }
 
         // Accurate mapping based on naming conventions and community structure
-        if (combined.includes('archive') || combined.includes('archival')) {
-            setCollectionType('archive');
-        } else if (combined.includes('multimedia') || combined.includes('film') || combined.includes('music') || combined.includes('microfilm')) {
+        if (combined.includes('multimedia') || combined.includes('film') || combined.includes('music') || combined.includes('microfilm')) {
             setCollectionType('multimedia');
         } else if (combined.includes('serial') || combined.includes('journal') || combined.includes('magazine') || combined.includes('newspaper')) {
             setCollectionType('serial');
         } else if (combined.includes('printed') || combined.includes('book') || combined.includes('ethiopian studies') || combined.includes('legal deposit')) {
             setCollectionType('printed');
+        } else if (combined.includes('archive') || combined.includes('archival')) {
+            setCollectionType('archive');
         } else {
             setCollectionType('default');
         }
@@ -460,20 +480,20 @@ const MetadataEditor = () => {
     // Form field configuration
     const FORM_FIELD_CONFIGS = {
         archive: {
-            show: ['referenceCode', 'cid', 'title', 'description1', 'archiveType', 'subjectKeywords', 'temporalCoverage', 'calendarType', 'arrangement', 'quantity', 'medium', 'provenance', 'accessionDate', 'accessionNumber', 'immediateSource', 'accessCondition', 'language', 'security', 'processing', 'physicalDescription'],
-            required: ['referenceCode', 'cid', 'title', 'description1', 'archiveType', 'temporalCoverage', 'calendarType']
+            show: ['referenceCode', 'cid', 'title', 'description1', 'subjectKeywords', 'archiveType', 'temporalCoverage', 'calendarType', 'arrangement', 'quantity', 'medium', 'provenance', 'accessionDate', 'accessionMeans', 'immediateSource', 'accessCondition', 'language', 'security', 'processing'],
+            required: ['referenceCode', 'cid', 'title', 'description1', 'archiveType', 'temporalCoverage', 'calendarType', 'arrangement', 'quantity', 'medium', 'provenance', 'accessionDate', 'accessionMeans', 'immediateSource', 'accessCondition', 'security', 'processing']
         },
         multimedia: {
-            show: ['title', 'otherTitles', 'subjectKeywords', 'composers', 'singersPerformers', 'mediaType', 'description', 'creationDate', 'dateOfIssue', 'format', 'duration', 'physicalMedium', 'placeOfPublication', 'acquisitionMethod', 'musicAlbum', 'language'],
-            required: ['title', 'composers', 'mediaType', 'description', 'cid', 'creationDate', 'duration']
+            show: ['title', 'otherTitles', 'subjectKeywords', 'authors', 'contributors', 'mediaType', 'description', 'creationDate', 'dateOfIssue', 'format', 'duration', 'resolution', 'fileSize', 'language', 'publisher', 'series', 'rights', 'license', 'accessLevel', 'identifiers', 'notes', 'cid', 'accessionNumber', 'composers', 'singersPerformers', 'musicType', 'musicAlbum', 'physicalDescription', 'physicalMedium', 'classification', 'instruments', 'placeOfPublication', 'acquisitionMethod', 'relatedUrls', 'lyricists', 'melodyAuthors', 'instrumentPlayers', 'trackTitles', 'trackNumber'],
+            required: ['title', 'authors', 'mediaType', 'description', 'format', 'cid', 'physicalDescription']
         },
         serial: {
-            show: ['title', 'authors', 'subjectKeywords', 'classification', 'offices', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'language', 'seriesNumber', 'physicalDescription', 'description', 'typeOfAcquiring'],
-            required: ['title', 'classification', 'newspaperType', 'cid', 'publisher', 'dateOfIssue', 'typeOfAcquiring', 'authors']
+            show: ['title', 'authors', 'subjectKeywords', 'classification', 'offices', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'language', 'seriesNumber', 'physicalDescription', 'notes', 'typeOfAcquiring'],
+            required: ['title', 'classification', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'language', 'typeOfAcquiring']
         },
         printed: {
-            show: ['title', 'accessionNumber', 'authors', 'dateOfIssue', 'subjectKeywords', 'offices', 'type', 'attachedDocuments', 'cid', 'subtitle', 'isbn', 'language', 'abstractText', 'publisher', 'citation', 'series'],
-            required: ['title', 'authors', 'dateOfIssue', 'type', 'cid', 'accessionNumber', 'isbn', 'publisher']
+            show: ['title', 'authors', 'type', 'dateOfIssue', 'physicalDescription', 'isbn', 'cid', 'accessionNumber', 'subjectKeywords', 'offices'],
+            required: ['title', 'type', 'dateOfIssue', 'cid']
         },
         default: {
             show: ['title', 'authors', 'dateOfIssue', 'publisher', 'type', 'language', 'subjectKeywords', 'abstractText', 'description', 'sponsors'],
@@ -537,10 +557,11 @@ const MetadataEditor = () => {
 
         // Common
         if (requiredFields.includes('title') && !title) missing.push("Title");
+        if (requiredFields.includes('authors') && (!authors[0] || !authors[0].trim())) missing.push("Authors");
         if (requiredFields.includes('dateOfIssue') && !dateOfIssue) missing.push("Date of Issue");
         if (requiredFields.includes('type') && !type) missing.push("Type");
         if (requiredFields.includes('publisher') && !publisher) missing.push("Publisher");
-        if (requiredFields.includes('authors') && (!authors[0] || !authors[0].trim())) missing.push("Authors");
+        if (requiredFields.includes('language') && (!language || language === "N/A")) missing.push("Language");
 
         // Archive
         if (requiredFields.includes('referenceCode') && !referenceCode) missing.push("Reference Code");
@@ -549,22 +570,29 @@ const MetadataEditor = () => {
         if (requiredFields.includes('archiveType') && !archiveType) missing.push("Archive Type");
         if (requiredFields.includes('temporalCoverage') && !temporalCoverage) missing.push("Temporal Coverage");
         if (requiredFields.includes('calendarType') && !calendarType) missing.push("Calendar Type");
+        if (requiredFields.includes('arrangement') && !arrangement) missing.push("Arrangement");
+        if (requiredFields.includes('quantity') && !quantity) missing.push("Quantity");
+        if (requiredFields.includes('medium') && !medium) missing.push("Medium");
+        if (requiredFields.includes('provenance') && !provenance) missing.push("Provenance");
+        if (requiredFields.includes('accessionDate') && !accessionDate) missing.push("Accession Date");
+        if (requiredFields.includes('accessionMeans') && !accessionMeans) missing.push("Accession Means");
+        if (requiredFields.includes('immediateSource') && !immediateSource) missing.push("Immediate Source");
+        if (requiredFields.includes('accessCondition') && !accessCondition) missing.push("Access Condition");
+        if (requiredFields.includes('security') && !security) missing.push("Security Category");
+        if (requiredFields.includes('processing') && !processing) missing.push("Processing Status");
+        if (requiredFields.includes('physicalDescription') && !physicalDescription) missing.push("Physical Description");
 
         // Multimedia
-        if (requiredFields.includes('composers') && (!composers[0] || !composers[0].trim())) missing.push("Composers");
         if (requiredFields.includes('mediaType') && !mediaType) missing.push("Media Type");
         if (requiredFields.includes('description') && !description) missing.push("Description");
-        if (requiredFields.includes('creationDate') && !creationDate) missing.push("Creation Date");
-        if (requiredFields.includes('duration') && !duration) missing.push("Duration");
+        if (requiredFields.includes('format') && !format) missing.push("File Format");
+        if (requiredFields.includes('duration') && !duration) missing.push("Duration/Extent");
 
         // Serial
         if (requiredFields.includes('classification') && !classification) missing.push("Classification");
         if (requiredFields.includes('newspaperType') && !newspaperType) missing.push("Newspaper Type");
         if (requiredFields.includes('accessionNumber') && !accessionNumber) missing.push("Accession Number");
         if (requiredFields.includes('typeOfAcquiring') && !typeOfAcquiring) missing.push("Type of Acquiring");
-
-        // Printed
-        if (requiredFields.includes('isbn') && (!isbn[0] || !isbn[0].trim())) missing.push("ISBN");
 
         if (missing.length > 0) {
             toast.warn(`Please fill required fields: ${missing.join(", ")}`);
@@ -621,6 +649,7 @@ const MetadataEditor = () => {
                 medium,
                 provenance,
                 accessionDate,
+                accessionMeans,
                 accessionNumber,
                 immediateSource,
                 accessCondition,
@@ -638,6 +667,22 @@ const MetadataEditor = () => {
                 placeOfPublication,
                 acquisitionMethod,
                 musicAlbum,
+                contributors: contributors.filter(c => c.trim()),
+                format,
+                resolution,
+                fileSize,
+                rights,
+                license,
+                accessLevel,
+                notes,
+                musicType,
+                instruments: instruments.filter(i => i.trim()),
+                relatedUrls: relatedUrls.filter(u => u.trim()),
+                lyricists: lyricists.filter(l => l.trim()),
+                melodyAuthors: melodyAuthors.filter(m => m.trim()),
+                instrumentPlayers: instrumentPlayers.filter(i => i.trim()),
+                trackTitles,
+                trackNumber,
 
                 // Serial
                 classification,
@@ -650,11 +695,14 @@ const MetadataEditor = () => {
                 attachedDocuments,
                 subtitle,
                 isbn: isbn.filter(i => i.trim()),
+                edition,
             };
 
             const metaSuccess = await dspaceService.updateMetadata(workspaceItemId, metadata, collectionType);
             if (!metaSuccess) {
-                console.error("Metadata update failed");
+                toast.error("Metadata update failed. Please check required fields.");
+                setUploading(false);
+                return;
             }
 
             const filesToUpload = [...files].sort((a, b) => {
@@ -664,7 +712,12 @@ const MetadataEditor = () => {
             });
 
             for (const fileItem of filesToUpload) {
-                await dspaceService.uploadFile(workspaceItemId, fileItem.fileObject);
+                const uploadSuccess = await dspaceService.uploadFile(workspaceItemId, fileItem.fileObject);
+                if (!uploadSuccess) {
+                    toast.error(`Failed to upload file: ${fileItem.name}`);
+                    setUploading(false);
+                    return;
+                }
             }
 
             await dspaceService.acceptWorkspaceLicense(workspaceItemId);
@@ -702,7 +755,11 @@ const MetadataEditor = () => {
             setMusicAlbum("");
             setClassification(""); setOffices([""]); setNewspaperType(""); setSeriesNumber("");
             setTypeOfAcquiring("");
-            setAttachedDocuments(""); setSubtitle(""); setIsbn([""]);
+            setAttachedDocuments(""); setSubtitle(""); setIsbn([""]); setEdition("");
+            setContributors([""]); setFormat(""); setResolution(""); setFileSize(""); setRights("");
+            setLicense(""); setAccessLevel(""); setNotes(""); setMusicType(""); setInstruments([""]);
+            setRelatedUrls([""]); setLyricists([""]); setMelodyAuthors([""]); setInstrumentPlayers([""]);
+            setTrackTitles([""]); setTrackNumber(""); setAccessionMeans("");
 
         } catch (e) {
             console.error("Critical upload error:", e);
@@ -930,9 +987,9 @@ const MetadataEditor = () => {
                                                 <label className="block text-sm font-medium text-gray-700">Archive Type {isRequired('archiveType') && '*'}</label>
                                                 <select value={archiveType} onChange={(e) => setArchiveType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                     <option value="">Select type</option>
+                                                    <option value="Governmental Archive">Governmental Archive</option>
                                                     <option value="Personal Archive">Personal Archive</option>
                                                     <option value="Institutional Archive">Institutional Archive</option>
-                                                    <option value="Historical Archive">Historical Archive</option>
                                                 </select>
                                             </div>
                                         )}
@@ -966,8 +1023,8 @@ const MetadataEditor = () => {
                                                     <label className="block text-sm font-medium text-gray-700">Calendar Type</label>
                                                     <select value={calendarType} onChange={(e) => setCalendarType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                         <option value="">Select</option>
-                                                        <option value="Ethiopian">Ethiopian</option>
-                                                        <option value="Gregorian">Gregorian</option>
+                                                        <option value="Ethiopian">Ethiopian Calendar</option>
+                                                        <option value="Gregorian">Gregorian Calendar</option>
                                                     </select>
                                                 </div>
                                             )}
@@ -977,7 +1034,9 @@ const MetadataEditor = () => {
                                                     <select value={arrangement} onChange={(e) => setArrangement(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                         <option value="">Select</option>
                                                         <option value="Fonds">Fonds</option>
+                                                        <option value="Sub-fonds">Sub-fonds</option>
                                                         <option value="Series">Series</option>
+                                                        <option value="Sub-series">Sub-series</option>
                                                         <option value="File">File</option>
                                                         <option value="Item">Item</option>
                                                     </select>
@@ -989,8 +1048,11 @@ const MetadataEditor = () => {
                                                     <select value={medium} onChange={(e) => setMedium(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                         <option value="">Select</option>
                                                         <option value="Paper">Paper</option>
-                                                        <option value="Digital">Digital</option>
-                                                        <option value="Microfilm">Microfilm</option>
+                                                        <option value="Parchment">Parchment</option>
+                                                        <option value="Photographic Material">Photographic Material</option>
+                                                        <option value="Audio Recording">Audio Recording</option>
+                                                        <option value="Video Recording">Video Recording</option>
+                                                        <option value="Digital Files">Digital Files</option>
                                                     </select>
                                                 </div>
                                             )}
@@ -1012,6 +1074,80 @@ const MetadataEditor = () => {
                                             )}
                                         </div>
 
+                                        {shouldShow('accessionMeans') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Accession Means</label>
+                                                <select value={accessionMeans} onChange={(e) => setAccessionMeans(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                    <option value="">Select</option>
+                                                    <option value="Donation">Donation</option>
+                                                    <option value="Transfer">Transfer</option>
+                                                    <option value="Purchase">Purchase</option>
+                                                    <option value="Deposit">Deposit</option>
+                                                    <option value="Legal Deposit">Legal Deposit</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {shouldShow('provenance') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Provenance {isRequired('provenance') && '*'}</label>
+                                                <textarea value={provenance} onChange={(e) => setProvenance(e.target.value)} rows="2" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        {shouldShow('accessionDate') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Accession Date {isRequired('accessionDate') && '*'}</label>
+                                                <input type="date" value={accessionDate} onChange={(e) => setAccessionDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        {shouldShow('immediateSource') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Immediate Source {isRequired('immediateSource') && '*'}</label>
+                                                <textarea value={immediateSource} onChange={(e) => setImmediateSource(e.target.value)} rows="2" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        {shouldShow('accessCondition') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Access Condition</label>
+                                                <select value={accessCondition} onChange={(e) => setAccessCondition(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                    <option value="">Select</option>
+                                                    <option value="Open Access">Open Access</option>
+                                                    <option value="Restricted Access">Restricted Access</option>
+                                                    <option value="Closed Access">Closed Access</option>
+                                                    <option value="Embargoed">Embargoed</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {shouldShow('security') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Security Category</label>
+                                                <select value={security} onChange={(e) => setSecurity(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                    <option value="">Select</option>
+                                                    <option value="Public">Public</option>
+                                                    <option value="Confidential">Confidential</option>
+                                                    <option value="Secret">Secret</option>
+                                                    <option value="Top Secret">Top Secret</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {shouldShow('processing') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Processing Status</label>
+                                                <select value={processing} onChange={(e) => setProcessing(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                    <option value="">Select</option>
+                                                    <option value="Not Processed">Not Processed</option>
+                                                    <option value="In Process">In Process</option>
+                                                    <option value="Partially Processed">Partially Processed</option>
+                                                    <option value="Fully Processed">Fully Processed</option>
+                                                </select>
+                                            </div>
+                                        )}
+
                                         {/* Multimedia Specifics */}
                                         {collectionType === 'multimedia' && (
                                             <>
@@ -1021,21 +1157,152 @@ const MetadataEditor = () => {
                                                             <label className="block text-sm font-medium text-gray-700">Media Type {isRequired('mediaType') && '*'}</label>
                                                             <select value={mediaType} onChange={(e) => setMediaType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                                 <option value="">Select</option>
-                                                                <option value="Audio">Audio</option>
-                                                                <option value="Video">Video</option>
-                                                                <option value="Film">Film</option>
+                                                                <option value="Video">Video Recording</option>
+                                                                <option value="Audio">Audio Recording</option>
+                                                                <option value="Image">Image / Photograph</option>
+                                                                <option value="Animation">Animation</option>
+                                                                <option value="Presentation">Presentation / Slides</option>
+                                                                <option value="Interactive">Interactive Media</option>
+                                                                <option value="3D Model">3D Model</option>
+                                                                <option value="Mixed Media">Mixed Media</option>
+                                                                <option value="Other">Other</option>
                                                             </select>
                                                         </div>
                                                     )}
+                                                    {shouldShow('musicType') && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Music Type/Genre</label>
+                                                            <input type="text" value={musicType} onChange={(e) => setMusicType(e.target.value)} placeholder="e.g. ዘፈን ባህላዊ" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
                                                     {shouldShow('duration') && (
                                                         <div>
-                                                            <label className="block text-sm font-medium text-gray-700">Duration</label>
+                                                            <label className="block text-sm font-medium text-gray-700">Duration (optional)</label>
                                                             <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="HH:MM:SS" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                        </div>
+                                                    )}
+                                                    {shouldShow('physicalDescription') && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Physical Description {isRequired('physicalDescription') && '*'}</label>
+                                                            <textarea value={physicalDescription} onChange={(e) => setPhysicalDescription(e.target.value)} rows="1" placeholder="e.g., 1 ካሴት, 60 ደቂቃ" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                                         </div>
                                                     )}
                                                 </div>
                                                 <RepeatableField label="Composers" values={composers} setValues={setComposers} placeholder="Enter composer" />
                                                 <RepeatableField label="Singers/Performers" values={singersPerformers} setValues={setSingersPerformers} placeholder="Enter name" />
+                                                {shouldShow('contributors') && <RepeatableField label="Other Contributors" values={contributors} setValues={setContributors} placeholder="Enter contributor" />}
+
+                                                {shouldShow('format') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">File Format</label>
+                                                        <select value={format} onChange={(e) => setFormat(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="video/mp4">MP4 (H.264)</option>
+                                                            <option value="video/x-msvideo">AVI</option>
+                                                            <option value="video/quicktime">MOV (QuickTime)</option>
+                                                            <option value="audio/mpeg">MP3</option>
+                                                            <option value="audio/x-wav">WAV</option>
+                                                            <option value="image/jpeg">JPEG</option>
+                                                            <option value="image/png">PNG</option>
+                                                            <option value="application/pdf">PDF</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('physicalMedium') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Physical Medium</label>
+                                                        <select value={physicalMedium} onChange={(e) => setPhysicalMedium(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="Cassette">Cassette</option>
+                                                            <option value="CD">CD</option>
+                                                            <option value="Vinyl Record">Vinyl Record</option>
+                                                            <option value="Digital File">Digital File</option>
+                                                            <option value="DVD">DVD</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('acquisitionMethod') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Acquisition Method</label>
+                                                        <select value={acquisitionMethod} onChange={(e) => setAcquisitionMethod(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="By Proclamation">By Proclamation</option>
+                                                            <option value="Purchase">Purchase</option>
+                                                            <option value="Donation">Donation</option>
+                                                            <option value="Transfer">Transfer</option>
+                                                            <option value="Legal Deposit">Legal Deposit</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('musicAlbum') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Music Album</label>
+                                                        <input type="text" value={musicAlbum} onChange={(e) => setMusicAlbum(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('license') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">License</label>
+                                                        <select value={license} onChange={(e) => setLicense(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="No License">No License</option>
+                                                            <option value="CC-BY">CC-BY</option>
+                                                            <option value="CC-BY-ND">CC-BY-ND</option>
+                                                            <option value="CC-BY-SA">CC-BY-SA</option>
+                                                            <option value="CC-BY-NC">CC-BY-NC</option>
+                                                            <option value="CC-BY-NC-ND">CC-BY-NC-ND</option>
+                                                            <option value="CC-BY-NC-SA">CC-BY-NC-SA</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('accessLevel') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Access Level</label>
+                                                        <select value={accessLevel} onChange={(e) => setAccessLevel(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="Open Access">Open Access</option>
+                                                            <option value="Embargoed Access">Embargoed Access</option>
+                                                            <option value="Restricted Access">Restricted Access</option>
+                                                            <option value="Metadata-only Access">Metadata-only Access</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('notes') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Additional Notes</label>
+                                                        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows="2" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('instruments') && <RepeatableField label="Instruments Used" values={instruments} setValues={setInstruments} placeholder="Enter instrument" />}
+                                                {shouldShow('relatedUrls') && <RepeatableField label="Related Websites/URLs" values={relatedUrls} setValues={setRelatedUrls} placeholder="Enter URL" />}
+                                                {shouldShow('lyricists') && <RepeatableField label="Poem Author(s)/Lyricist(s)" values={lyricists} setValues={setLyricists} placeholder="Enter name" />}
+                                                {shouldShow('melodyAuthors') && <RepeatableField label="Melody Author(s)" values={melodyAuthors} setValues={setMelodyAuthors} placeholder="Enter name" />}
+                                                {shouldShow('instrumentPlayers') && <RepeatableField label="Instrument Player(s)" values={instrumentPlayers} setValues={setInstrumentPlayers} placeholder="Enter name" />}
+                                                {shouldShow('trackTitles') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Individual Song/Track Titles</label>
+                                                        <textarea value={trackTitles} onChange={(e) => setTrackTitles(e.target.value)} rows="2" placeholder="Enter titles separated by commas" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+
+                                                {shouldShow('trackNumber') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Track/Item Number</label>
+                                                        <input type="text" value={trackNumber} onChange={(e) => setTrackNumber(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
                                             </>
                                         )}
 
@@ -1047,9 +1314,10 @@ const MetadataEditor = () => {
                                                         <label className="block text-sm font-medium text-gray-700">Newspaper Type {isRequired('newspaperType') && '*'}</label>
                                                         <select value={newspaperType} onChange={(e) => setNewspaperType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                             <option value="">Select</option>
-                                                            <option value="Daily">Daily</option>
-                                                            <option value="Weekly">Weekly</option>
-                                                            <option value="Monthly">Monthly</option>
+                                                            <option value="Daily">Daily Newspaper</option>
+                                                            <option value="Weekly">Weekly Newspaper</option>
+                                                            <option value="Bi-weekly">Bi-weekly Newspaper</option>
+                                                            <option value="Monthly">Monthly Newspaper</option>
                                                         </select>
                                                     </div>
                                                 )}
@@ -1059,7 +1327,65 @@ const MetadataEditor = () => {
                                                         <input type="text" value={classification} onChange={(e) => setClassification(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
                                                     </div>
                                                 )}
+                                                {shouldShow('typeOfAcquiring') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Type of Acquiring {isRequired('typeOfAcquiring') && '*'}</label>
+                                                        <select value={typeOfAcquiring} onChange={(e) => setTypeOfAcquiring(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="Purchase">Purchase</option>
+                                                            <option value="Donation">Donation</option>
+                                                            <option value="Transfer">Transfer</option>
+                                                            <option value="Legal Deposit">Legal Deposit</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                {shouldShow('offices') && <div className="col-span-2"><RepeatableField label="Offices" values={offices} setValues={setOffices} placeholder="Enter office" /></div>}
                                             </div>
+                                        )}
+
+                                        {/* Printed Specifics */}
+                                        {collectionType === 'printed' && (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {shouldShow('edition') && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Edition</label>
+                                                            <input type="text" value={edition} onChange={(e) => setEdition(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                        </div>
+                                                    )}
+                                                    {shouldShow('placeOfPublication') && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Place of Publication</label>
+                                                            <input type="text" value={placeOfPublication} onChange={(e) => setPlaceOfPublication(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {shouldShow('subtitle') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
+                                                        <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+                                                {shouldShow('attachedDocuments') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Attached Documents</label>
+                                                        <textarea value={attachedDocuments} onChange={(e) => setAttachedDocuments(e.target.value)} rows="2" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+                                                {shouldShow('offices') && <RepeatableField label="Offices" values={offices} setValues={setOffices} placeholder="Enter office" />}
+                                                {shouldShow('accessionNumber') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Accession Number / Barcode {isRequired('accessionNumber') && '*'}</label>
+                                                        <input type="text" value={accessionNumber} onChange={(e) => setAccessionNumber(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+                                                {shouldShow('cid') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">CID {isRequired('cid') && '*'}</label>
+                                                        <input type="text" value={cid} onChange={(e) => setCid(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
 
                                         {/* Publisher & Citation */}
@@ -1074,10 +1400,24 @@ const MetadataEditor = () => {
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Language</label>
                                                     <select value={language} onChange={(e) => setLanguage(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
-                                                        <option value="en_US">English (US)</option>
-                                                        <option value="am">Amharic</option>
-                                                        <option value="om">Oromo</option>
-                                                        <option value="ti">Tigrinya</option>
+                                                        <option value="en">English (en)</option>
+                                                        <option value="am">Amharic (አማርኛ)</option>
+                                                        <option value="om">Oromigna (Afaan Oromoo)</option>
+                                                        <option value="ti">Tigrinya (ትግርኛ)</option>
+                                                        <option value="so">Somali (Soomaaliga)</option>
+                                                        <option value="aa">Afar (Qafaraf)</option>
+                                                        <option value="sid">Sidama (Sidaamu Afoo)</option>
+                                                        <option value="wal">Wolaytta (Wolayttattuwa)</option>
+                                                        <option value="es">Spanish (es)</option>
+                                                        <option value="de">German (de)</option>
+                                                        <option value="fr">French (fr)</option>
+                                                        <option value="it">Italian (it)</option>
+                                                        <option value="ja">Japanese (ja)</option>
+                                                        <option value="zh">Chinese (zh)</option>
+                                                        <option value="pt">Portuguese (pt)</option>
+                                                        <option value="tr">Turkish (tr)</option>
+                                                        <option value="Other">Other</option>
+                                                        <option value="N/A">N/A</option>
                                                     </select>
                                                 </div>
                                             )}
@@ -1135,8 +1475,17 @@ const MetadataEditor = () => {
                                                 <label className="block text-sm font-medium text-gray-700">Type {isRequired('type') && '*'}</label>
                                                 <select value={type} onChange={(e) => setType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
                                                     <option value="">Select type</option>
-                                                    <option value="Article">Article</option>
                                                     <option value="Book">Book</option>
+                                                    <option value="Journal">Journal</option>
+                                                    <option value="Magazine">Magazine</option>
+                                                    <option value="Pamphlet">Pamphlet</option>
+                                                    <option value="Brochure">Brochure</option>
+                                                    <option value="Catalog">Catalog</option>
+                                                    <option value="Thesis">Thesis</option>
+                                                    <option value="Report">Report</option>
+                                                    <option value="Manual">Manual</option>
+                                                    <option value="Other">Other</option>
+                                                    <option value="Article">Article</option>
                                                     <option value="Image">Image</option>
                                                     <option value="Video">Video</option>
                                                     <option value="Audio">Audio</option>
@@ -1144,6 +1493,12 @@ const MetadataEditor = () => {
                                             </div>
                                         )}
 
+                                        {shouldShow('physicalDescription') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Physical Description</label>
+                                                <input type="text" value={physicalDescription} onChange={(e) => setPhysicalDescription(e.target.value)} placeholder="e.g. 150 p., ill." className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
                                         {shouldShow('sponsors') && (
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700">Sponsors</label>

@@ -99,20 +99,7 @@ class DSpaceService {
                 credentials: "include",
             });
 
-            const newToken =
-                response.headers.get("DSPACE-XSRF-TOKEN") ||
-                response.headers.get("XSRF-TOKEN") ||
-                response.headers.get("X-XSRF-TOKEN");
-            if (newToken) {
-                this.csrfToken = newToken;
-            }
-
-            const authHeader =
-                response.headers.get("Authorization") ||
-                response.headers.get("authorization");
-            if (authHeader) {
-                this.authToken = authHeader;
-            }
+            this._updateTokens(response);
 
             if (response.status === 200) {
                 this.isAuthenticated = true;
@@ -128,6 +115,31 @@ class DSpaceService {
             console.error("DSpace login error:", error);
             this.isAuthenticated = false;
             throw error;
+        }
+    }
+
+    _updateTokens(response) {
+        if (!response) return;
+
+        const newToken =
+            response.headers.get("DSPACE-XSRF-TOKEN") ||
+            response.headers.get("XSRF-TOKEN") ||
+            response.headers.get("X-XSRF-TOKEN") ||
+            response.headers.get("dspace-xsrf-token") ||
+            response.headers.get("xsrf-token") ||
+            response.headers.get("x-xsrf-token");
+
+        if (newToken) {
+            this.csrfToken = newToken;
+            console.log("Updated CSRF token from response");
+        }
+
+        const authHeader =
+            response.headers.get("Authorization") ||
+            response.headers.get("authorization");
+        if (authHeader) {
+            this.authToken = authHeader;
+            console.log("Updated Auth token from response");
         }
     }
 
@@ -274,6 +286,10 @@ class DSpaceService {
 
     async createWorkspaceItem(collectionId) {
         try {
+            if (!this.csrfToken) {
+                await this.getCsrfToken();
+            }
+
             const headers = this.getCsrfHeaders({
                 Accept: "application/json",
                 "Content-Type": "application/json",
@@ -293,6 +309,8 @@ class DSpaceService {
                 }
             );
 
+            this._updateTokens(response);
+
             if (response.ok || response.status === 201) {
                 return await response.json();
             }
@@ -303,7 +321,7 @@ class DSpaceService {
     }
 
     async updateMetadata(workspaceItemId, metadata, collectionType = "default") {
-        const metadataUpdates = [];
+        const groupedUpdates = {}; // { [path]: values[] }
 
         // Map collection types to their respective DSpace submission sections
         const TYPE_SECTION_MAP = {
@@ -316,17 +334,16 @@ class DSpaceService {
 
         const section = TYPE_SECTION_MAP[collectionType] || "traditionalpageone";
 
-        // Helper to add metadata patch
-        const addPatch = (field, raw, customSection = null) => {
+        // Helper to collect values for grouping
+        const collect = (field, raw, customSection = null) => {
             if (raw === undefined || raw === null) return;
             const vals = Array.isArray(raw) ? raw : [raw];
             const cleaned = vals.map((v) => String(v).trim()).filter(Boolean);
 
             if (cleaned.length > 0) {
-                // Determine actual section for this field
                 let actualSection = customSection || section;
 
-                // In traditional, some fields are on page two
+                // Page two fields for traditional
                 if (collectionType === "default" || collectionType === "traditional") {
                     const PAGE_TWO_FIELDS = ["dc.subject", "dc.description.abstract", "dc.description", "dc.description.sponsorship"];
                     if (PAGE_TWO_FIELDS.includes(field)) {
@@ -334,81 +351,116 @@ class DSpaceService {
                     }
                 }
 
-                metadataUpdates.push({
-                    op: "add",
-                    path: `/sections/${actualSection}/${field}`,
-                    value: cleaned.map(v => ({ value: v }))
-                });
+                const path = `/sections/${actualSection}/${field}`;
+                if (!groupedUpdates[path]) {
+                    groupedUpdates[path] = [];
+                }
+                groupedUpdates[path].push(...cleaned);
             }
         };
 
-        // Basic fields common to many (or mapped to specific ones)
-        addPatch("dc.title", metadata.title);
-        // Normalize authors
-        const authors = metadata.authors || metadata.author || [];
-        addPatch("dc.contributor.author", authors);
-        addPatch("dc.title.alternative", metadata.otherTitles || metadata.subtitle);
-        addPatch("dc.date.issued", metadata.dateIssued || metadata.publicationDate || metadata.dateOfIssue);
-        addPatch("dc.publisher", metadata.publisher || metadata.publisherProducer);
-        addPatch("dc.identifier.citation", metadata.citation);
-        addPatch("dc.relation.ispartofseries", metadata.series || metadata.seriesNumber || metadata.musicAlbum);
-        addPatch("dc.language.iso", metadata.language);
-        addPatch("dc.type", metadata.type || metadata.mediaType || metadata.archiveType || metadata.itemType);
-
-        // Keywords and description
-        const subjects = metadata.subjectKeywords || metadata.subjects || metadata.keywords;
-        addPatch("dc.subject", subjects);
-        addPatch("dc.description.abstract", metadata.abstract || metadata.abstractText || metadata.description1);
-        addPatch("dc.description", metadata.description || metadata.notes || metadata.additionalNotes);
-        addPatch("dc.description.sponsorship", metadata.sponsors);
-
         // Type-specific fields mapping
         if (collectionType === "archive") {
-            addPatch("dc.identifier.other", metadata.referenceCode);
-            addPatch("dc.identifier.other", metadata.cid);
-            addPatch("dc.coverage.temporal", metadata.temporalCoverage);
-            addPatch("dc.description", metadata.calendarType);
-            addPatch("dc.description", metadata.arrangement);
-            addPatch("dc.format.extent", metadata.quantity);
-            addPatch("dc.format.medium", metadata.medium);
-            addPatch("dc.provenance", metadata.provenance);
-            addPatch("dc.date.available", metadata.accessionDate);
-            addPatch("dc.identifier.accession", metadata.accessionNumber);
-            addPatch("dc.rights", metadata.accessCondition);
-            addPatch("dc.source", metadata.immediateSource);
-            addPatch("dc.format.extent", metadata.physicalDescription);
-            addPatch("dc.type", metadata.security);
-            addPatch("dc.type", metadata.processing);
+            collect("dc.title", metadata.title);
+            collect("dc.description.abstract", metadata.description1 || metadata.description || metadata.abstractText);
+            collect("dc.subject", metadata.subjectKeywords);
+            collect("dc.type.archival", metadata.archiveType);
+            collect("dc.identifier.refcode", metadata.referenceCode);
+            collect("local.identifier.cid", metadata.cid);
+            collect("dc.coverage.temporal", metadata.temporalCoverage);
+            collect("dc.date.calendartype", metadata.calendarType);
+            collect("local.arrangement.level", metadata.arrangement);
+            collect("local.archival.quantity", metadata.quantity);
+            collect("local.archival.medium", metadata.medium);
+            collect("dc.provenance", metadata.provenance);
+            collect("dc.date.accessioned", metadata.accessionDate);
+            collect("local.accession.means", metadata.accessionMeans);
+            collect("dc.rights", metadata.accessCondition || metadata.rights);
+            collect("dc.source", metadata.immediateSource);
+            collect("dc.language", metadata.language);
+            collect("local.archival.security", metadata.security);
+            collect("local.archival.processing", metadata.processing);
         } else if (collectionType === "multimedia") {
-            addPatch("dc.identifier.other", metadata.cid);
-            addPatch("dc.identifier.accession", metadata.accessionNumber);
-            addPatch("dc.contributor.author", metadata.composers);
-            addPatch("dc.contributor.other", metadata.singersPerformers);
-            addPatch("dc.date.created", metadata.creationDate);
-            addPatch("dc.format.extent", metadata.duration);
-            addPatch("dc.format.medium", metadata.physicalMedium);
-            addPatch("dc.coverage.spatial", metadata.placeOfPublication);
-            addPatch("dc.provenance", metadata.acquisitionMethod);
-            addPatch("dc.relation.ispartofseries", metadata.musicAlbum);
+            collect("dc.title", metadata.title);
+            collect("dc.title.alternative", metadata.otherTitles);
+            collect("dc.subject.other", metadata.subjectKeywords);
+            collect("dc.contributor.author", metadata.authors || metadata.author);
+            collect("dc.contributor.other", metadata.contributors);
+            collect("dc.type", metadata.mediaType || "Multimedia");
+            collect("dc.description.abstract", metadata.description || metadata.abstractText);
+            collect("dc.date.created", metadata.creationDate);
+            collect("dc.date.issued", metadata.dateOfIssue || metadata.dateIssued);
+            collect("dc.format.medium", metadata.format);
+            collect("dc.format.extent", metadata.duration);
+            collect("local.resolution", metadata.resolution);
+            collect("dc.format.size", metadata.fileSize);
+            collect("dc.language.iso", metadata.language);
+            collect("dc.publisher", metadata.publisher);
+            collect("dc.relation.ispartofseries", metadata.series);
+            collect("dc.rights", metadata.rights);
+            collect("dc.rights.uri", metadata.license);
+            collect("dc.rights.accessRights", metadata.accessLevel);
+            collect("dc.description", metadata.notes);
+            collect("local.identifier.cid", metadata.cid);
+            collect("dc.identifier.accession", metadata.accessionNumber);
+            collect("dc.contributor.composer", metadata.composers);
+            collect("dc.contributor.singer", metadata.singersPerformers);
+            collect("dc.type.musictype", metadata.musicType);
+            collect("dc.relation.ispartof", metadata.musicAlbum);
+            if (metadata.physicalDescription) {
+                collect("dc.format.extent", metadata.physicalDescription);
+            }
+            collect("dc.subject.classification", metadata.classification);
+            collect("dc.subject.instrument", metadata.instruments);
+            collect("dc.coverage.spatial", metadata.placeOfPublication);
+            collect("dc.provenance", metadata.acquisitionMethod);
+            collect("dc.identifier.uri", metadata.relatedUrls);
+            collect("dc.contributor.poemauthor", metadata.lyricists);
+            collect("dc.contributor.melodyauthor", metadata.melodyAuthors);
+            collect("dc.contributor.instrumentplayer", metadata.instrumentPlayers);
+            collect("dc.title.subtitle", metadata.trackTitles);
+            collect("local.identifier.tracknumber", metadata.trackNumber);
         } else if (collectionType === "serial") {
-            addPatch("dc.identifier.other", metadata.classification);
-            addPatch("dc.identifier.other", metadata.cid);
-            addPatch("dc.identifier.other", metadata.accessionNumber);
-            addPatch("dc.contributor.other", metadata.offices);
-            addPatch("dc.provenance", metadata.typeOfAcquiring);
-            addPatch("dc.format.extent", metadata.physicalDescription);
-            addPatch("dc.type", metadata.newspaperType);
+            collect("dc.title", metadata.title);
+            collect("dc.contributor.author", metadata.authors || metadata.author);
+            collect("dc.subject", metadata.subjectKeywords);
+            collect("dc.identifier.class", metadata.classification);
+            collect("local.office", metadata.offices);
+            collect("dc.type.newspaper", metadata.newspaperType);
+            collect("dc.identifier.cid", metadata.cid);
+            collect("dc.identifier.accession", metadata.accessionNumber);
+            collect("dc.publisher", metadata.publisher);
+            collect("dc.date.issued", metadata.dateOfIssue || metadata.dateIssued);
+            collect("dc.language.iso", metadata.language);
+            collect("dc.relation.ispartofseries", metadata.seriesNumber || metadata.series);
+            collect("dc.description.physical", metadata.physicalDescription);
+            collect("dc.description.note", metadata.notes);
+            collect("local.acquisition.type", metadata.typeOfAcquiring);
         } else if (collectionType === "printed") {
-            addPatch("dc.identifier.other", metadata.accessionNumber);
-            addPatch("dc.identifier.other", metadata.cid);
-            addPatch("dc.identifier.other", metadata.attachedDocuments);
-            addPatch("dc.identifier.isbn", metadata.isbn);
-            addPatch("dc.contributor.other", metadata.offices);
-            addPatch("dc.title.alternative", metadata.subtitle);
+            collect("dc.title.prtitle", metadata.title);
+            collect("dc.contributor.author", metadata.authors || metadata.author);
+            collect("dc.type.itemtype", metadata.type || metadata.mediaType);
+            collect("dc.date.issued", metadata.dateOfIssue || metadata.dateIssued);
+            collect("dc.description.physical", metadata.physicalDescription);
+            collect("dc.identifier.isbn", metadata.isbn);
+            collect("dc.identifier.cid", metadata.cid);
+            collect("dc.identifier.accession", metadata.accessionNumber);
+            collect("dc.subject", metadata.subjectKeywords);
+            collect("local.office", metadata.offices);
+            collect("dc.identifier.other", metadata.attachedDocuments);
+        } else {
+            collect("dc.title", metadata.title);
+            collect("dc.contributor.author", metadata.authors || metadata.author);
+            collect("dc.date.issued", metadata.dateOfIssue || metadata.dateIssued);
+            collect("dc.publisher", metadata.publisher);
+            collect("dc.type", metadata.type || metadata.mediaType);
+            collect("dc.language.iso", metadata.language);
+            collect("dc.subject", metadata.subjectKeywords);
+            collect("dc.description.abstract", metadata.abstract || metadata.description);
         }
 
-        // Handle dynamic identifiers if present
-        if (metadata.identifiers && Array.isArray(metadata.identifiers)) {
+        // Handle dynamic identifiers - Only for multimedia and default types
+        if ((collectionType === "multimedia" || collectionType === "default") && metadata.identifiers && Array.isArray(metadata.identifiers)) {
             const idMap = {
                 "ISSN": "dc.identifier.issn",
                 "ISBN": "dc.identifier.isbn",
@@ -422,14 +474,18 @@ class DSpaceService {
                 const val = (idObj.value || "").trim();
                 if (!val) continue;
                 const field = idMap[idObj.type] || "dc.identifier.other";
-
-                metadataUpdates.push({
-                    op: "add",
-                    path: `/sections/${section}/${field}`,
-                    value: [{ value: val }]
-                });
+                collect(field, val);
             }
         }
+
+        const metadataUpdates = Object.entries(groupedUpdates).map(([path, values]) => {
+            const uniqueValues = [...new Set(values)];
+            return {
+                op: "add",
+                path: path,
+                value: uniqueValues.map(v => ({ value: v }))
+            };
+        });
 
         if (metadataUpdates.length === 0) return true;
 
@@ -443,12 +499,37 @@ class DSpaceService {
                 baseHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
             }
 
+            // Verify sections first
+            console.log(`Verifying workspace item ${workspaceItemId} sections...`);
+            const wsiResp = await fetch(`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`, {
+                headers: { "Authorization": baseHeaders["Authorization"] },
+                credentials: "include"
+            });
+            this._updateTokens(wsiResp);
+            if (wsiResp.ok) {
+                const wsi = await wsiResp.json();
+                const availableSections = Object.keys(wsi.sections || {});
+                console.log(`Available sections for item ${workspaceItemId}:`, availableSections);
+
+                // If the target section isn't available, fallback to traditionalpageone
+                if (section !== "traditionalpageone" && !availableSections.includes(section)) {
+                    console.warn(`Target section ${section} not found. Available: ${availableSections.join(", ")}. Falling back to traditionalpageone.`);
+                    metadataUpdates.forEach(update => {
+                        update.path = update.path.replace(`/sections/${section}/`, "/sections/traditionalpageone/");
+                    });
+                }
+            }
+
+            console.log(`Sending metadata PATCH for ${collectionType} (ID: ${workspaceItemId}):`, metadataUpdates);
+
             const response = await fetch(`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`, {
                 method: "PATCH",
                 headers: baseHeaders,
                 credentials: "include",
                 body: JSON.stringify(metadataUpdates),
             });
+
+            this._updateTokens(response);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -485,6 +566,8 @@ class DSpaceService {
                 }
             );
 
+            this._updateTokens(response);
+
             return response.ok;
         } catch (error) {
             return false;
@@ -512,6 +595,8 @@ class DSpaceService {
                 }
             );
 
+            this._updateTokens(response);
+
             return response.ok;
         } catch (error) {
             return false;
@@ -529,8 +614,13 @@ class DSpaceService {
                 headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
             }
 
-            const id = typeof workspaceItemId === 'object' ? (workspaceItemId.id || workspaceItemId.uuid) : workspaceItemId;
-            const workspaceUri = `${window.location.protocol}//${window.location.host}/server/api/submission/workspaceitems/${id}`;
+            let workspaceUri;
+            if (typeof workspaceItemId === 'object' && workspaceItemId._links?.self?.href) {
+                workspaceUri = workspaceItemId._links.self.href;
+            } else {
+                const id = typeof workspaceItemId === 'object' ? (workspaceItemId.id || workspaceItemId.uuid) : workspaceItemId;
+                workspaceUri = `${window.location.protocol}//${window.location.host}/server/api/submission/workspaceitems/${id}`;
+            }
 
             const response = await fetch(`${DSPACE_API_URL}/workflow/workflowitems`, {
                 method: "POST",
@@ -538,6 +628,8 @@ class DSpaceService {
                 headers: headers,
                 body: workspaceUri,
             });
+
+            this._updateTokens(response);
 
             if (response.ok || response.status === 201 || response.status === 202) {
                 return await response.json().catch(() => ({ id: workspaceItemId }));

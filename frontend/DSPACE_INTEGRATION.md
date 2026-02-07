@@ -1,96 +1,535 @@
-# Digital Library Application - Direct DSpace Integration
+1.Archive uploading fields
 
-## Summary of Changes
+Reference Code *
+CID *
+Title *
+Description *
+Keywords
+Archive Type *
+Archival Coverage Opening Date *
+Calendar Type *
+Level of Arrangement *
+Archival Quantity *
+Archival Medium *
+Provenance *
+Archive Accession Date *
+Archival Accession Means *
+Immediate source of acquisition or transfer *
+Access Condition *
+Language *
+Archival Security Category *
+Processing Status *
 
-Successfully refactored the digital library application to work directly with DSpace (port 8080) without Django backend dependency.
+2. For printed
+Title *
+Authors(can be many)
+Item Type *
+Publication Date *
+Physical Description
+ISBN(can be many)
+CID *
+Accession Number/ Barcode
+Subjects
+Offices(can be many)
 
-### Key Features Implemented
+3. Multimedia
+Title*
+Alternative Titles
+Subjects
+Creator(s)*
+Other Contributors
+Media Type*
+Description/Abstract*
+Creation/Recording Date
+Publication/Release Date
+File Format*
+Duration/Length
+Resolution
+File Size
+Primary Language
+Publisher/Producer
+Series/Collection
+Copyright/Rights Statement
+License
+Select the license for this content
+Access Level
+Select the access level for this content
+Identifiers
+Additional Notes
+Enter any additional information or notes
+CID*
+Accession Numbers/Barcodes
+Composer(s)
+Singer(s)/Performer(s)
+Music Type/Genre
+Music Album
+Physical Description*
+Physical Medium
+Classification Number
+Instruments Used
+Place of Publication/Recording
+Acquisition Method
+Related Websites/URLs
+Poem Author(s)/Lyricist(s)
+Melody Author(s)
+Instrument Player(s)
+Individual Song/Track Titles
+Track/Item Number
+Language(s)
+4. Serial
+Title *
+Authors
+Subjects
+Classification *
+Offices
+Item Type - News Papers *
+CID *
+Accession Number / Barcode *
+Publisher *
+Publication Date *
+Language *
+Series Number
+Physical Description
+Notes
+Type of Acquiring *
 
-1. **Direct DSpace Authentication**
-   - Login via DSpace REST API at `http://localhost:8080/server/api/authn/login`
-   - CSRF token handling through Vite proxy
-   - Auth token storage in localStorage
-   - User state management in AuthContext
+for select input fields possible values
+1. Archive Types
 
-2. **Proxy Configuration** (`vite.config.js`)
-   - Port: 8000
-   - Proxy path: `/api/dspace` → `http://localhost:8080/server/api`
-   - `changeOrigin: false` - Critical for CSRF validation
-   - Cookie path rewriting: `/server` → `/` for proper cookie access
+Governmental Archive
 
-3. **Authentication Flow**
-   - `dspaceService.getCsrfToken()` - Get CSRF token from DSpace
-   - `dspaceService.login(email, password)` - Login with credentials
-   - `dspaceService.checkAuthStatus()` - Verify authentication
-   - AuthContext manages user state and triggers re-renders
+Personal Archive
 
-4. **UI Components**
-   - **Navbar**: Shows/hides login button based on user state
-   - **Home**: Fetches and displays DSpace items and collections
-   - **ResourceTable**: Shows catalog button only for authenticated users
-   - **CollectionsGrid**: Displays collections as cards
-   - **MetadataEditor**: Upload interface for DSpace
+Institutional Archive
 
-### Current Status
+2. Multimedia Types
 
-✅ **Working**:
-- Login to DSpace (status 200)
-- CSRF token handling
-- Auth token storage
-- User state management
-- Navbar login/logout button visibility
+Video Recording
 
-⏳ **To Verify**:
-- Collections fetching from DSpace
-- Items search and display
-- Upload functionality
-- Catalog button visibility after login
+Audio Recording
 
-### Testing Instructions
+Image / Photograph
 
-1. Start the application:
-   ```bash
-   cd /home/biruk/Desktop/New\ Folder/Resource/digital-library
-   npm run dev
-   ```
+Animation
 
-2. Access at: `http://localhost:8000/`
+Presentation / Slides
 
-3. Login with DSpace credentials:
-   - Email: `biruknigusie98@gmail.com`
-   - Password: (your DSpace password)
+Interactive Media
 
-4. After login:
-   - Login button should disappear
-   - User info should appear in navbar
-   - Collections should load
-   - Items should be searchable
-   - Catalog button should appear for DSpace items
+3D Model
 
-### API Endpoints Used
+Mixed Media
 
-- `GET /api/dspace/security/csrf` - Get CSRF token
-- `POST /api/dspace/authn/login` - Login
-- `GET /api/dspace/authn/status` - Check auth status
-- `GET /api/dspace/core/collections` - Get collections
-- `GET /api/dspace/discover/search/objects` - Search items
-- `POST /api/dspace/submission/workspaceitems` - Create workspace item
-- `PATCH /api/dspace/submission/workspaceitems/{id}` - Update metadata
-- `POST /api/dspace/workflow/workflowitems` - Submit item
+Other
 
-### Files Modified
+3. Multimedia File Formats
+Video
 
-1. `/src/contexts/AuthContext.jsx` - DSpace authentication
-2. `/src/pages/Home.jsx` - Direct DSpace data fetching
-3. `/src/pages/SignIn.jsx` - Updated login flow
-4. `/src/pages/ResourceTable.jsx` - Conditional catalog button
-5. `/src/services/dspaceService.js` - Already existed
-6. `/vite.config.js` - Proxy configuration
+MP4 (video/mp4)
 
-### Next Steps
+AVI (video/x-msvideo)
 
-If collections or items are not loading:
-1. Check browser console for errors
-2. Verify DSpace is running on port 8080
-3. Check network tab for API calls
-4. Ensure CSRF token is being sent correctly
+MOV (video/quicktime)
+
+WMV (video/x-ms-wmv)
+
+MKV (video/x-matroska)
+
+WebM (video/webm)
+
+Audio
+
+MP3 (audio/mpeg)
+
+WAV (audio/x-wav)
+
+FLAC (audio/flac)
+
+AAC (audio/aac)
+
+OGG (audio/ogg)
+
+WMA (audio/x-ms-wma)
+
+Image
+
+JPEG
+
+PNG
+
+GIF
+
+TIFF
+
+BMP
+
+RAW
+
+SVG
+
+Other
+
+PDF
+
+PPT / PPTX
+
+ZIP Archive
+
+Other
+
+4. Physical Mediums
+
+Cassette
+
+CD
+
+Vinyl Record
+
+Digital File
+
+DVD
+
+Other
+
+5. Acquisition Methods
+
+By Proclamation
+
+Purchase
+
+Donation
+
+Transfer
+
+Legal Deposit
+
+6. Printed Material Types
+
+Book
+
+Journal
+
+Magazine
+
+Pamphlet
+
+Brochure
+
+Catalog
+
+Thesis
+
+Report
+
+Manual
+
+Other
+
+7. Common Identifiers
+
+ISBN
+
+ISSN
+
+ISMN
+
+Gov’t Document Number
+
+URI
+
+Other
+
+8. Common Resource Types
+
+Animation
+
+Article
+
+Book
+
+Book Chapter
+
+Dataset
+
+Learning Object
+
+Image
+
+Image (3-D)
+
+Map
+
+Musical Score
+
+Plan / Blueprint
+
+Preprint
+
+Presentation
+
+Recording (Acoustical)
+
+Recording (Musical)
+
+Recording (Oral)
+
+Software
+
+Technical Report
+
+Thesis
+
+Video
+
+Working Paper
+
+Other
+
+9. Languages (ISO)
+Ethiopian Languages
+
+Amharic (am)
+
+Oromo (om)
+
+Tigrinya (ti)
+
+Somali (so)
+
+Afar (aa)
+
+Sidama (sid)
+
+Wolaytta (wal)
+
+International
+
+English (en, en_US)
+
+Spanish (es)
+
+German (de)
+
+French (fr)
+
+Italian (it)
+
+Japanese (ja)
+
+Chinese (zh)
+
+Portuguese (pt)
+
+Turkish (tr)
+
+Other
+
+N/A
+
+10. Newspaper Types
+
+Daily Newspaper
+
+Weekly Newspaper
+
+Bi-weekly Newspaper
+
+Monthly Newspaper
+
+11. License Types
+
+No License
+
+CC-BY
+
+CC-BY-ND
+
+CC-BY-SA
+
+CC-BY-NC
+
+CC-BY-NC-ND
+
+CC-BY-NC-SA
+
+Other
+
+12. OpenAIRE Resource Types (Top-level)
+
+Interactive Resource
+
+Dataset
+
+Image
+
+Software
+
+Workflow
+
+Cartographic Material
+
+Sound
+
+Text
+
+Patent
+
+Preprint
+
+Report
+
+Research Proposal
+
+Review
+
+Technical Documentation
+
+Working Paper
+
+Thesis
+
+Musical Notation
+
+Blog Post
+
+Learning Object
+
+Clinical Trial
+
+Clinical Study
+
+(Nested types like Journal Article, Conference Paper, Master Thesis, etc. are sub-types of Text / Report / Thesis.)
+
+13. Version Types
+
+Author’s Original
+
+Submitted Manuscript
+
+Accepted Manuscript
+
+Proof
+
+Version of Record
+
+Corrected Version
+
+Enhanced Version
+
+Not Applicable
+
+14. Access Rights
+
+Open Access
+
+Embargoed Access
+
+Restricted Access
+
+Metadata-only Access
+
+15. Author Identifier Types
+
+ORCID
+
+Scopus Author ID
+
+Google Scholar ID
+
+Web of Science ResearcherID
+
+ISNI
+
+Ciencia ID
+
+Other
+
+16. Organization Identifier Types
+
+ISNI
+
+Ringgold ID
+
+ROR
+
+Other
+
+17. Organization Types
+
+Funding Organization
+
+18. Calendar Types
+
+Ethiopian Calendar
+
+Gregorian Calendar
+
+19. Arrangement Levels
+
+Fonds
+
+Sub-fonds
+
+Series
+
+Sub-series
+
+File
+
+Item
+
+20. Archive Mediums
+
+Paper
+
+Parchment
+
+Photographic Material
+
+Audio Recording
+
+Video Recording
+
+Digital Files
+
+21. Accession Means
+
+Donation
+
+Transfer
+
+Purchase
+
+Deposit
+
+Legal Deposit
+
+22. Access Conditions
+
+Open Access
+
+Restricted Access
+
+Closed Access
+
+Embargoed
+
+23. Security Categories
+
+Public
+
+Confidential
+
+Secret
+
+Top Secret
+
+24. Processing Status
+
+Not Processed
+
+In Process
+
+Partially Processed
+
+Fully Processed
