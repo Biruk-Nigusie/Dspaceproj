@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { useAuth } from "../contexts/AuthContext";
 import { Search, Eye, X, FileText, Download, User, Calendar, BookOpen, Hash, Globe, Info, MessageSquare, Award, Database, Tag, Shield, Layers, Package, CheckCircle2, AlertCircle } from "lucide-react";
+import CatalogModal from "../components/CatalogModal";
 
 // Configure pdfjs worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -72,6 +73,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
     const [previewLoading, setPreviewLoading] = useState({});
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showCatalogModal, setShowCatalogModal] = useState(false);
     const [selectedResource, setSelectedResource] = useState(null);
     const [previewUrl, setPreviewUrl] = useState("");
     const [numPages, setNumPages] = useState(null);
@@ -265,7 +267,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
                                                 </div>
                                                 <button
                                                     onClick={(e) => handleEyeClick(resource, e)}
-                                                    className="p-1 text-blue-600 bg-blue-50 rounded-full transition-all opacity-0 group-hover/row:opacity-100 cursor-pointer"
+                                                    className="p-1 text-blue-600 bg-blue-50 rounded-full transition-all hover:bg-blue-100 cursor-pointer"
                                                     title="View Details"
                                                 >
                                                     <Eye size={14} />
@@ -418,48 +420,36 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                onCatalogClick(selectedResource);
-                                                setShowDetailModal(false);
+                                                setShowCatalogModal(true);
                                             }}
                                             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold uppercase tracking-widest transition-all rounded-sm shadow-md hover:shadow-lg cursor-pointer min-w-[140px]"
                                         >
-                                            <Database size={18} /> Catalog
+                                            <Database size={18} /> Catalog Item
                                         </button>
                                     )}
-                                    {selectedResource.is_cataloged && (
+                                    {!isAuthenticated && selectedResource.is_cataloged && (
                                         <button
                                             onClick={() => {
                                                 const kohaId = selectedResource.koha_id || selectedResource.external_id;
-                                                window.open(`http://127.0.0.1:8085/cgi-bin/koha/catalogue/detail.pl?biblionumber=${kohaId}`, "_blank");
+                                                window.location.href = `http://127.0.0.1/cgi-bin/koha/opac-detail.pl?biblionumber=${kohaId}`;
                                             }}
                                             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-sm font-bold uppercase tracking-widest transition-all rounded-sm shadow-md hover:shadow-lg cursor-pointer min-w-[140px]"
                                         >
-                                            <Download size={18} /> Borrow
+                                            <BookOpen size={18} /> Borrow Now
                                         </button>
                                     )}
                                 </>
                             )}
-                            {(selectedResource.source === "koha" || selectedResource.is_cataloged) && (
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => {
-                                            const kohaId = selectedResource.koha_id || selectedResource.external_id;
-                                            window.open(`http://127.0.0.1:8085/cgi-bin/koha/catalogue/detail.pl?biblionumber=${kohaId}`, "_blank");
-                                        }}
-                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold uppercase tracking-widest transition-all rounded-sm shadow-md hover:shadow-lg cursor-pointer min-w-[140px]"
-                                    >
-                                        <Search size={18} /> View in Koha Catalog
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            const kohaId = selectedResource.koha_id || selectedResource.external_id;
-                                            window.open(`http://127.0.0.1:8085/cgi-bin/koha/catalogue/detail.pl?biblionumber=${kohaId}`, "_blank");
-                                        }}
-                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-sm font-bold uppercase tracking-widest transition-all rounded-sm shadow-md hover:shadow-lg cursor-pointer min-w-[40px]"
-                                    >
-                                        <Download size={18} /> Borrow Item
-                                    </button>
-                                </div>
+                            {selectedResource.source === "koha" && (
+                                <button
+                                    onClick={() => {
+                                        const kohaId = selectedResource.koha_id || selectedResource.external_id;
+                                        window.location.href = `http://127.0.0.1/cgi-bin/koha/opac-detail.pl?biblionumber=${kohaId}`;
+                                    }}
+                                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-sm font-bold uppercase tracking-widest transition-all rounded-sm shadow-md hover:shadow-lg cursor-pointer min-w-[140px]"
+                                >
+                                    <BookOpen size={18} /> Borrow Now
+                                </button>
                             )}
                         </div>
                     </div>
@@ -568,6 +558,26 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Catalog Modal */}
+            {showCatalogModal && selectedResource && (
+                <CatalogModal
+                    resource={selectedResource}
+                    onClose={() => setShowCatalogModal(false)}
+                    onSuccess={(result) => {
+                        console.log('Cataloging successful:', result);
+                        // Update the selected resource to show Borrow button immediately
+                        if (selectedResource) {
+                            setSelectedResource(prev => ({
+                                ...prev,
+                                is_cataloged: true,
+                                koha_id: result.biblio_id
+                            }));
+                        }
+                        setShowCatalogModal(false);
+                    }}
+                />
             )}
         </div>
     );

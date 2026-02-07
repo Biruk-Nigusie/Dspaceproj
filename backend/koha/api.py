@@ -124,6 +124,45 @@ class KohaRestAPI:
             traceback.print_exc()
             return None
     
+    def create_biblio_from_marc(self, marc_record):
+        """Create bibliographic record from MARC21 data"""
+        if not self.token and not self.authenticate():
+            return None
+        
+        try:
+            headers = self._get_headers("application/marc-in-json")
+            response = requests.post(f"{self.base_url}/biblios", 
+                                   headers=headers,
+                                   json=marc_record,
+                                   timeout=10)
+            
+            if response.status_code in (200, 201):
+                try:
+                    res_json = response.json()
+                    if not res_json and response.status_code == 201:
+                        # Extract ID from Location header
+                        location = response.headers.get('Location', '')
+                        if location:
+                            bib_id = location.split('/')[-1]
+                            return {"id": int(bib_id)}
+                    return res_json
+                except Exception:
+                    # Try to extract ID from Location header
+                    location = response.headers.get('Location', '')
+                    if location:
+                        bib_id = location.split('/')[-1]
+                        return {"id": int(bib_id)}
+                    return None
+            else:
+                print(f"❌ Koha: create_biblio_from_marc failed: {response.status_code} - {response.text}")
+                try:
+                    return response.json()
+                except:
+                    return None
+        except Exception as e:
+            print(f"❌ Koha: Create biblio exception: {e}")
+            return None
+    
     def add_item(self, biblio_id, item_data):
         """Add item to bibliographic record"""
         if not self.token and not self.authenticate():
@@ -134,13 +173,34 @@ class KohaRestAPI:
                                    headers=self._get_headers(),
                                    json=item_data)
             
-            if response.status_code == 201:
-                return response.json()
+            if response.status_code in (200, 201):
+                result = response.json()
+                # Ensure we return item_id
+                if 'item_id' not in result and 'id' in result:
+                    result['item_id'] = result['id']
+                return result
             else:
                 print(f"❌ Koha add_item failed: {response.status_code} - {response.text}")
                 return None
-        except:
+        except Exception as e:
+            print(f"❌ Koha add_item exception: {e}")
             return None
+    
+    def get_biblio_items(self, biblio_id):
+        """Get all items for a bibliographic record"""
+        if not self.token and not self.authenticate():
+            return []
+        
+        try:
+            response = requests.get(f"{self.base_url}/biblios/{biblio_id}/items", 
+                                  headers=self._get_headers())
+            
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            print(f"❌ Koha get_biblio_items exception: {e}")
+            return []
     
     def _convert_to_marc(self, metadata):
         """Convert metadata to MARC format with all fields"""

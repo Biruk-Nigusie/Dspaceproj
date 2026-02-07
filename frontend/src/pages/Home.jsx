@@ -82,20 +82,53 @@ const Home = () => {
     }, [dspaceHierarchy]);
 
 
+    // Fetch Catalog Map
+    const { data: catalogMap = {} } = useQuery({
+        queryKey: ['catalogMap'],
+        queryFn: async () => {
+            try {
+                const res = await axios.get('/api/koha/map/');
+                return res.data;
+            } catch (e) {
+                return {};
+            }
+        },
+        staleTime: 1000 * 60 * 5
+    });
+
     // 2. Main Resource Query
     const { data: allResources = [], isLoading: loading } = useQuery({
-        queryKey: ['resources', searchQuery, selectedCollections.map(c => c.uuid || c.id)],
+        queryKey: ['resources', searchQuery, selectedCollections.map(c => c.uuid || c.id), catalogMap],
         queryFn: async () => {
-            if (selectedCollections.length > 0) {
+            // Determine which collection to fetch from
+            let collectionsToFetch = selectedCollections;
+
+            // If no collection selected and no search query, default to Archive collection
+            if (collectionsToFetch.length === 0 && !searchQuery) {
+                const archiveCollectionId = '0e2ccffa-ddb3-4fd7-868b-05a848c6de55';
+                collectionsToFetch = [{ uuid: archiveCollectionId, id: archiveCollectionId, name: 'Archive' }];
+            }
+
+            const enrich = (mapped) => {
+                const kohaId = catalogMap[mapped.id];
+                if (kohaId) {
+                    mapped.is_cataloged = true;
+                    mapped.koha_id = kohaId;
+                }
+                return mapped;
+            };
+
+            if (collectionsToFetch.length > 0) {
                 const results = [];
-                for (const col of selectedCollections) {
+                for (const col of collectionsToFetch) {
                     const id = col.uuid || col.id;
                     const items = await dspaceService.searchItems(searchQuery || "*", 100, id);
-                    const category = categoryMap[id] || "Other";
+                    const category = categoryMap[id] || "Archive";
                     results.push(...items
                         .filter(i => i._embedded?.indexableObject?.type === 'item')
                         .map(i => ({ ...i, collectionName: category }))
                         .map(mapDspaceItem)
+                        .map(enrich)
                     );
                 }
                 return results;
@@ -107,24 +140,27 @@ const Home = () => {
                         const itemData = item._embedded?.indexableObject;
                         const collId = itemData?._links?.owningCollection?.href?.split('/').pop();
                         const category = categoryMap[collId] || "Archive";
-                        return mapDspaceItem({ ...item, collectionName: category });
+                        return enrich(mapDspaceItem({ ...item, collectionName: category }));
                     });
 
+                // Only fetch Koha items if there's an active search query
                 let mappedKoha = [];
-                try {
-                    const kohaResponse = await axios.get(`/api/resources/search/`, {
-                        params: { q: searchQuery, source: 'koha', limit: 50 }
-                    });
-                    if (kohaResponse.data?.results) {
-                        mappedKoha = kohaResponse.data.results.map(item => ({
-                            ...item,
-                            source: 'koha',
-                            source_name: 'Cataloged',
-                            collectionName: 'Cataloged'
-                        }));
+                if (searchQuery && searchQuery.trim()) {
+                    try {
+                        const kohaResponse = await axios.get(`/api/resources/search/`, {
+                            params: { q: searchQuery, source: 'koha', limit: 50 }
+                        });
+                        if (kohaResponse.data?.results) {
+                            mappedKoha = kohaResponse.data.results.map(item => ({
+                                ...item,
+                                source: 'koha',
+                                source_name: 'Cataloged',
+                                collectionName: 'Cataloged'
+                            }));
+                        }
+                    } catch (e) {
+                        console.error("Koha error", e);
                     }
-                } catch (e) {
-                    console.error("Koha error", e);
                 }
                 return [...mappedDspace, ...mappedKoha];
             }
@@ -172,8 +208,18 @@ const Home = () => {
                 else if (firstVal.startsWith("Serial-")) activeCategory = "serial";
             }
         }
+
+        // 3. Default to Archive on base URL with no filters or search
+        if (activeCategory === 'default') {
+            const hasActiveFilters = Object.keys(activeFilters).some(k => (activeFilters[k] || []).length > 0);
+            const hasSearchQuery = searchQuery && searchQuery.trim();
+            if (!hasActiveFilters && !hasSearchQuery) {
+                activeCategory = 'archive';
+            }
+        }
+
         return activeCategory;
-    }, [selectedCollections, activeFilters, dspaceHierarchy]);
+    }, [selectedCollections, activeFilters, dspaceHierarchy, searchQuery]);
 
     const { data: stats = { totalResources: 12457, monthlyDownloads: 5678, activeUsers: 890, communities: 12 } } = useQuery({
         queryKey: ['stats'],
@@ -317,9 +363,26 @@ const Home = () => {
     };
 
     const filteredResources = applyTreeFilters(allResources, activeFilters);
+
     const resourcesToDisplay = useMemo(() => {
-        if (!sortConfig.field) return filteredResources;
-        return [...filteredResources].sort((a, b) => {
+        let resources = filteredResources;
+
+        // On base URL with no filters or selections, show only Archive items
+        const hasActiveFilters = Object.keys(activeFilters).some(k => (activeFilters[k] || []).length > 0);
+        const hasCollectionSelection = selectedCollections.length > 0;
+        const hasSearchQuery = searchQuery && searchQuery.trim();
+
+        if (!hasActiveFilters && !hasCollectionSelection && !hasSearchQuery) {
+            // Filter to show only Archive sub-community items
+            resources = resources.filter(r => {
+                const collName = (r.collectionName || "").toLowerCase();
+                return collName.includes("archive");
+            });
+        }
+
+        // Apply sorting
+        if (!sortConfig.field) return resources;
+        return [...resources].sort((a, b) => {
             const valA = (a[sortConfig.field] || "").toString().toLowerCase();
             const valB = (b[sortConfig.field] || "").toString().toLowerCase();
             if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;

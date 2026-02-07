@@ -200,7 +200,7 @@ const MetadataEditor = () => {
                 const blob = await response.blob();
                 const newFile = new File([blob], selectedFile.name, { type: 'application/pdf' });
                 updateFileInList(selectedFile.id, newFile);
-                toast.success('Rotated successfully');
+                // toast.success('Rotated successfully');
             } else {
                 toast.error('Rotate failed');
             }
@@ -278,7 +278,7 @@ const MetadataEditor = () => {
                 }
                 setFiles(prev => [...prev, ...newFiles]);
                 setIsSplitModalOpen(false);
-                toast.success('Split successful! Files added to list.');
+                // toast.success('Split successful! Files added to list.');
             } else {
                 const err = await response.json();
                 toast.error('Split failed: ' + (err.error || 'Unknown error'));
@@ -314,7 +314,7 @@ const MetadataEditor = () => {
                 const newFile = new File([blob], finalName, { type: 'application/pdf' });
                 updateFileInList(selectedFile.id, newFile, finalName);
                 setIsRenameModalOpen(false);
-                toast.success('Renamed successfully');
+                // toast.success('Renamed successfully');
             } else {
                 toast.error('Rename failed');
             }
@@ -373,7 +373,7 @@ const MetadataEditor = () => {
                 };
                 setFiles(prev => [...prev, newFileItem]);
                 setIsMergeModalOpen(false);
-                toast.success('Merged file added to list');
+                // toast.success('Merged file added to list');
                 setTimeout(() => {
                     handleFileSelect(newFileItem.id, newFileItem);
                 }, 100);
@@ -461,19 +461,19 @@ const MetadataEditor = () => {
     const FORM_FIELD_CONFIGS = {
         archive: {
             show: ['referenceCode', 'cid', 'title', 'description1', 'archiveType', 'subjectKeywords', 'temporalCoverage', 'calendarType', 'arrangement', 'quantity', 'medium', 'provenance', 'accessionDate', 'accessionNumber', 'immediateSource', 'accessCondition', 'language', 'security', 'processing', 'physicalDescription'],
-            required: ['referenceCode', 'cid', 'title', 'description1', 'archiveType']
+            required: ['referenceCode', 'cid', 'title', 'description1', 'archiveType', 'temporalCoverage', 'calendarType']
         },
         multimedia: {
             show: ['title', 'otherTitles', 'subjectKeywords', 'composers', 'singersPerformers', 'mediaType', 'description', 'creationDate', 'dateOfIssue', 'format', 'duration', 'physicalMedium', 'placeOfPublication', 'acquisitionMethod', 'musicAlbum', 'language'],
-            required: ['title', 'composers', 'mediaType', 'description', 'cid']
+            required: ['title', 'composers', 'mediaType', 'description', 'cid', 'creationDate', 'duration']
         },
         serial: {
             show: ['title', 'authors', 'subjectKeywords', 'classification', 'offices', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'language', 'seriesNumber', 'physicalDescription', 'description', 'typeOfAcquiring'],
-            required: ['title', 'classification', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'typeOfAcquiring']
+            required: ['title', 'classification', 'newspaperType', 'cid', 'publisher', 'dateOfIssue', 'typeOfAcquiring', 'authors']
         },
         printed: {
             show: ['title', 'accessionNumber', 'authors', 'dateOfIssue', 'subjectKeywords', 'offices', 'type', 'attachedDocuments', 'cid', 'subtitle', 'isbn', 'language', 'abstractText', 'publisher', 'citation', 'series'],
-            required: ['title']
+            required: ['title', 'authors', 'dateOfIssue', 'type', 'cid', 'accessionNumber', 'isbn', 'publisher']
         },
         default: {
             show: ['title', 'authors', 'dateOfIssue', 'publisher', 'type', 'language', 'subjectKeywords', 'abstractText', 'description', 'sponsors'],
@@ -531,23 +531,40 @@ const MetadataEditor = () => {
         }
 
         // Validate required fields
+        // Validate required fields
         const requiredFields = config.required || [];
         const missing = [];
+
+        // Common
         if (requiredFields.includes('title') && !title) missing.push("Title");
         if (requiredFields.includes('dateOfIssue') && !dateOfIssue) missing.push("Date of Issue");
         if (requiredFields.includes('type') && !type) missing.push("Type");
+        if (requiredFields.includes('publisher') && !publisher) missing.push("Publisher");
+        if (requiredFields.includes('authors') && (!authors[0] || !authors[0].trim())) missing.push("Authors");
+
+        // Archive
         if (requiredFields.includes('referenceCode') && !referenceCode) missing.push("Reference Code");
         if (requiredFields.includes('cid') && !cid) missing.push("CID");
         if (requiredFields.includes('description1') && !description1) missing.push("Description 1");
         if (requiredFields.includes('archiveType') && !archiveType) missing.push("Archive Type");
-        if (requiredFields.includes('composers') && (!composers[0])) missing.push("Composers");
+        if (requiredFields.includes('temporalCoverage') && !temporalCoverage) missing.push("Temporal Coverage");
+        if (requiredFields.includes('calendarType') && !calendarType) missing.push("Calendar Type");
+
+        // Multimedia
+        if (requiredFields.includes('composers') && (!composers[0] || !composers[0].trim())) missing.push("Composers");
         if (requiredFields.includes('mediaType') && !mediaType) missing.push("Media Type");
         if (requiredFields.includes('description') && !description) missing.push("Description");
+        if (requiredFields.includes('creationDate') && !creationDate) missing.push("Creation Date");
+        if (requiredFields.includes('duration') && !duration) missing.push("Duration");
+
+        // Serial
         if (requiredFields.includes('classification') && !classification) missing.push("Classification");
         if (requiredFields.includes('newspaperType') && !newspaperType) missing.push("Newspaper Type");
         if (requiredFields.includes('accessionNumber') && !accessionNumber) missing.push("Accession Number");
-        if (requiredFields.includes('publisher') && !publisher) missing.push("Publisher");
         if (requiredFields.includes('typeOfAcquiring') && !typeOfAcquiring) missing.push("Type of Acquiring");
+
+        // Printed
+        if (requiredFields.includes('isbn') && (!isbn[0] || !isbn[0].trim())) missing.push("ISBN");
 
         if (missing.length > 0) {
             toast.warn(`Please fill required fields: ${missing.join(", ")}`);

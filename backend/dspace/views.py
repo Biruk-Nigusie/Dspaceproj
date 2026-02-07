@@ -103,7 +103,7 @@ def download_resource(request, resource_id):
         
         url = ""
         if resource.source == 'koha':
-            url = f"{KOHA_API_URL}/cgi-bin/koha/opac-detail.pl?biblionumber={resource.external_id}"
+            url = f"http://127.0.0.1/cgi-bin/koha/opac-detail.pl?biblionumber={resource.external_id}"
         elif resource.source == 'dspace':
             url = f"{DSPACE_URL.rstrip('/')}/handle/{resource.external_id}"
             
@@ -204,10 +204,28 @@ def get_dspace_items(request):
         search_result = data.get('_embedded', {}).get('searchResult', {})
         objects = search_result.get('_embedded', {}).get('objects', [])
         
+        # Fetch catalog status from local DB specific to these objects
+        local_catalog = {}
+        try:
+            # Optimize: only fetch matches? No, simplistic approach first
+            # Or fetch all cataloged dspace items
+            for r in Resource.objects.filter(source='dspace'):
+                 if r.metadata.get('is_cataloged'):
+                     local_catalog[r.external_id] = r.metadata.get('koha_id')
+        except Exception:
+            pass
+
         transformed = []
         for obj in objects:
             item = obj.get('_embedded', {}).get('indexableObject', {})
+            uuid = item.get('uuid')
             meta = item.get('metadata', {})
+            
+            # Inject local catalog info
+            koha_id = local_catalog.get(uuid)
+            if koha_id:
+                meta['local.koha.id'] = [{'value': koha_id}]
+
             def get_m(f): return [v.get('value', '') for v in meta.get(f, [{}]) if v.get('value')]
             
             years = get_m('dc.date.issued')
@@ -327,20 +345,78 @@ def get_dspace_hierarchy(request):
 @permission_classes([AllowAny])
 def pdf_rotate(request):
     try:
-        file = request.FILES.get('file'); angle = int(request.data.get('angle', 90))
+        file = request.FILES.get('file')
+        angle = int(request.data.get('angle', 90))
+        page = int(request.data.get('page', 1)) 
+        
         if not file: return Response({'error': 'No file'}, status=400)
-        rotated = rotate_pdf_page(file.read(), angle)
-        return StreamingHttpResponse(io.BytesIO(rotated), content_type='application/pdf')
+        
+        # Wrap in BytesIO for pypdf compatibility
+        file_stream = io.BytesIO(file.read())
+        
+        # Proper arguments: file, page_number, angle
+        rotated = rotate_pdf_page(file_stream, page, angle)
+        
+        # rotated is BytesIO
+        return StreamingHttpResponse(rotated, content_type='application/pdf')
     except Exception as e: return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def pdf_split(request):
     try:
-        file = request.FILES.get('file'); pages = request.data.get('pages', '')
-        if not file or not pages: return Response({'error': 'Missing fields'}, status=400)
-        split_pdf = split_pdf_at(file.read(), pages)
-        return StreamingHttpResponse(io.BytesIO(split_pdf), content_type='application/pdf')
+        import base64
+        import json
+        
+        file = request.FILES.get('file')
+        pages_str = request.data.get('pages', '')
+        names_json = request.data.get('names', '[]')
+        
+        if not file: return Response({'error': 'Missing file'}, status=400)
+        
+        # Wrap in BytesIO
+        file_stream = io.BytesIO(file.read())
+        
+        # Parse names
+        try:
+            names = json.loads(names_json)
+        except:
+            names = []
+
+        # Parse pages string into list of integers
+        page_ints = []
+        if pages_str:
+            try:
+                parts = str(pages_str).split(',')
+                for p in parts:
+                    p = p.strip()
+                    if p.isdigit():
+                        page_ints.append(int(p))
+            except:
+                pass
+                
+        if not page_ints and pages_str and str(pages_str).strip().isdigit():
+             page_ints = [int(str(pages_str).strip())]
+
+        split_parts = split_pdf_at(file_stream, page_ints) # Returns List[BytesIO]
+        
+        files_response = []
+        for i, part in enumerate(split_parts):
+            # Encode each part as Base64 Data URL
+            part_bytes = part.getvalue()
+            b64_str = base64.b64encode(part_bytes).decode('utf-8')
+            data_url = f"data:application/pdf;base64,{b64_str}"
+            
+            # Determine name
+            name = names[i] if i < len(names) else f"split_part_{i+1}.pdf"
+            if not name.lower().endswith('.pdf'): name += ".pdf"
+            
+            files_response.append({
+                'name': name,
+                'url': data_url
+            })
+            
+        return Response({'files': files_response})
     except Exception as e: return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])
@@ -349,8 +425,15 @@ def pdf_merge(request):
     try:
         files = request.FILES.getlist('files')
         if not files or len(files) < 2: return Response({'error': '2+ files required'}, status=400)
-        merged = merge_pdfs([f.read() for f in files])
-        return StreamingHttpResponse(io.BytesIO(merged), content_type='application/pdf')
+        
+        # Read all files into BytesIO streams first
+        streams = []
+        for f in files:
+            streams.append(io.BytesIO(f.read()))
+            
+        merged_output = merge_pdfs(streams)
+        
+        return StreamingHttpResponse(merged_output, content_type='application/pdf')
     except Exception as e: return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])
@@ -359,6 +442,11 @@ def pdf_rename(request):
     try:
         file = request.FILES.get('file'); title = request.data.get('title')
         if not file or not title: return Response({'error': 'Missing fields'}, status=400)
-        renamed = rename_pdf_title(file.read(), title)
-        return StreamingHttpResponse(io.BytesIO(renamed), content_type='application/pdf')
+        
+        # Wrap in BytesIO
+        file_stream = io.BytesIO(file.read())
+        
+        renamed = rename_pdf_title(file_stream, title)
+        
+        return StreamingHttpResponse(renamed, content_type='application/pdf')
     except Exception as e: return Response({'error': str(e)}, status=500)
