@@ -302,56 +302,112 @@ class DSpaceService {
         }
     }
 
-    async updateMetadata(workspaceItemId, metadata) {
+    async updateMetadata(workspaceItemId, metadata, collectionType = "default") {
         const metadataUpdates = [];
-        const author = metadata.author || [];
-        const subjectKeywords = metadata.subjectKeywords || [];
-        const otherTitles = metadata.otherTitles || [];
-        const dateIssued = metadata.dateIssued || metadata.publicationDate || "";
 
-        let seriesFormatted = metadata.series || [];
-        const reportNum = (metadata.reportNumber || "").trim();
-        if (reportNum) {
-            if (seriesFormatted.length > 0) {
-                seriesFormatted = seriesFormatted.map(s => `${s}; ${reportNum}`);
-            } else {
-                seriesFormatted = [`; ${reportNum}`];
-            }
-        }
-
-        const dcFields = {
-            "dc.title": metadata.title,
-            "dc.contributor.author": author,
-            "dc.title.alternative": otherTitles,
-            "dc.subject": subjectKeywords,
-            "dc.description.abstract": metadata.abstract,
-            "dc.description": metadata.description,
-            "dc.description.sponsorship": metadata.sponsors,
-            "dc.publisher": metadata.publisher,
-            "dc.identifier.citation": metadata.citation,
-            // "dc.identifier.govdoc": metadata.reportNumber,
-            // "dc.identifier.other": metadata.accessionNumber,
-            "dc.relation.ispartofseries": seriesFormatted,
-            "dc.date.issued": dateIssued,
-            "dc.language": metadata.language,
-            "dc.type": metadata.type,
+        // Map collection types to their respective DSpace submission sections
+        const TYPE_SECTION_MAP = {
+            "archive": "archiveForm",
+            "multimedia": "multimediaSubmission",
+            "serial": "serialStep",
+            "printed": "printedStep",
+            "default": "traditionalpageone"
         };
 
-        for (const [field, raw] of Object.entries(dcFields)) {
-            if (!raw) continue;
+        const section = TYPE_SECTION_MAP[collectionType] || "traditionalpageone";
+
+        // Helper to add metadata patch
+        const addPatch = (field, raw, customSection = null) => {
+            if (raw === undefined || raw === null) return;
             const vals = Array.isArray(raw) ? raw : [raw];
             const cleaned = vals.map((v) => String(v).trim()).filter(Boolean);
 
             if (cleaned.length > 0) {
+                // Determine actual section for this field
+                let actualSection = customSection || section;
+
+                // In traditional, some fields are on page two
+                if (collectionType === "default" || collectionType === "traditional") {
+                    const PAGE_TWO_FIELDS = ["dc.subject", "dc.description.abstract", "dc.description", "dc.description.sponsorship"];
+                    if (PAGE_TWO_FIELDS.includes(field)) {
+                        actualSection = "traditionalpagetwo";
+                    }
+                }
+
                 metadataUpdates.push({
                     op: "add",
-                    path: `/sections/traditionalpageone/${field}`,
+                    path: `/sections/${actualSection}/${field}`,
                     value: cleaned.map(v => ({ value: v }))
                 });
             }
+        };
+
+        // Basic fields common to many (or mapped to specific ones)
+        addPatch("dc.title", metadata.title);
+        // Normalize authors
+        const authors = metadata.authors || metadata.author || [];
+        addPatch("dc.contributor.author", authors);
+        addPatch("dc.title.alternative", metadata.otherTitles || metadata.subtitle);
+        addPatch("dc.date.issued", metadata.dateIssued || metadata.publicationDate || metadata.dateOfIssue);
+        addPatch("dc.publisher", metadata.publisher || metadata.publisherProducer);
+        addPatch("dc.identifier.citation", metadata.citation);
+        addPatch("dc.relation.ispartofseries", metadata.series || metadata.seriesNumber || metadata.musicAlbum);
+        addPatch("dc.language.iso", metadata.language);
+        addPatch("dc.type", metadata.type || metadata.mediaType || metadata.archiveType || metadata.itemType);
+
+        // Keywords and description
+        const subjects = metadata.subjectKeywords || metadata.subjects || metadata.keywords;
+        addPatch("dc.subject", subjects);
+        addPatch("dc.description.abstract", metadata.abstract || metadata.abstractText || metadata.description1);
+        addPatch("dc.description", metadata.description || metadata.notes || metadata.additionalNotes);
+        addPatch("dc.description.sponsorship", metadata.sponsors);
+
+        // Type-specific fields mapping
+        if (collectionType === "archive") {
+            addPatch("dc.identifier.other", metadata.referenceCode);
+            addPatch("dc.identifier.other", metadata.cid);
+            addPatch("dc.coverage.temporal", metadata.temporalCoverage);
+            addPatch("dc.description", metadata.calendarType);
+            addPatch("dc.description", metadata.arrangement);
+            addPatch("dc.format.extent", metadata.quantity);
+            addPatch("dc.format.medium", metadata.medium);
+            addPatch("dc.provenance", metadata.provenance);
+            addPatch("dc.date.available", metadata.accessionDate);
+            addPatch("dc.identifier.accession", metadata.accessionNumber);
+            addPatch("dc.rights", metadata.accessCondition);
+            addPatch("dc.source", metadata.immediateSource);
+            addPatch("dc.format.extent", metadata.physicalDescription);
+            addPatch("dc.type", metadata.security);
+            addPatch("dc.type", metadata.processing);
+        } else if (collectionType === "multimedia") {
+            addPatch("dc.identifier.other", metadata.cid);
+            addPatch("dc.identifier.accession", metadata.accessionNumber);
+            addPatch("dc.contributor.author", metadata.composers);
+            addPatch("dc.contributor.other", metadata.singersPerformers);
+            addPatch("dc.date.created", metadata.creationDate);
+            addPatch("dc.format.extent", metadata.duration);
+            addPatch("dc.format.medium", metadata.physicalMedium);
+            addPatch("dc.coverage.spatial", metadata.placeOfPublication);
+            addPatch("dc.provenance", metadata.acquisitionMethod);
+            addPatch("dc.relation.ispartofseries", metadata.musicAlbum);
+        } else if (collectionType === "serial") {
+            addPatch("dc.identifier.other", metadata.classification);
+            addPatch("dc.identifier.other", metadata.cid);
+            addPatch("dc.identifier.other", metadata.accessionNumber);
+            addPatch("dc.contributor.other", metadata.offices);
+            addPatch("dc.provenance", metadata.typeOfAcquiring);
+            addPatch("dc.format.extent", metadata.physicalDescription);
+            addPatch("dc.type", metadata.newspaperType);
+        } else if (collectionType === "printed") {
+            addPatch("dc.identifier.other", metadata.accessionNumber);
+            addPatch("dc.identifier.other", metadata.cid);
+            addPatch("dc.identifier.other", metadata.attachedDocuments);
+            addPatch("dc.identifier.isbn", metadata.isbn);
+            addPatch("dc.contributor.other", metadata.offices);
+            addPatch("dc.title.alternative", metadata.subtitle);
         }
 
-        // Handle dynamic identifiers
+        // Handle dynamic identifiers if present
         if (metadata.identifiers && Array.isArray(metadata.identifiers)) {
             const idMap = {
                 "ISSN": "dc.identifier.issn",
@@ -364,25 +420,14 @@ class DSpaceService {
 
             for (const idObj of metadata.identifiers) {
                 const val = (idObj.value || "").trim();
-                // Skip empty values strictly
                 if (!val) continue;
-
                 const field = idMap[idObj.type] || "dc.identifier.other";
 
-                // CRITICAL: Check if this field/value combo was already added via fixed fields
-                // This prevents "Report No." (mapped to govdoc) from being added AGAIN if the user also put it in the dynamic list
-                // OR if the dynamic list tries to add to "other" and "Accession No" (mapped to other) already added it.
-                const alreadyExists = metadataUpdates.some(u =>
-                    u.path.endsWith(field) && u.value.some(v => v.value === val)
-                );
-
-                if (!alreadyExists) {
-                    metadataUpdates.push({
-                        op: "add",
-                        path: `/sections/traditionalpageone/${field}`,
-                        value: [{ value: val }]
-                    });
-                }
+                metadataUpdates.push({
+                    op: "add",
+                    path: `/sections/${section}/${field}`,
+                    value: [{ value: val }]
+                });
             }
         }
 
@@ -398,31 +443,23 @@ class DSpaceService {
                 baseHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
             }
 
-            const FIELD_SECTION_MAP = {
-                "dc.subject": "traditionalpagetwo",
-                "dc.description.abstract": "traditionalpagetwo",
-                "dc.description": "traditionalpagetwo",
-                "dc.description.sponsorship": "traditionalpagetwo",
-            };
-
-            const batch = metadataUpdates.map(p => {
-                const fieldName = p.path.split("/").pop();
-                let actualField = fieldName;
-                if (fieldName === 'dc.language') actualField = 'dc.language.iso';
-                const section = FIELD_SECTION_MAP[actualField] || "traditionalpageone";
-                return { ...p, path: `/sections/${section}/${actualField}` };
-            });
-
-            await fetch(`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`, {
+            const response = await fetch(`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`, {
                 method: "PATCH",
                 headers: baseHeaders,
                 credentials: "include",
-                body: JSON.stringify(batch),
-            }).catch(() => { });
+                body: JSON.stringify(metadataUpdates),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("PATCH failed:", response.status, errorText);
+                return false;
+            }
 
             return true;
         } catch (error) {
-            return true;
+            console.error("Error updating metadata:", error);
+            return false;
         }
     }
 

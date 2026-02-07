@@ -81,25 +81,68 @@ const MetadataEditor = () => {
 
     // Form state
     const [collections, setCollections] = useState([]);
+    const [hierarchy, setHierarchy] = useState([]);
     const [collectionId, setCollectionId] = useState("");
-    const [authors, setAuthors] = useState([""]);
+    const [collectionType, setCollectionType] = useState("default");
+
+    // Common Metadata
     const [title, setTitle] = useState("");
+    const [authors, setAuthors] = useState([""]);
     const [otherTitles, setOtherTitles] = useState([""]);
     const [dateOfIssue, setDateOfIssue] = useState("");
     const [publisher, setPublisher] = useState("");
     const [citation, setCitation] = useState("");
-    const [seriesReportNo, setSeriesReportNo] = useState([""]);
-    const [reportNumber, setReportNumber] = useState("");
-    const [accessionNumber, setAccessionNumber] = useState("");
-    const [publicationDate, setPublicationDate] = useState("");
-    const [identifiers, setIdentifiers] = useState([{ type: "Other", value: "" }]);
+    const [series, setSeries] = useState([""]);
     const [type, setType] = useState("");
     const [language, setLanguage] = useState("en_US");
     const [subjectKeywords, setSubjectKeywords] = useState([""]);
     const [abstractText, setAbstractText] = useState("");
-    const [sponsors, setSponsors] = useState("");
     const [description, setDescription] = useState("");
+    const [sponsors, setSponsors] = useState("");
     const [confirmLicense, setConfirmLicense] = useState(false);
+    const [identifiers, setIdentifiers] = useState([{ type: "Other", value: "" }]);
+
+    // Archive-specific fields
+    const [referenceCode, setReferenceCode] = useState("");
+    const [cid, setCid] = useState("");
+    const [description1, setDescription1] = useState("");
+    const [archiveType, setArchiveType] = useState("");
+    const [temporalCoverage, setTemporalCoverage] = useState("");
+    const [calendarType, setCalendarType] = useState("");
+    const [arrangement, setArrangement] = useState("");
+    const [quantity, setQuantity] = useState("");
+    const [medium, setMedium] = useState("");
+    const [provenance, setProvenance] = useState("");
+    const [accessionDate, setAccessionDate] = useState("");
+    const [accessionNumber, setAccessionNumber] = useState("");
+    const [immediateSource, setImmediateSource] = useState("");
+    const [accessCondition, setAccessCondition] = useState("");
+    const [processing, setProcessing] = useState("");
+    const [security, setSecurity] = useState("");
+    const [physicalDescription, setPhysicalDescription] = useState("");
+
+    // Multimedia-specific fields
+    const [mediaType, setMediaType] = useState("");
+    const [composers, setComposers] = useState([""]);
+    const [singersPerformers, setSingersPerformers] = useState([""]);
+    const [creationDate, setCreationDate] = useState("");
+    const [duration, setDuration] = useState("");
+    const [physicalMedium, setPhysicalMedium] = useState("");
+    const [placeOfPublication, setPlaceOfPublication] = useState("");
+    const [acquisitionMethod, setAcquisitionMethod] = useState("");
+    const [musicAlbum, setMusicAlbum] = useState("");
+
+    // Serial-specific fields
+    const [classification, setClassification] = useState("");
+    const [offices, setOffices] = useState([""]);
+    const [newspaperType, setNewspaperType] = useState("");
+    const [seriesNumber, setSeriesNumber] = useState("");
+    const [typeOfAcquiring, setTypeOfAcquiring] = useState("");
+
+    // Printed-specific fields
+    const [attachedDocuments, setAttachedDocuments] = useState("");
+    const [subtitle, setSubtitle] = useState("");
+    const [isbn, setIsbn] = useState([""]);
 
     // PDF viewer states
     const [numPages, setNumPages] = useState(null);
@@ -109,19 +152,14 @@ const MetadataEditor = () => {
 
     const [uploading, setUploading] = useState(false);
     const [showFileDropdown, setShowFileDropdown] = useState(false);
-    // Removed mergeInputRef as it's no longer used for direct file input
 
-    // Merge Modal states
+    // Modal states
     const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
-    const [filesToMerge, setFilesToMerge] = useState([]); // Array of IDs
+    const [filesToMerge, setFilesToMerge] = useState([]);
     const [mergeFileName, setMergeFileName] = useState("");
-
-    // Split Modal states
     const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
     const [splitPages, setSplitPages] = useState("");
     const [splitNames, setSplitNames] = useState([]);
-
-    // Rename Modal states
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
     const [renameNewName, setRenameNewName] = useState("");
 
@@ -140,7 +178,6 @@ const MetadataEditor = () => {
             }
             return f;
         }));
-        // If updating the selected file, force reload
         if (selectedFileId === fileId) {
             setPageNumber(1);
         }
@@ -179,29 +216,22 @@ const MetadataEditor = () => {
         setIsRenameModalOpen(false);
         setSplitPages(String(pageNumber));
         const baseName = selectedFile.name.replace('.pdf', '');
-        // Initial split assumes 1 split point -> 2 files.
         setSplitNames([`${baseName}_part1`, `${baseName}_part2`]);
         setIsSplitModalOpen(true);
     };
 
-    // Recalculate name inputs when split pages change
     useEffect(() => {
         if (!isSplitModalOpen) return;
-
         const points = splitPages.split(',').filter(p => p.trim() !== "").length;
         const numParts = points + 1;
-
         setSplitNames(prev => {
             const newNames = [...prev];
-            // Adjust length
             if (newNames.length < numParts) {
-                // Add missing
                 for (let i = newNames.length; i < numParts; i++) {
                     const baseName = selectedFile ? selectedFile.name.replace('.pdf', '') : 'file';
                     newNames.push(`${baseName}_part${i + 1}`);
                 }
             } else if (newNames.length > numParts && numParts > 0) {
-                // Trim
                 return newNames.slice(0, numParts);
             }
             return newNames;
@@ -220,26 +250,18 @@ const MetadataEditor = () => {
             const formData = new FormData();
             formData.append('file', selectedFile.fileObject);
             formData.append('pages', splitPages);
-
-            // Pass names as JSON string to handle list
             formData.append('names', JSON.stringify(splitNames));
-
             const response = await fetch('/api/resources/pdf/split/', {
                 method: 'POST',
                 body: formData
             });
-
             if (response.ok) {
                 const data = await response.json();
-
-                // Process the returned files
                 const newFiles = [];
                 for (const fileData of data.files) {
                     try {
-                        // Fetch the file blob to have a local File object
                         const res = await fetch(fileData.url);
                         const blob = await res.blob();
-
                         const newFileItem = {
                             id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                             name: fileData.name,
@@ -247,7 +269,6 @@ const MetadataEditor = () => {
                             size: blob.size,
                             lastModified: new Date(),
                             fileObject: new File([blob], fileData.name, { type: 'application/pdf' }),
-                            // We create an object URL for the blob like other files
                             fileUrl: URL.createObjectURL(blob),
                         };
                         newFiles.push(newFileItem);
@@ -255,7 +276,6 @@ const MetadataEditor = () => {
                         console.error("Failed to load split file", e);
                     }
                 }
-
                 setFiles(prev => [...prev, ...newFiles]);
                 setIsSplitModalOpen(false);
                 toast.success('Split successful! Files added to list.');
@@ -279,22 +299,17 @@ const MetadataEditor = () => {
 
     const handleRenameSubmit = async () => {
         if (!selectedFile || !renameNewName) return;
-
         try {
             const formData = new FormData();
             formData.append('file', selectedFile.fileObject);
             formData.append('title', renameNewName);
-
             const response = await fetch('/api/resources/pdf/rename/', {
                 method: 'POST',
                 body: formData
             });
-
             if (response.ok) {
-                const contentDisposition = response.headers.get('Content-Disposition');
                 let finalName = renameNewName;
                 if (!finalName.toLowerCase().endsWith(".pdf")) finalName += ".pdf";
-
                 const blob = await response.blob();
                 const newFile = new File([blob], finalName, { type: 'application/pdf' });
                 updateFileInList(selectedFile.id, newFile, finalName);
@@ -309,14 +324,12 @@ const MetadataEditor = () => {
         }
     };
 
-    // Initialize merge selection when modal opens
     useEffect(() => {
         if (isMergeModalOpen && selectedFile) {
             setFilesToMerge([selectedFile.id]);
             setMergeFileName(`merged_${selectedFile.name.replace('.pdf', '')}.pdf`);
         }
     }, [isMergeModalOpen, selectedFile]);
-
 
     const handleMergeClick = () => {
         if (!selectedFile) return;
@@ -326,13 +339,7 @@ const MetadataEditor = () => {
     };
 
     const toggleFileForMerge = (fileId) => {
-        setFilesToMerge(prev => {
-            if (prev.includes(fileId)) {
-                return prev.filter(id => id !== fileId);
-            } else {
-                return [...prev, fileId];
-            }
-        });
+        setFilesToMerge(prev => prev.includes(fileId) ? prev.filter(id => id !== fileId) : [...prev, fileId]);
     };
 
     const handleMergeSubmit = async () => {
@@ -340,40 +347,21 @@ const MetadataEditor = () => {
             toast.warn("Please select at least 2 files to merge.");
             return;
         }
-
         try {
             const formData = new FormData();
-
-            // Append files in order of filesToMerge array (or maybe sort them?)
-            // We'll preserve user selection order or file list order?
-            // The user might want specific order. For now, let's use the order they appear in the file list for consistency,
-            // or perhaps the order they were selected? simpler is file list order filtered by selection.
-
-            // Merge in the order of selection (filesToMerge list order)
-            // This ensures the file you initiated merge from comes first (if user expects that)
-            // or respects the order they were added.
-            const orderedFilesToMerge = filesToMerge
-                .map(id => files.find(f => f.id === id))
-                .filter(Boolean);
-
+            const orderedFilesToMerge = filesToMerge.map(id => files.find(f => f.id === id)).filter(Boolean);
             orderedFilesToMerge.forEach(file => {
                 formData.append('files', file.fileObject);
             });
-
             const response = await fetch('/api/resources/pdf/merge/', {
                 method: 'POST',
                 body: formData
             });
-
             if (response.ok) {
                 const blob = await response.blob();
-                console.log("DEBUG: Merged blob size:", blob.size);
                 let finalName = mergeFileName || "merged.pdf";
                 if (!finalName.toLowerCase().endsWith(".pdf")) finalName += ".pdf";
-
                 const newFile = new File([blob], finalName, { type: 'application/pdf' });
-
-                // Add as new file to list
                 const newFileItem = {
                     id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     name: finalName,
@@ -383,25 +371,9 @@ const MetadataEditor = () => {
                     fileObject: newFile,
                     fileUrl: URL.createObjectURL(newFile),
                 };
-
                 setFiles(prev => [...prev, newFileItem]);
                 setIsMergeModalOpen(false);
                 toast.success('Merged file added to list');
-
-                // Automatically select the new merged file
-                // We need to wait for state update or pass the full object?
-                // Actually handleFileSelect reads from 'files' state, which won't be updated yet here in this closure.
-                // But handleFileSelect finds the file. 
-                // We can't immediately select it if it's not in state.
-
-                // Workaround: Modify handleFileSelect to accept object or wait?
-                // Better: Just set selectedFileId directly and ensure the effect or render picks it up?
-                // But handleFileSelect does side effects like setting title and resetting page.
-
-                // Let's use a timeout or update state in a way that we can trigger selection.
-                // Or just push to state and then set ID.
-
-                // We'll delay the selection slightly to allow state to propagate
                 setTimeout(() => {
                     handleFileSelect(newFileItem.id, newFileItem);
                 }, 100);
@@ -415,17 +387,103 @@ const MetadataEditor = () => {
     };
 
     useEffect(() => {
-        const fetchDspaceCollections = async () => {
+        const fetchHierarchy = async () => {
             try {
-                const fetchedCollections = await dspaceService.getCollections();
-                setCollections(fetchedCollections);
+                const h = await dspaceService.getHierarchy();
+                setHierarchy(h);
+
+                // Flatten collections for easy lookup, but keep parent info
+                const flatCollections = [];
+                const processNode = (node, path = "") => {
+                    if (node.type === "collection") {
+                        // Skip the first part of the path (top-level community)
+                        const pathParts = path.split(' > ');
+                        const abbreviatedPath = pathParts.slice(1).join(' > ');
+                        const label = abbreviatedPath ? `${abbreviatedPath} > ${node.name}` : node.name;
+
+                        flatCollections.push({
+                            ...node,
+                            parentPath: path,
+                            fullLabel: label
+                        });
+                    }
+                    if (node.children) {
+                        node.children.forEach(child => processNode(child, path ? `${path} > ${node.name}` : node.name));
+                    }
+                };
+                h.forEach(comm => processNode(comm));
+                setCollections(flatCollections);
             } catch (error) {
-                console.error("Failed to fetch DSpace collections:", error);
+                console.error("Failed to fetch DSpace hierarchy:", error);
             }
         };
-        fetchDspaceCollections();
+        fetchHierarchy();
     }, []);
 
+    // Detect collection type when collection changes
+    useEffect(() => {
+        if (!collectionId || collections.length === 0) {
+            setCollectionType("default");
+            return;
+        }
+
+        const selectedCollection = collections.find(c => c.id === collectionId);
+        if (!selectedCollection) {
+            setCollectionType("default");
+            return;
+        }
+
+        const collectionName = selectedCollection.name.toLowerCase();
+        const parentPath = selectedCollection.parentPath ? selectedCollection.parentPath.toLowerCase() : "";
+        const combined = `${parentPath} ${collectionName}`;
+
+        // Ensure that collections under "Ethiopian digital archive and digital services" use the default DSpace metadata fields
+        if (combined.includes('ethiopian digital archive and digital services')) {
+            setCollectionType('default');
+            return;
+        }
+
+        // Accurate mapping based on naming conventions and community structure
+        if (combined.includes('archive') || combined.includes('archival')) {
+            setCollectionType('archive');
+        } else if (combined.includes('multimedia') || combined.includes('film') || combined.includes('music') || combined.includes('microfilm')) {
+            setCollectionType('multimedia');
+        } else if (combined.includes('serial') || combined.includes('journal') || combined.includes('magazine') || combined.includes('newspaper')) {
+            setCollectionType('serial');
+        } else if (combined.includes('printed') || combined.includes('book') || combined.includes('ethiopian studies') || combined.includes('legal deposit')) {
+            setCollectionType('printed');
+        } else {
+            setCollectionType('default');
+        }
+    }, [collectionId, collections]);
+
+    // Form field configuration
+    const FORM_FIELD_CONFIGS = {
+        archive: {
+            show: ['referenceCode', 'cid', 'title', 'description1', 'archiveType', 'subjectKeywords', 'temporalCoverage', 'calendarType', 'arrangement', 'quantity', 'medium', 'provenance', 'accessionDate', 'accessionNumber', 'immediateSource', 'accessCondition', 'language', 'security', 'processing', 'physicalDescription'],
+            required: ['referenceCode', 'cid', 'title', 'description1', 'archiveType']
+        },
+        multimedia: {
+            show: ['title', 'otherTitles', 'subjectKeywords', 'composers', 'singersPerformers', 'mediaType', 'description', 'creationDate', 'dateOfIssue', 'format', 'duration', 'physicalMedium', 'placeOfPublication', 'acquisitionMethod', 'musicAlbum', 'language'],
+            required: ['title', 'composers', 'mediaType', 'description', 'cid']
+        },
+        serial: {
+            show: ['title', 'authors', 'subjectKeywords', 'classification', 'offices', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'language', 'seriesNumber', 'physicalDescription', 'description', 'typeOfAcquiring'],
+            required: ['title', 'classification', 'newspaperType', 'cid', 'accessionNumber', 'publisher', 'dateOfIssue', 'typeOfAcquiring']
+        },
+        printed: {
+            show: ['title', 'accessionNumber', 'authors', 'dateOfIssue', 'subjectKeywords', 'offices', 'type', 'attachedDocuments', 'cid', 'subtitle', 'isbn', 'language', 'abstractText', 'publisher', 'citation', 'series'],
+            required: ['title']
+        },
+        default: {
+            show: ['title', 'authors', 'dateOfIssue', 'publisher', 'type', 'language', 'subjectKeywords', 'abstractText', 'description', 'sponsors'],
+            required: ['title', 'dateOfIssue', 'type']
+        }
+    };
+
+    const config = FORM_FIELD_CONFIGS[collectionType] || FORM_FIELD_CONFIGS.default;
+    const shouldShow = (field) => config.show.includes(field);
+    const isRequired = (field) => config.required.includes(field);
 
 
     const handleFileUpload = (event) => {
@@ -472,22 +530,42 @@ const MetadataEditor = () => {
             return;
         }
 
-        if (
-            !title ||
-            !dateOfIssue ||
-            !type ||
-            !confirmLicense ||
-            !collectionId
-        ) {
-            toast.warn(
-                "Please fill all mandatory fields: Title, Date of Issue, Type, Collection, and confirm the license."
-            );
+        // Validate required fields
+        const requiredFields = config.required || [];
+        const missing = [];
+        if (requiredFields.includes('title') && !title) missing.push("Title");
+        if (requiredFields.includes('dateOfIssue') && !dateOfIssue) missing.push("Date of Issue");
+        if (requiredFields.includes('type') && !type) missing.push("Type");
+        if (requiredFields.includes('referenceCode') && !referenceCode) missing.push("Reference Code");
+        if (requiredFields.includes('cid') && !cid) missing.push("CID");
+        if (requiredFields.includes('description1') && !description1) missing.push("Description 1");
+        if (requiredFields.includes('archiveType') && !archiveType) missing.push("Archive Type");
+        if (requiredFields.includes('composers') && (!composers[0])) missing.push("Composers");
+        if (requiredFields.includes('mediaType') && !mediaType) missing.push("Media Type");
+        if (requiredFields.includes('description') && !description) missing.push("Description");
+        if (requiredFields.includes('classification') && !classification) missing.push("Classification");
+        if (requiredFields.includes('newspaperType') && !newspaperType) missing.push("Newspaper Type");
+        if (requiredFields.includes('accessionNumber') && !accessionNumber) missing.push("Accession Number");
+        if (requiredFields.includes('publisher') && !publisher) missing.push("Publisher");
+        if (requiredFields.includes('typeOfAcquiring') && !typeOfAcquiring) missing.push("Type of Acquiring");
+
+        if (missing.length > 0) {
+            toast.warn(`Please fill required fields: ${missing.join(", ")}`);
+            return;
+        }
+
+        if (!confirmLicense) {
+            toast.warn("Please confirm the license.");
+            return;
+        }
+
+        if (!collectionId) {
+            toast.warn("Please select a collection.");
             return;
         }
 
         setUploading(true);
 
-        // Check if user is authenticated with DSpace
         if (!dspaceService.isAuthenticated && !dspaceService.authToken) {
             alert("Please sign in before uploading.");
             setUploading(false);
@@ -495,36 +573,73 @@ const MetadataEditor = () => {
         }
 
         try {
-            // 1. Create workspace item
             const workspaceItem = await dspaceService.createWorkspaceItem(collectionId);
             const workspaceItemId = workspaceItem.id;
 
-            // 2. Update metadata
             const metadata = {
-                title: title,
-                author: authors.filter(a => a.trim()),
+                title,
+                authors: authors.filter(a => a.trim()),
                 otherTitles: otherTitles.filter(t => t.trim()),
-                description: description,
+                dateOfIssue,
+                publisher,
+                citation,
+                series: series.filter(s => s.trim()),
+                type,
+                language,
                 subjectKeywords: subjectKeywords.filter(k => k.trim()),
-                type: type,
-                language: language,
-                reportNumber: reportNumber,
-                series: seriesReportNo.filter(s => s.trim()),
-                sponsors: sponsors,
-                dateIssued: dateOfIssue,
-                publisher: publisher,
-                citation: citation,
-                abstract: abstractText,
+                abstractText,
+                description,
+                sponsors,
                 identifiers: identifiers.filter(id => id.value && id.value.trim()),
+
+                // Archive
+                referenceCode,
+                cid,
+                description1,
+                archiveType,
+                temporalCoverage,
+                calendarType,
+                arrangement,
+                quantity,
+                medium,
+                provenance,
+                accessionDate,
+                accessionNumber,
+                immediateSource,
+                accessCondition,
+                processing,
+                security,
+                physicalDescription,
+
+                // Multimedia
+                mediaType,
+                composers: composers.filter(c => c.trim()),
+                singersPerformers: singersPerformers.filter(s => s.trim()),
+                creationDate,
+                duration,
+                physicalMedium,
+                placeOfPublication,
+                acquisitionMethod,
+                musicAlbum,
+
+                // Serial
+                classification,
+                offices: offices.filter(o => o.trim()),
+                newspaperType,
+                seriesNumber,
+                typeOfAcquiring,
+
+                // Printed
+                attachedDocuments,
+                subtitle,
+                isbn: isbn.filter(i => i.trim()),
             };
 
-            const metaSuccess = await dspaceService.updateMetadata(workspaceItemId, metadata);
+            const metaSuccess = await dspaceService.updateMetadata(workspaceItemId, metadata, collectionType);
             if (!metaSuccess) {
-                console.error("Metadata update failed, but proceeding with file upload...");
+                console.error("Metadata update failed");
             }
 
-            // 3. Upload files
-            // Sort files so Primary is first (if selected), otherwise keeping order
             const filesToUpload = [...files].sort((a, b) => {
                 if (a.id === primaryFileId) return -1;
                 if (b.id === primaryFileId) return 1;
@@ -532,38 +647,46 @@ const MetadataEditor = () => {
             });
 
             for (const fileItem of filesToUpload) {
-                const uploadSuccess = await dspaceService.uploadFile(workspaceItemId, fileItem.fileObject);
-                if (!uploadSuccess) {
-                    console.error(`Failed to upload file: ${fileItem.name}`);
-                    // We continue even if one fails, or should we stop? 
-                    // Usually better to try all.
-                }
+                await dspaceService.uploadFile(workspaceItemId, fileItem.fileObject);
             }
 
-            // 4. Accept license
             await dspaceService.acceptWorkspaceLicense(workspaceItemId);
-
-            // 5. Submit to workflow
             await dspaceService.submitWorkspaceItem(workspaceItem);
 
             toast.success("Upload successful! Item submitted to workflow.");
 
-            // Reset form
+            // Reset
             setFiles([]);
             setPrimaryFileId(null);
             setSelectedFileId(null);
             setTitle("");
             setAuthors([""]);
-            setDescription("");
-            setSubjectKeywords([""]);
-            setAbstractText("");
+            setOtherTitles([""]);
+            setDateOfIssue("");
             setPublisher("");
             setCitation("");
-            setAccessionNumber("");
-            setSeriesReportNo([""]);
+            setSeries([""]);
+            setType("");
+            setSubjectKeywords([""]);
+            setAbstractText("");
+            setDescription("");
             setSponsors("");
-            setDateOfIssue("");
             setConfirmLicense(false);
+            setIdentifiers([{ type: "Other", value: "" }]);
+
+            // Reset all specific fields
+            setReferenceCode(""); setCid(""); setDescription1(""); setArchiveType("");
+            setTemporalCoverage(""); setCalendarType(""); setArrangement(""); setQuantity("");
+            setMedium(""); setProvenance(""); setAccessionDate(""); setAccessionNumber("");
+            setImmediateSource(""); setAccessCondition(""); setProcessing(""); setSecurity("");
+            setPhysicalDescription("");
+            setMediaType(""); setComposers([""]); setSingersPerformers([""]); setCreationDate("");
+            setDuration(""); setPhysicalMedium(""); setPlaceOfPublication(""); setAcquisitionMethod("");
+            setMusicAlbum("");
+            setClassification(""); setOffices([""]); setNewspaperType(""); setSeriesNumber("");
+            setTypeOfAcquiring("");
+            setAttachedDocuments(""); setSubtitle(""); setIsbn([""]);
+
         } catch (e) {
             console.error("Critical upload error:", e);
             toast.error("Upload failed: " + (e?.message || e));
@@ -729,82 +852,289 @@ const MetadataEditor = () => {
                                             Select a collection
                                         </option>
                                         {collections.map((c) => (
-                                            <option key={c.uuid} value={c.uuid}>
-                                                {c.name}
+                                            <option key={c.id} value={c.id}>
+                                                {c.fullLabel}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
+                                {/* Show message if no collection selected */}
+                                {!collectionId && (
+                                    <div className="mt-6 p-6 bg-blue-50 border border-blue-200 rounded-sm text-center">
+                                        <p className="text-blue-900 font-medium italic">
+                                            👆 Please select a collection above to start entering item metadata
+                                        </p>
+                                    </div>
+                                )}
 
-                                <RepeatableField
-                                    label="Author(s)"
-                                    values={authors}
-                                    setValues={setAuthors}
-                                    placeholder="Enter author name"
-                                />
-                                <div>
-                                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">Title *</label>
-                                    <input id="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
-                                </div>
-                                <RepeatableField label="Other Titles" values={otherTitles} setValues={setOtherTitles} placeholder="Enter other title" />
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Date of Issue *</label>
-                                    <input type="date" value={dateOfIssue} onChange={(e) => setDateOfIssue(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
-                                </div>
-                                <div>
-                                    <label htmlFor="publisher" className="block text-sm font-medium text-gray-700">Publisher</label>
-                                    <input id="publisher" type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
-                                </div>
-                                <div>
-                                    <label htmlFor="citation" className="block text-sm font-medium text-gray-700">Citation</label>
-                                    <input id="citation" type="text" value={citation} onChange={(e) => setCitation(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
-                                </div>
-                                <RepeatableField label="Series/Report No." values={seriesReportNo} setValues={setSeriesReportNo} placeholder="Enter series/report number" />
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Report No.</label>
-                                    <input type="text" value={reportNumber} onChange={(e) => setReportNumber(e.target.value)} placeholder="Enter report number" autoComplete="off" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Identifiers</label>
-                                    {identifiers.map((id, index) => (
-                                        <div key={index} className="flex space-x-2 mb-2">
-                                            <select value={id.type} onChange={(e) => handleIdentifierChange(index, "type", e.target.value)} className="p-2 border border-gray-300 rounded-sm bg-white">
-                                                {["Other", "ISSN", "ISMN", "Gov't Doc #", "URI", "ISBN"].map((t) => (<option key={t} value={t}>{t}</option>))}
-                                            </select>
-                                            <input type="text" placeholder="Enter identifier" value={id.value} onChange={(e) => handleIdentifierChange(index, "value", e.target.value)} autoComplete="off" className="flex-grow p-2 border border-gray-300 rounded-sm" />
-                                            <button type="button" onClick={() => removeIdentifier(index)} className="text-red-400 hover:text-red-700 cursor-pointer"><Trash2 size={18} /></button>
+                                {/* Only show metadata fields after collection is selected */}
+                                {collectionId && (
+                                    <>
+                                        {/* Reference Code & CID */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {shouldShow('referenceCode') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Reference Code {isRequired('referenceCode') && '*'}</label>
+                                                    <input type="text" value={referenceCode} onChange={(e) => setReferenceCode(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
+                                            {shouldShow('cid') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">CID {isRequired('cid') && '*'}</label>
+                                                    <input type="text" value={cid} onChange={(e) => setCid(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                    <button type="button" onClick={addIdentifier} className="flex items-center text-sm text-blue-900 hover:text-blue-800"><PlusCircle size={16} className="mr-1" /> Add Identifier</button>
-                                </div>
-                                <div>
-                                    <label htmlFor="type" className="block text-sm font-medium text-gray-700">Type *</label>
-                                    <select id="type" value={type} onChange={(e) => setType(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
-                                        <option value="" disabled>Select a type</option>
-                                        {["Animation", "Article", "Learning Object", "Image", "Image, 3-D", "Musical Score", "Plan or blueprint", "Preprint", "Presentation", "Recording acoustical", "Recording musical", "Recording oral", "Technical Report", "Thesis", "Video", "Working Paper"].map((t) => (<option key={t} value={t}>{t}</option>))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label htmlFor="language" className="block text-sm font-medium text-gray-700">Language</label>
-                                    <select id="language" value={language} onChange={(e) => setLanguage(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
-                                        {[{ label: "English (United States)", value: "en_US" }, { label: "English", value: "en" }, { label: "Spanish", value: "es" }, { label: "Italian", value: "it" }, { label: "Chinese", value: "zh" }, { label: "Turkish", value: "tr" }].map((l) => (<option key={l.value} value={l.value}>{l.label}</option>))}
-                                    </select>
-                                </div>
-                                <RepeatableField label="Subject Keywords" values={subjectKeywords} setValues={setSubjectKeywords} placeholder="Enter keyword" />
-                                <div>
-                                    <label htmlFor="abstract" className="block text-sm font-medium text-gray-700">Abstract</label>
-                                    <textarea id="abstract" value={abstractText} onChange={(e) => setAbstractText(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"></textarea>
-                                </div>
-                                <div>
-                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
-                                    <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"></textarea>
-                                </div>
-                                <div>
-                                    <label htmlFor="sponsors" className="block text-sm font-medium text-gray-700">Sponsors</label>
-                                    <textarea id="sponsors" value={sponsors} onChange={(e) => setSponsors(e.target.value)} rows="2" placeholder="Enter sponsor details (optional)" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm"></textarea>
-                                </div>
+
+                                        {/* Title & Subtitle */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Title {isRequired('title') && '*'}</label>
+                                            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                        </div>
+                                        {shouldShow('subtitle') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Subtitle</label>
+                                                <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        {/* Description 1 (Archive specific) */}
+                                        {shouldShow('description1') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Description 1 {isRequired('description1') && '*'}</label>
+                                                <textarea value={description1} onChange={(e) => setDescription1(e.target.value)} rows="2" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        {/* Archive Type */}
+                                        {shouldShow('archiveType') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Archive Type {isRequired('archiveType') && '*'}</label>
+                                                <select value={archiveType} onChange={(e) => setArchiveType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                    <option value="">Select type</option>
+                                                    <option value="Personal Archive">Personal Archive</option>
+                                                    <option value="Institutional Archive">Institutional Archive</option>
+                                                    <option value="Historical Archive">Historical Archive</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        <RepeatableField label="Author(s)" values={authors} setValues={setAuthors} placeholder="Enter author name" />
+
+                                        {shouldShow('otherTitles') && (
+                                            <RepeatableField label="Other Titles" values={otherTitles} setValues={setOtherTitles} placeholder="Enter other title" />
+                                        )}
+
+                                        {/* Date of Issue & Temporal Coverage */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {shouldShow('dateOfIssue') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Date of Issue {isRequired('dateOfIssue') && '*'}</label>
+                                                    <input type="date" value={dateOfIssue} onChange={(e) => setDateOfIssue(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
+                                            {shouldShow('temporalCoverage') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Temporal Coverage</label>
+                                                    <input type="text" value={temporalCoverage} onChange={(e) => setTemporalCoverage(e.target.value)} placeholder="e.g. 1920-1975" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Calendar, Arrangement, Medium */}
+                                        <div className="grid grid-cols-3 gap-4">
+                                            {shouldShow('calendarType') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Calendar Type</label>
+                                                    <select value={calendarType} onChange={(e) => setCalendarType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                        <option value="">Select</option>
+                                                        <option value="Ethiopian">Ethiopian</option>
+                                                        <option value="Gregorian">Gregorian</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                            {shouldShow('arrangement') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Arrangement</label>
+                                                    <select value={arrangement} onChange={(e) => setArrangement(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                        <option value="">Select</option>
+                                                        <option value="Fonds">Fonds</option>
+                                                        <option value="Series">Series</option>
+                                                        <option value="File">File</option>
+                                                        <option value="Item">Item</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                            {shouldShow('medium') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Medium</label>
+                                                    <select value={medium} onChange={(e) => setMedium(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                        <option value="">Select</option>
+                                                        <option value="Paper">Paper</option>
+                                                        <option value="Digital">Digital</option>
+                                                        <option value="Microfilm">Microfilm</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Quantity & Accession Info */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {shouldShow('quantity') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Quantity</label>
+                                                    <input type="text" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="e.g. 50 pages" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
+                                            {shouldShow('accessionNumber') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Accession Number {isRequired('accessionNumber') && '*'}</label>
+                                                    <input type="text" value={accessionNumber} onChange={(e) => setAccessionNumber(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Multimedia Specifics */}
+                                        {collectionType === 'multimedia' && (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {shouldShow('mediaType') && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Media Type {isRequired('mediaType') && '*'}</label>
+                                                            <select value={mediaType} onChange={(e) => setMediaType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                                <option value="">Select</option>
+                                                                <option value="Audio">Audio</option>
+                                                                <option value="Video">Video</option>
+                                                                <option value="Film">Film</option>
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                    {shouldShow('duration') && (
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700">Duration</label>
+                                                            <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="HH:MM:SS" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <RepeatableField label="Composers" values={composers} setValues={setComposers} placeholder="Enter composer" />
+                                                <RepeatableField label="Singers/Performers" values={singersPerformers} setValues={setSingersPerformers} placeholder="Enter name" />
+                                            </>
+                                        )}
+
+                                        {/* Serial Specifics */}
+                                        {collectionType === 'serial' && (
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {shouldShow('newspaperType') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Newspaper Type {isRequired('newspaperType') && '*'}</label>
+                                                        <select value={newspaperType} onChange={(e) => setNewspaperType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                            <option value="">Select</option>
+                                                            <option value="Daily">Daily</option>
+                                                            <option value="Weekly">Weekly</option>
+                                                            <option value="Monthly">Monthly</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                {shouldShow('classification') && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700">Classification {isRequired('classification') && '*'}</label>
+                                                        <input type="text" value={classification} onChange={(e) => setClassification(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Publisher & Citation */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {shouldShow('publisher') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Publisher {isRequired('publisher') && '*'}</label>
+                                                    <input type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                                </div>
+                                            )}
+                                            {shouldShow('language') && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Language</label>
+                                                    <select value={language} onChange={(e) => setLanguage(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                        <option value="en_US">English (US)</option>
+                                                        <option value="am">Amharic</option>
+                                                        <option value="om">Oromo</option>
+                                                        <option value="ti">Tigrinya</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {shouldShow('isbn') && (
+                                            <RepeatableField label="ISBN" values={isbn} setValues={setIsbn} placeholder="Enter ISBN" />
+                                        )}
+
+                                        <RepeatableField label="Subject Keywords" values={subjectKeywords} setValues={setSubjectKeywords} placeholder="Enter keyword" />
+
+                                        {shouldShow('abstractText') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Abstract</label>
+                                                <textarea value={abstractText} onChange={(e) => setAbstractText(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        {shouldShow('description') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Description {isRequired('description') && '*'}</label>
+                                                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="3" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Identifiers</label>
+                                            {identifiers.map((id, index) => (
+                                                <div key={index} className="flex space-x-2 mb-2">
+                                                    <select value={id.type} onChange={(e) => {
+                                                        const newIds = [...identifiers];
+                                                        newIds[index].type = e.target.value;
+                                                        setIdentifiers(newIds);
+                                                    }} className="p-2 border border-gray-300 rounded-sm bg-white">
+                                                        <option value="Other">Other</option>
+                                                        <option value="ISSN">ISSN</option>
+                                                        <option value="ISBN">ISBN</option>
+                                                        <option value="URI">URI</option>
+                                                    </select>
+                                                    <input type="text" placeholder="Value" value={id.value} onChange={(e) => {
+                                                        const newIds = [...identifiers];
+                                                        newIds[index].value = e.target.value;
+                                                        setIdentifiers(newIds);
+                                                    }} className="flex-grow p-2 border border-gray-300 rounded-sm" />
+                                                    <button type="button" onClick={() => setIdentifiers(identifiers.filter((_, i) => i !== index))} className="text-red-400 hover:text-red-600"><Trash2 size={18} /></button>
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => setIdentifiers([...identifiers, { type: 'Other', value: '' }])} className="flex items-center text-sm text-blue-900 hover:text-blue-800">
+                                                <PlusCircle size={16} className="mr-1" /> Add Identifier
+                                            </button>
+                                        </div>
+
+                                        {shouldShow('type') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Type {isRequired('type') && '*'}</label>
+                                                <select value={type} onChange={(e) => setType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-sm">
+                                                    <option value="">Select type</option>
+                                                    <option value="Article">Article</option>
+                                                    <option value="Book">Book</option>
+                                                    <option value="Image">Image</option>
+                                                    <option value="Video">Video</option>
+                                                    <option value="Audio">Audio</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {shouldShow('sponsors') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Sponsors</label>
+                                                <textarea value={sponsors} onChange={(e) => setSponsors(e.target.value)} rows="2" className="mt-1 block w-full p-2 border border-gray-300 rounded-sm" />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
 
                                 {/* File List Section */}
                                 <div>

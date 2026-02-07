@@ -6,10 +6,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('authentication.urls')),
-    path('api/resources/', include('resources.urls')),
-    path('api/analytics/', include('analytics.urls')),
-    path('api/koha/', include('koha_urls')),
-    path('api/dspace/', include('dspace_urls')),
+    path('api/resources/', include('dspace.urls')),
+    path('api/koha/', include('koha.urls')),
 ]
 
 if settings.DEBUG:

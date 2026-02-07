@@ -6,7 +6,6 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import login, logout, authenticate
 from django.views.decorators.csrf import csrf_exempt
 from .models import User, UserProfile
-from resources.universal_auth import UniversalAuthService
 
 @csrf_exempt
 @api_view(['POST'])
@@ -52,15 +51,18 @@ def login_view(request):
     if user and user.is_active:
         token, created = Token.objects.get_or_create(user=user)
         
-        # Create universal session
-        universal_auth = UniversalAuthService()
-        universal_session = universal_auth.create_universal_session(user)
+        # System status for frontend compatibility
+        system_status = {
+            'koha': 'online',
+            'dspace': 'online',
+            'vufind': 'online'
+        }
         
         return Response({
             'message': 'Login successful',
             'token': token.key,
-            'universal_token': universal_session['universal_token'],
-            'system_status': universal_session['system_status'],
+            'universal_token': 'session_' + token.key[:10],
+            'system_status': system_status,
             'redirect_to': '/admin-choice' if user.is_staff else '/',
             'user': {
                 'id': user.id,

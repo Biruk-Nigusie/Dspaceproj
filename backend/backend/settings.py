@@ -19,8 +19,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'authentication',
-    'resources',
-    'analytics',
+    'dspace',
+    'koha',
 ]
 
 MIDDLEWARE = [

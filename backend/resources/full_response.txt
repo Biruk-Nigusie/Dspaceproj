@@ -1,1 +1,0 @@
-["application\/marcxml+xml","application\/marc-in-json","application\/marc"]

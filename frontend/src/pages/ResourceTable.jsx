@@ -13,11 +13,12 @@ import "react-pdf/dist/Page/TextLayer.css";
 const COLUMN_CONFIGS = {
     // Archive collections (Archival File, Archival Folder, etc.)
     archive: [
-        { label: "Reference Code", field: "identifier", sortable: true },
+        { label: "Reference Code", field: "refcode", sortable: true },
+        { label: "CID", field: "cid", sortable: true },
         { label: "Title", field: "title", sortable: true },
-        { label: "Type", field: "resource_type", sortable: true },
+        { label: "Archive Type", field: "archivalType", sortable: true },
         { label: "Temporal Coverage", field: "temporal", sortable: true },
-        { label: "Issued Date", field: "year", sortable: true },
+        { label: "Calendar Type", field: "calendarType", sortable: true },
     ],
 
     // Printed Material collections (Book, Ethiopian Studies, Legal Deposits)
@@ -26,29 +27,33 @@ const COLUMN_CONFIGS = {
         { label: "Author", field: "authors", sortable: true },
         { label: "Type", field: "resource_type", sortable: true },
         { label: "Issued Date", field: "year", sortable: true },
-        { label: "Identifier", field: "identifier", sortable: true },
+        { label: "CID", field: "cid", sortable: true },
+        { label: "Accession No.", field: "accessionNumber", sortable: true },
+        { label: "ISBN", field: "isbn", sortable: true },
+        { label: "Physical Description", field: "extent", sortable: true },
+        { label: "Office", field: "offices", sortable: true },
     ],
 
     // Serial collections (Journal, Magazine, Newspapers)
     serial: [
         { label: "Title", field: "title", sortable: true },
         { label: "Author/Editor", field: "authors", sortable: true },
-        { label: "Type", field: "resource_type", sortable: true },
+        { label: "Type", field: "newspaperType", sortable: true },
         { label: "Publisher", field: "publisher", sortable: true },
         { label: "Issued Date", field: "year", sortable: true },
-        { label: "Identifier", field: "identifier", sortable: true },
-        { label: "Provenance", field: "provenance", sortable: true },
+        { label: "CID", field: "cid", sortable: true },
+        { label: "Classification", field: "classification", sortable: true },
     ],
 
     // Multimedia collections (Film, Microfilm, Music)
     multimedia: [
         { label: "Title", field: "title", sortable: true },
-        { label: "Author/Creator", field: "authors", sortable: true },
+        { label: "Creator", field: "authors", sortable: true },
         { label: "Type", field: "resource_type", sortable: true },
         { label: "Format", field: "format", sortable: true },
-        { label: "Issued Date", field: "year", sortable: true },
-        { label: "Extent", field: "extent", sortable: true },
-        { label: "Identifier", field: "identifier", sortable: true },
+        { label: "Date Created", field: "creationDate", sortable: true },
+        { label: "Duration", field: "duration", sortable: true },
+        { label: "CID", field: "cid", sortable: true },
     ],
 
     // Default columns for mixed or unknown collections
@@ -56,7 +61,7 @@ const COLUMN_CONFIGS = {
         { label: "Title", field: "title", sortable: true },
         { label: "Author", field: "authors", sortable: true },
         { label: "Type", field: "resource_type", sortable: true },
-        { label: "Publisher", field: "publisher", sortable: true },
+        { label: "CID", field: "cid", sortable: true },
         { label: "Year", field: "year", sortable: true },
     ]
 };
@@ -74,7 +79,9 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
     const [scale, setScale] = useState(1.0);
     const [pdfLoading, setPdfLoading] = useState(true);
 
-    const columns = COLUMN_CONFIGS[communityType] || COLUMN_CONFIGS.default;
+    const allColumns = COLUMN_CONFIGS[communityType] || COLUMN_CONFIGS.default;
+    const columns = allColumns.slice(0, 5);
+    const extraColumns = allColumns.slice(5);
 
     function onDocumentLoadSuccess({ numPages }) {
         setNumPages(numPages);
@@ -163,9 +170,9 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
     }
 
     const MetadataField = ({ icon: Icon, label, value }) => {
-        if (!value) return null;
+        if (!value || (typeof value === 'string' && value.trim() === '')) return null;
         return (
-            <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
+            <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors px-2 rounded-sm">
                 <div className="mt-1 p-1.5 bg-blue-50 rounded-md text-blue-600">
                     <Icon size={16} />
                 </div>
@@ -175,6 +182,21 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
                 </div>
             </div>
         );
+    };
+
+    const getIconForField = (field) => {
+        const iconMap = {
+            authors: User, author: User, creators: User, composers: User, singers: User,
+            year: Calendar, date: Calendar, creationDate: Calendar, issued: Calendar,
+            publisher: BookOpen, series: Layers, classification: Hash,
+            cid: Hash, refcode: Hash, accessionNumber: Hash, isbn: Hash, issn: Hash, reportNo: Hash,
+            language: Globe, calendarType: Globe,
+            format: Package, medium: Layers, extent: Layers, duration: Package, quantity: Package,
+            archivalType: Info, newspaperType: Info, resource_type: Info, processing: Tag,
+            security: Shield, provenance: Info, arrangement: Info, sponsors: Award,
+            offices: Database
+        };
+        return iconMap[field] || Info;
     };
 
     const SortIcon = ({ field }) => {
@@ -191,6 +213,20 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
         ) : (
             <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
         );
+    };
+
+    // Helper to format field names for display
+    const formatLabel = (key) => {
+        // Check if we have a label in COLUMN_CONFIGS
+        for (const config of Object.values(COLUMN_CONFIGS)) {
+            const found = config.find(c => c.field === key);
+            if (found) return found.label;
+        }
+
+        // Fallback to capitalizing and spacing
+        return key.replace(/([A-Z])/g, ' $1')
+            .replace(/^./, (str) => str.toUpperCase())
+            .replace(/_/g, ' ');
     };
 
     return (
@@ -282,22 +318,43 @@ const ResourceTable = ({ resources, loading, onCatalogClick, sortConfig, onSort,
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                                <MetadataField icon={User} label="Author" value={selectedResource.authors || selectedResource.author} />
-                                <MetadataField icon={Calendar} label="Issue Date" value={selectedResource.year} />
-                                <MetadataField icon={Globe} label="Calendar Type" value={selectedResource.calendarType} />
-                                <MetadataField icon={BookOpen} label="Publisher" value={selectedResource.publisher} />
-                                <MetadataField icon={Hash} label="ISSN" value={selectedResource.issn} />
-                                <MetadataField icon={Hash} label="ISBN" value={selectedResource.isbn} />
-                                <MetadataField icon={Hash} label="Report Number" value={selectedResource.reportNo} />
-                                <MetadataField icon={Globe} label="Language" value={selectedResource.language} />
-                                <MetadataField icon={Layers} label="Archival Medium" value={selectedResource.medium} />
-                                <MetadataField icon={Info} label="Provenance" value={selectedResource.provenance} />
-                                <MetadataField icon={Package} label="Quantity" value={selectedResource.quantity} />
-                                <MetadataField icon={Info} label="Arrangement Level" value={selectedResource.arrangement} />
-                                <MetadataField icon={Shield} label="Security Level" value={selectedResource.security} />
-                                <MetadataField icon={Tag} label="Processing State" value={selectedResource.processing} />
-                                <MetadataField icon={Layers} label="Extent / Format" value={selectedResource.extent} />
-                                <MetadataField icon={Award} label="Sponsorship" value={selectedResource.sponsors} />
+                                {/* First: Show extra columns that were hidden from the table */}
+                                {extraColumns.map(col => (
+                                    <MetadataField
+                                        key={col.field}
+                                        icon={getIconForField(col.field)}
+                                        label={col.label}
+                                        value={selectedResource[col.field]}
+                                    />
+                                ))}
+
+                                {/* Second: Show other available metadata fields dynamically */}
+                                {Object.entries(selectedResource)
+                                    .filter(([key, value]) => {
+                                        // Filter out internal fields and already displayed fields
+                                        const internalFields = [
+                                            'id', 'title', 'altTitle', 'source', 'source_name',
+                                            'preview_url', 'external_id', 'is_cataloged', 'koha_id',
+                                            'abstract', 'description', 'citation', 'subjects'
+                                        ];
+                                        const tableFields = columns.map(c => c.field);
+                                        const extraFields = extraColumns.map(c => c.field);
+
+                                        return value &&
+                                            !internalFields.includes(key) &&
+                                            !tableFields.includes(key) &&
+                                            !extraFields.includes(key);
+                                    })
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([key, value]) => (
+                                        <MetadataField
+                                            key={key}
+                                            icon={getIconForField(key)}
+                                            label={formatLabel(key)}
+                                            value={value}
+                                        />
+                                    ))
+                                }
                             </div>
 
                             {selectedResource.subjects && (

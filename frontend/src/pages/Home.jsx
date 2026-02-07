@@ -12,12 +12,21 @@ import CatalogModal from "./CatalogModal";
 import ResourceTable from "./ResourceTable";
 import HowItWorks from "../components/HowItWorks";
 import MetadataTreeFilter from "../components/MetadataTreeFilter";
+import { mapDspaceItem, applyTreeFilters } from "../utils/resourceUtils";
 
 const Home = () => {
     const queryClient = useQueryClient();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCollections, setSelectedCollections] = useState([]);
-    const [activeFilters, setActiveFilters] = useState({});
+    const [activeFilters, setActiveFilters] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        const filters = {};
+        ['year', 'language', 'source'].forEach(key => {
+            const val = params.get(key);
+            if (val) filters[key] = val.split(',');
+        });
+        return filters;
+    });
     const [sortConfig, setSortConfig] = useState({ field: 'title', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
@@ -41,62 +50,37 @@ const Home = () => {
         staleTime: 1000 * 60 * 30, // 30 minutes
     });
 
-    // Flatten hierarchy for lookup
-    const collections = useMemo(() => {
-        const flatten = (nodes) => {
-            let flat = [];
+    // Flatten hierarchy for lookup and category mapping
+    const { collections, categoryMap } = useMemo(() => {
+        const flat = [];
+        const cmap = {};
+
+        const traverse = (nodes, currentCategory = null) => {
             nodes.forEach(node => {
                 flat.push(node);
+                const nodeId = node.uuid || node.id;
+
+                let nextCategory = currentCategory;
+                const lowerName = (node.name || "").toLowerCase();
+                if (lowerName.includes("archive")) nextCategory = "Archive";
+                else if (lowerName.includes("multimedia")) nextCategory = "Multimedia";
+                else if (lowerName.includes("serial")) nextCategory = "Serial";
+                else if (lowerName.includes("printed")) nextCategory = "Printed Material";
+
+                if (nextCategory) {
+                    cmap[nodeId] = nextCategory;
+                }
+
                 if (node.children) {
-                    flat = [...flat, ...flatten(node.children)];
+                    traverse(node.children, nextCategory);
                 }
             });
-            return flat;
         };
-        return flatten(dspaceHierarchy);
+
+        traverse(dspaceHierarchy);
+        return { collections: flat, categoryMap: cmap };
     }, [dspaceHierarchy]);
 
-    // Helper to map DSpace API items
-    const mapDspaceItem = (item) => {
-        const metadata = item._embedded?.indexableObject?.metadata || {};
-        const getVal = (key) => metadata[key]?.[0]?.value || "";
-        const getValList = (key) => metadata[key]?.map(m => m.value).join(", ") || "";
-
-        return {
-            id: item._embedded?.indexableObject?.uuid,
-            title: getVal("dc.title") || item._embedded?.indexableObject?.name,
-            authors: getValList("dc.contributor.author"),
-            year: getVal("dc.date.issued")?.substring(0, 4),
-            publisher: getVal("dc.publisher"),
-            source: "dspace",
-            source_name: "Digital Repository",
-            resource_type: item._embedded?.indexableObject?.metadata?.["dc.type"]?.[0]?.value || "Digital",
-            external_id: item._embedded?.indexableObject?.handle || item._embedded?.indexableObject?.uuid,
-            description: getVal("dc.description") || getVal("dc.description.abstract"),
-            language: getVal("dc.language") || getVal("dc.language.iso"),
-            reportNo: getVal("dc.identifier.govdoc") || getVal("dc.identifier.other"),
-            subjects: getValList("dc.subject"),
-            // Archive specific
-            archivalType: getVal("dc.type.archival"),
-            calendarType: getVal("dc.date.calendartype"),
-            medium: getVal("local.archival.medium"),
-            arrangement: getVal("local.arrangement.level"),
-            processing: getVal("local.archival.processing"),
-            security: getVal("local.archival.security"),
-            provenance: getVal("dc.provenance"),
-            quantity: getVal("local.archival.quantity"),
-            // Printed/Serial specific
-            isbn: getVal("dc.identifier.isbn"),
-            issn: getVal("dc.identifier.issn"),
-            extent: getVal("dc.format.extent"),
-            series: getVal("dc.relation.ispartofseries"),
-            citation: getVal("dc.identifier.citation"),
-            abstract: getVal("dc.description.abstract"),
-            // Flags
-            is_cataloged: !!item._embedded?.indexableObject?.metadata?.["local.koha.id"],
-            koha_id: getVal("local.koha.id")
-        };
-    };
 
     // 2. Main Resource Query
     const { data: allResources = [], isLoading: loading } = useQuery({
@@ -107,14 +91,24 @@ const Home = () => {
                 for (const col of selectedCollections) {
                     const id = col.uuid || col.id;
                     const items = await dspaceService.searchItems(searchQuery || "*", 100, id);
-                    results.push(...items.filter(i => i._embedded?.indexableObject?.type === 'item').map(mapDspaceItem));
+                    const category = categoryMap[id] || "Other";
+                    results.push(...items
+                        .filter(i => i._embedded?.indexableObject?.type === 'item')
+                        .map(i => ({ ...i, collectionName: category }))
+                        .map(mapDspaceItem)
+                    );
                 }
                 return results;
             } else {
-                const dspaceResults = await dspaceService.searchItems(searchQuery);
+                const dspaceResults = await dspaceService.searchItems(searchQuery, 1000);
                 const mappedDspace = dspaceResults
                     .filter(item => item._embedded?.indexableObject?.type === 'item')
-                    .map(mapDspaceItem);
+                    .map(item => {
+                        const itemData = item._embedded?.indexableObject;
+                        const collId = itemData?._links?.owningCollection?.href?.split('/').pop();
+                        const category = categoryMap[collId] || "Archive";
+                        return mapDspaceItem({ ...item, collectionName: category });
+                    });
 
                 let mappedKoha = [];
                 try {
@@ -125,7 +119,8 @@ const Home = () => {
                         mappedKoha = kohaResponse.data.results.map(item => ({
                             ...item,
                             source: 'koha',
-                            source_name: 'Cataloged'
+                            source_name: 'Cataloged',
+                            collectionName: 'Cataloged'
                         }));
                     }
                 } catch (e) {
@@ -138,32 +133,47 @@ const Home = () => {
     });
 
     const communityType = useMemo(() => {
-        if (selectedCollections.length === 0) return 'default';
-        const firstCol = selectedCollections[0];
+        let activeCategory = 'default';
 
-        const findPath = (nodes, targetId, path = []) => {
-            for (const node of nodes) {
-                if ((node.uuid || node.id) === targetId) return [...path, node];
-                if (node.children) {
-                    const found = findPath(node.children, targetId, [...path, node]);
-                    if (found) return found;
+        // 1. Primary: Check explicitly selected collections (Buttons or Sidebar Location)
+        if (selectedCollections.length > 0) {
+            const firstCol = selectedCollections[0];
+            const findPath = (nodes, targetId, path = []) => {
+                for (const node of nodes) {
+                    if ((node.uuid || node.id) === targetId) return [...path, node];
+                    if (node.children) {
+                        const found = findPath(node.children, targetId, [...path, node]);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+            const path = findPath(dspaceHierarchy, firstCol.uuid || firstCol.id);
+            if (path) {
+                const subComm = path.find(node => ["Archive", "Multimedia", "Printed", "Serial"].some(name => node.name.includes(name)));
+                if (subComm) {
+                    const lowerLabel = subComm.name.toLowerCase();
+                    if (lowerLabel.includes("archive")) activeCategory = "archive";
+                    else if (lowerLabel.includes("multimedia")) activeCategory = "multimedia";
+                    else if (lowerLabel.includes("printed")) activeCategory = "printed";
+                    else if (lowerLabel.includes("serial")) activeCategory = "serial";
                 }
             }
-            return null;
-        };
+        }
 
-        const path = findPath(dspaceHierarchy, firstCol.uuid || firstCol.id);
-        if (!path) return 'default';
-
-        const subComm = path.find(node => ["Archive", "Multimedia", "Printed Material", "Serial"].includes(node.name));
-        if (!subComm) return 'default';
-
-        if (subComm.name === "Archive") return "archive";
-        if (subComm.name === "Multimedia") return "multimedia";
-        if (subComm.name === "Printed Material") return "printed";
-        if (subComm.name === "Serial") return "serial";
-        return 'default';
-    }, [selectedCollections, dspaceHierarchy]);
+        // 2. Secondary: Check active metadata filters if no collection selected
+        if (activeCategory === 'default') {
+            const allSelectedValues = [...(activeFilters.year || []), ...(activeFilters.language || [])];
+            if (allSelectedValues.length > 0) {
+                const firstVal = allSelectedValues[0];
+                if (firstVal.startsWith("Archive-")) activeCategory = "archive";
+                else if (firstVal.startsWith("Multimedia-")) activeCategory = "multimedia";
+                else if (firstVal.startsWith("Printed Material-")) activeCategory = "printed";
+                else if (firstVal.startsWith("Serial-")) activeCategory = "serial";
+            }
+        }
+        return activeCategory;
+    }, [selectedCollections, activeFilters, dspaceHierarchy]);
 
     const { data: stats = { totalResources: 12457, monthlyDownloads: 5678, activeUsers: 890, communities: 12 } } = useQuery({
         queryKey: ['stats'],
@@ -172,25 +182,34 @@ const Home = () => {
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const q = params.get('q');
+        const q = params.get('q') || "";
         const colIdsRaw = params.get('collections');
 
-        if (q && q !== searchQuery) setSearchQuery(q);
+        if (q !== searchQuery) setSearchQuery(q);
 
+        // Sync Collections
         if (colIdsRaw && collections.length > 0) {
             const colIds = colIdsRaw.split(',').filter(id => id);
             const found = collections.filter(c => colIds.includes(c.uuid || c.id));
             if (found.length > 0) {
-                const currentIds = selectedCollections.map(c => c.uuid || c.id).sort().join(',');
-                const foundIds = found.map(c => c.uuid || c.id).sort().join(',');
-                if (currentIds !== foundIds) {
-                    setSelectedCollections(found);
-                }
+                const currentIds = selectedCollections.map(c => (c.uuid || c.id)).sort().join(',');
+                const foundIds = found.map(c => (c.uuid || c.id)).sort().join(',');
+                if (currentIds !== foundIds) setSelectedCollections(found);
             }
         } else if (!colIdsRaw && selectedCollections.length > 0) {
             setSelectedCollections([]);
         }
-    }, [location.search, collections, selectedCollections, searchQuery]);
+
+        // Sync Filters
+        const filters = {};
+        ['year', 'language', 'source'].forEach(key => {
+            const val = params.get(key);
+            if (val) filters[key] = val.split(',');
+        });
+        if (JSON.stringify(filters) !== JSON.stringify(activeFilters)) {
+            setActiveFilters(filters);
+        }
+    }, [location.search, collections]);
 
     const handleCatalogSubmit = async () => {
         try {
@@ -230,7 +249,17 @@ const Home = () => {
     };
 
     const handleCollectionClick = (collection) => {
-        const id = collection.uuid || collection.id;
+        let targetCollection = collection;
+
+        // If clicking a community that has an "Archive" child, default to Archive
+        if (collection.type === 'community' && collection.children) {
+            const archiveChild = collection.children.find(child => child.name === 'Archive');
+            if (archiveChild) {
+                targetCollection = archiveChild;
+            }
+        }
+
+        const id = targetCollection.uuid || targetCollection.id;
         const currentParams = new URLSearchParams(location.search);
         let currentSelected = currentParams.get('collections')?.split(',').filter(x => x) || [];
 
@@ -238,47 +267,56 @@ const Home = () => {
             currentParams.delete('collections');
         } else {
             currentParams.set('collections', id);
-            setActiveFilters({});
         }
+
+        // Always clear metadata filters when switching collections per user request
+        currentParams.delete('year');
+        currentParams.delete('language');
+        setActiveFilters({});
+
         navigate(`/?${currentParams.toString()}`);
     };
 
-    const applyTreeFilters = (resources) => {
-        if (!activeFilters || Object.keys(activeFilters).length === 0) return resources;
-        return resources.filter(resource => {
-            for (const [category, selectedValues] of Object.entries(activeFilters)) {
-                if (!selectedValues || selectedValues.length === 0) continue;
-                let resourceValue;
-                if (category === 'source') {
-                    resourceValue = resource.source_name || (resource.source === 'koha' ? 'Cataloged' : 'Digital');
-                } else if (category === 'type') {
-                    resourceValue = resource.resource_type || 'Unknown';
-                } else if (category === 'year') {
-                    resourceValue = resource.year;
-                } else if (category === 'language') {
-                    resourceValue = resource.language === 'en' || resource.language === 'English' ? 'English' :
-                        resource.language === 'am' || resource.language === 'Amharic' ? 'Amharic' : resource.language || 'Unknown';
-                } else if (category === 'author') {
-                    const authors = (resource.authors || "").toLowerCase();
-                    if (!selectedValues.some(val => authors.includes(val.toLowerCase()))) return false;
-                    continue;
-                } else if (category === 'publisher') {
-                    resourceValue = resource.publisher || 'Unknown';
-                }
-                if (!selectedValues.includes(resourceValue)) return false;
-            }
-            return true;
-        });
-    };
 
     const getSubCommunitiesToDisplay = () => {
-        const subs = dspaceHierarchy.flatMap(node => node.children || []);
-        const targetNames = ["Archive", "Multimedia", "Printed Material", "Serial"];
-        const mainSubs = subs.filter(node => targetNames.includes(node.name));
-        return mainSubs.length > 0 ? mainSubs : subs.slice(0, 4);
+        const found = [];
+        const targets = ["archive", "multimedia", "printed", "serial"];
+
+        const traverse = (nodes) => {
+            nodes.forEach(node => {
+                const lowerName = (node.name || "").toLowerCase();
+                if (targets.some(t => lowerName.includes(t))) {
+                    found.push(node);
+                } else if (node.children) {
+                    traverse(node.children);
+                }
+            });
+        };
+
+        traverse(dspaceHierarchy);
+
+        // Dedup and prioritize
+        const unique = Array.from(new Map(found.map(n => [n.uuid || n.id, n])).values());
+        if (unique.length > 0) {
+            // Sort to maintain order: Archive, Multimedia, Printed, Serial
+            return unique.sort((a, b) => {
+                const nameA = a.name.toLowerCase();
+                const nameB = b.name.toLowerCase();
+                const getOrder = (n) => {
+                    if (n.includes("archive")) return 1;
+                    if (n.includes("multimedia")) return 2;
+                    if (n.includes("printed")) return 3;
+                    if (n.includes("serial")) return 4;
+                    return 5;
+                };
+                return getOrder(nameA) - getOrder(nameB);
+            });
+        }
+
+        return dspaceHierarchy.flatMap(node => node.children || []).slice(0, 4);
     };
 
-    const filteredResources = applyTreeFilters(allResources);
+    const filteredResources = applyTreeFilters(allResources, activeFilters);
     const resourcesToDisplay = useMemo(() => {
         if (!sortConfig.field) return filteredResources;
         return [...filteredResources].sort((a, b) => {
@@ -295,6 +333,16 @@ const Home = () => {
             field,
             direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
         }));
+    };
+
+    const handleSearch = () => {
+        const params = new URLSearchParams(location.search);
+        if (searchQuery) {
+            params.set('q', searchQuery);
+        } else {
+            params.delete('q');
+        }
+        navigate(`/?${params.toString()}`);
     };
 
     return (
@@ -327,10 +375,16 @@ const Home = () => {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             placeholder="Search through archives, books, manuscripts..."
                             className="flex-1 h-14 pl-4 pr-6 text-base focus:outline-none font-medium"
                         />
-                        <button className="bg-blue-900 text-white h-14 px-8 font-bold uppercase tracking-wider text-xs">Search</button>
+                        <button
+                            onClick={handleSearch}
+                            className="bg-blue-900 text-white h-14 px-8 font-bold uppercase tracking-wider text-xs cursor-pointer"
+                        >
+                            Search
+                        </button>
                     </div>
                 </div>
             </div>
@@ -349,11 +403,24 @@ const Home = () => {
                     <div className="flex flex-col lg:flex-row gap-6">
                         <div className="lg:w-1/4">
                             <MetadataTreeFilter
+                                subCommunities={getSubCommunitiesToDisplay()}
                                 resources={allResources}
                                 dspaceHierarchy={dspaceHierarchy}
                                 selectedFilters={activeFilters}
-                                onFilterChange={(cat, vals) => setActiveFilters(p => ({ ...p, [cat]: vals }))}
-                                onClearFilters={() => { setActiveFilters({}); setSelectedCollections([]); }}
+                                onFilterChange={(changes) => {
+                                    const params = new URLSearchParams(location.search);
+                                    Object.entries(changes).forEach(([cat, vals]) => {
+                                        if (vals && vals.length > 0) {
+                                            params.set(cat, vals.join(','));
+                                        } else {
+                                            params.delete(cat);
+                                        }
+                                    });
+                                    navigate(`/?${params.toString()}`);
+                                }}
+                                onClearFilters={() => {
+                                    navigate("/");
+                                }}
                                 onCollectionClick={handleCollectionClick}
                             />
                         </div>
