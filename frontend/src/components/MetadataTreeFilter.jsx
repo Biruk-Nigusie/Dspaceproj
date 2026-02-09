@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Filter, X } from 'lucide-react';
 const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, onClearFilters, className = "" }) => {
     const [expandedNodes, setExpandedNodes] = useState({
         source: true,
+        collection: true,
         type: true,
         year: true,
     });
@@ -14,17 +15,27 @@ const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, o
 
         const options = {
             source: {},
+            collection: {},
             type: {},
             year: {},
             language: {},
             author: {},
             publisher: {},
+            bench_session: {},
+            location: {},
+            case_document_type: {},
+            case_level: {},
         };
 
         resources.forEach(resource => {
             // Source
             const source = resource.source_name || resource.source || 'Unknown';
             options.source[source] = (options.source[source] || 0) + 1;
+
+            // Collection
+            if (resource.collection_name) {
+                options.collection[resource.collection_name] = (options.collection[resource.collection_name] || 0) + 1;
+            }
 
             // Type
             const type = resource.resource_type || 'Unknown';
@@ -57,16 +68,41 @@ const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, o
             if (resource.publisher) {
                 options.publisher[resource.publisher] = (options.publisher[resource.publisher] || 0) + 1;
             }
+
+            // Bench Session
+            if (resource.bench_session) {
+                options.bench_session[resource.bench_session] = (options.bench_session[resource.bench_session] || 0) + 1;
+            }
+
+            // Location
+            if (resource.location) {
+                options.location[resource.location] = (options.location[resource.location] || 0) + 1;
+            }
+
+            // Case Document Type
+            if (resource.case_document_type) {
+                options.case_document_type[resource.case_document_type] = (options.case_document_type[resource.case_document_type] || 0) + 1;
+            }
+
+            // Case Level
+            if (resource.case_level) {
+                options.case_level[resource.case_level] = (options.case_level[resource.case_level] || 0) + 1;
+            }
         });
 
         // Sort keys and take top authors
         const sortedOptions = {
             source: Object.entries(options.source).sort((a, b) => b[1] - a[1]),
+            collection: Object.entries(options.collection).sort((a, b) => b[1] - a[1]),
             type: Object.entries(options.type).sort((a, b) => b[1] - a[1]),
             year: Object.entries(options.year).sort((a, b) => b[0] - a[0]).reverse(), // Newest first
             language: Object.entries(options.language).sort((a, b) => b[1] - a[1]),
             author: Object.entries(options.author).sort((a, b) => b[1] - a[1]).slice(0, 10), // Top 10 authors
             publisher: Object.entries(options.publisher).sort((a, b) => b[1] - a[1]).slice(0, 10),
+            bench_session: Object.entries(options.bench_session).sort((a, b) => b[1] - a[1]),
+            location: Object.entries(options.location).sort((a, b) => b[1] - a[1]),
+            case_document_type: Object.entries(options.case_document_type).sort((a, b) => b[1] - a[1]),
+            case_level: Object.entries(options.case_level).sort((a, b) => b[1] - a[1]),
         };
 
         return sortedOptions;
@@ -166,7 +202,7 @@ const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, o
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-lg">
                 <h3 className="font-semibold text-gray-800 flex items-center">
                     <Filter className="w-4 h-4 mr-2 text-blue-600" />
-                    Filter
+                    ማጣሪያ
                 </h3>
                 {hasAnyFilter && (
                     <button
@@ -174,23 +210,25 @@ const MetadataTreeFilter = ({ resources, onFilterChange, selectedFilters = {}, o
                         className="text-xs text-red-600 hover:text-red-800 flex items-center bg-white border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors cursor-pointer"
                     >
                         <X className="w-3 h-3 mr-1" />
-                        Clear
+                        አጽዳ
                     </button>
                 )}
             </div>
 
             <div className="p-3 max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar">
-                <TreeNode label="Source" category="source" items={filterOptions.source} />
+                <TreeNode label="ያስገባው ሰው" category="source" items={filterOptions.source} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Resource Type" category="type" items={filterOptions.type} />
+                <TreeNode label="የክስ አይነት" category="collection" items={filterOptions.collection} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Year" category="year" items={filterOptions.year} />
+                <TreeNode label="የሰነድ አይነት" category="type" items={filterOptions.type} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Language" category="language" items={filterOptions.language} />
+                <TreeNode label="አመት" category="year" items={filterOptions.year} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Author" category="author" items={filterOptions.author} />
+                <TreeNode label="ቋንቋ" category="language" items={filterOptions.language} />
                 <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
-                <TreeNode label="Publisher" category="publisher" items={filterOptions.publisher} />
+                <TreeNode label="ተከሳሽ እና ክሳሽ" category="author" items={filterOptions.author} />
+                <div className="border-b border-dashed border-gray-200 my-2 mx-2"></div>
+                <TreeNode label="ዳኛ" category="publisher" items={filterOptions.publisher} />
             </div>
         </div>
     );

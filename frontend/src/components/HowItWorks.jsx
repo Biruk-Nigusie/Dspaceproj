@@ -45,7 +45,7 @@ const HowItWorks = () => {
                 <div className="text-center mb-12">
                     <h2 className="text-3xl font-bold text-gray-900 mb-4">እንዴት እንደሚሰራ</h2>
                     <p className="text-xl text-gray-600">
-                        የቤተ መዛግብት እና ቤተ መጻሕፍት አገልግሎት ለመጠቀም ቀላል ደረጃዎች
+                        የፌደራል ጠቅላይ ፍርድ ቤት ዲጂታል ሪፖዚተሪን ለመጠቀም ቀላል ደረጃዎች
                     </p>
                 </div>
 

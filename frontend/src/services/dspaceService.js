@@ -133,7 +133,17 @@ class DSpaceService {
 
     async checkAuthStatus() {
         try {
+            // Ensure we have a CSRF token even on first load
+            if (!this.csrfToken) {
+                await this.getCsrfToken();
+            }
+
+            const token = this.getStoredToken();
             const headers = this.getCsrfHeaders({ Accept: "application/json" });
+            if (token) {
+                headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+            }
+
             const response = await fetch(`${DSPACE_API_URL}/authn/status`, {
                 credentials: "include",
                 headers: headers,
@@ -170,6 +180,10 @@ class DSpaceService {
 
     getStoredToken() {
         if (this.authToken) return this.authToken;
+        try {
+            const raw = localStorage.getItem("dspaceAuthToken");
+            if (raw) return raw;
+        } catch (e) { }
         try {
             const raw = localStorage.getItem("dsAuthInfo");
             if (raw) {
@@ -214,12 +228,21 @@ class DSpaceService {
         add("dc.relation.ispartofseries", metadata.series);
         add("dc.identifier.other", metadata.reportNo);
         add("dc.date.issued", dateIssued);
-        add("dc.language", metadata.language);
+        add("dc.language.iso", metadata.language);
         add("dc.identifier.isbn", metadata.isbn);
         add("dc.identifier.issn", metadata.issn);
         add("dc.rights", metadata.rights);
         add("dc.identifier.uri", metadata.uri);
         add("dc.type", metadata.type);
+        // .....................
+        add("legal.bench.session", metadata.benchSession);
+        add("legal.case.complaintNumber", metadata.complaintNumber);
+        add("legal.case.fileNumber", metadata.fileNumber);
+        add("legal.case.type", metadata.caseType);
+        add("legal.case.level", metadata.caseLevel);
+        add("legal.document.type", metadata.documentType);
+        add("legal.judge.number", metadata.judgeNumber);
+        add("legal.location", metadata.location);
 
         return out;
     }
@@ -298,51 +321,13 @@ class DSpaceService {
             }
             throw new Error(`Workspace item creation failed: ${response.status}`);
         } catch (error) {
+
+
             throw error;
         }
     }
 
     async updateMetadata(workspaceItemId, metadata) {
-        const metadataUpdates = [];
-        const author = metadata.author || [];
-        const subjectKeywords = metadata.subjectKeywords || [];
-        const otherTitles = metadata.otherTitles || [];
-        const dateIssued = metadata.dateIssued || metadata.publicationDate || "";
-
-        const dcFields = {
-            "dc.title": metadata.title,
-            "dc.contributor.author": author,
-            "dc.title.alternative": otherTitles,
-            "dc.subject": subjectKeywords,
-            "dc.description.abstract": metadata.abstract,
-            "dc.description": metadata.description,
-            "dc.description.sponsorship": metadata.sponsors,
-            "dc.publisher": metadata.publisher,
-            "dc.identifier.citation": metadata.citation,
-            "dc.identifier.govdoc": metadata.reportNo,
-            "dc.identifier.other": metadata.reportNo, // Keep generic linking too just in case
-            "dc.relation.ispartofseries": metadata.series,
-            "dc.date.issued": dateIssued,
-            "dc.language": metadata.language,
-            "dc.type": metadata.type,
-        };
-
-        for (const [field, raw] of Object.entries(dcFields)) {
-            if (!raw) continue;
-            const vals = Array.isArray(raw) ? raw : [raw];
-            const cleaned = vals.map((v) => String(v).trim()).filter(Boolean);
-
-            if (cleaned.length > 0) {
-                metadataUpdates.push({
-                    op: "add",
-                    path: `/sections/traditionalpageone/${field}`,
-                    value: cleaned.map(v => ({ value: v }))
-                });
-            }
-        }
-
-        if (metadataUpdates.length === 0) return true;
-
         try {
             const token = this.getStoredToken();
             const baseHeaders = this.getCsrfHeaders({
@@ -353,6 +338,55 @@ class DSpaceService {
                 baseHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
             }
 
+            const metadataUpdates = [];
+            const author = metadata.author || [];
+            const subjectKeywords = metadata.subjectKeywords || [];
+            const otherTitles = metadata.otherTitles || [];
+            const dateIssued = metadata.dateIssued || metadata.publicationDate || "";
+
+            const dcFields = {
+                "dc.title": metadata.title,
+                "dc.contributor.author": author,
+                "dc.title.alternative": otherTitles,
+                "dc.subject": subjectKeywords,
+                "dc.description.abstract": metadata.abstract,
+                "dc.description": metadata.description,
+                "dc.description.sponsorship": metadata.sponsors,
+                "dc.publisher": metadata.publisher,
+                // "dc.identifier.citation": metadata.citation,
+                // "dc.identifier.govdoc": metadata.reportNo,
+                // "dc.identifier.other": metadata.reportNo,
+                // "dc.relation.ispartofseries": metadata.series,
+                "dc.date.issued": dateIssued,
+                "dc.language.iso": metadata.language,
+                "dc.type": metadata.type,
+                "legal.bench.session": metadata.benchSession,
+                "legal.case.complaintNumber": metadata.complaintNumber,
+                "legal.case.fileNumber": metadata.fileNumber,
+                "legal.case.type": metadata.caseType,
+                "legal.case.level": metadata.caseLevel,
+                "legal.document.type": metadata.documentType,
+                "legal.judge.number": metadata.judgeNumber,
+                "legal.location": metadata.location,
+            };
+
+            for (const [field, raw] of Object.entries(dcFields)) {
+                if (!raw) continue;
+                const vals = Array.isArray(raw) ? raw : [raw];
+                const cleaned = vals.map((v) => String(v).trim()).filter(Boolean);
+
+                if (cleaned.length > 0) {
+                    // We'll map to the correct section in the batch step
+                    metadataUpdates.push({
+                        op: "replace",
+                        path: field,
+                        value: cleaned.map(v => ({ value: v }))
+                    });
+                }
+            }
+
+            if (metadataUpdates.length === 0) return true;
+
             const FIELD_SECTION_MAP = {
                 "dc.subject": "traditionalpagetwo",
                 "dc.description.abstract": "traditionalpagetwo",
@@ -360,24 +394,70 @@ class DSpaceService {
                 "dc.description.sponsorship": "traditionalpagetwo",
             };
 
-            const batch = metadataUpdates.map(p => {
-                const fieldName = p.path.split("/").pop();
-                let actualField = fieldName;
-                if (fieldName === 'dc.language') actualField = 'dc.language.iso';
-                const section = FIELD_SECTION_MAP[actualField] || "traditionalpageone";
-                return { ...p, path: `/sections/${section}/${actualField}` };
-            });
+            const fieldExists = (sections, section, field) =>
+                !!sections?.[section]?.fields?.[field];
 
-            await fetch(`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`, {
-                method: "PATCH",
-                headers: baseHeaders,
-                credentials: "include",
-                body: JSON.stringify(batch),
-            }).catch(() => { });
+
+            // DSpace 9 Debug Strategy: Send fields one by one to find the culprit
+            console.log("DSpace 9: Starting step-by-step metadata update to find the failing field...");
+
+            const results = [];
+            for (const update of metadataUpdates) {
+                const field = update.path;
+                const section = FIELD_SECTION_MAP[field] || "traditionalpageone";
+
+                // DSpace 7/8/9 value format: [{ value: "...", language: "..." }]
+                // We default to the form's language if available
+                const patchOp = {
+                    op: "add",
+                    path: `/sections/${section}/${field}`,
+                    value: update.value.map(v => ({
+                        value: v.value,
+                        language: null,
+                        authority: null,
+                        confidence: -1
+                    }))
+
+                };
+
+                try {
+                    const response = await fetch(`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`, {
+                        method: "PATCH",
+                        headers: baseHeaders,
+                        credentials: "include",
+                        body: JSON.stringify([patchOp]),
+                    });
+
+                    if (!response.ok) {
+                        let errorMsg = `Field ${field} failed (${response.status})`;
+                        try {
+                            const errorObj = await response.json();
+                            if (errorObj.message) {
+                                errorMsg += `: ${errorObj.message}`;
+                            }
+                        } catch (e) { }
+                        console.error(`- Error patching ${field}:`, errorMsg);
+                        results.push({ field, success: false, error: errorMsg });
+                    } else {
+                        console.log(`- Successfully patched ${field}`);
+                        results.push({ field, success: true });
+                    }
+                } catch (e) {
+                    console.error(`- Critical error on ${field}:`, e.message);
+                    results.push({ field, success: false, error: e.message });
+                }
+            }
+
+            const failures = results.filter(r => !r.success);
+            if (failures.length > 0) {
+                const failureDetails = failures.map(f => `${f.field}: ${f.error}`).join("\n");
+                throw new Error(`Metadata update partially failed:\n${failureDetails}`);
+            }
 
             return true;
         } catch (error) {
-            return true;
+            console.error("DSpace updateMetadata error:", error);
+            throw error;
         }
     }
 
@@ -403,8 +483,68 @@ class DSpaceService {
                 }
             );
 
+            if (response.ok) {
+                const data = await response.json();
+                console.log("DSpace 9 Upload Response (WorkspaceItem):", data);
+
+                // In DSpace 9, the response is the WorkspaceItem. 
+                // The bitstream info is inside sections.upload.files
+                const files = data.sections?.upload?.files;
+                if (files && files.length > 0) {
+                    // The most recently uploaded file is usually the last one
+                    const latestFile = files[files.length - 1];
+                    console.log("Extracted Bitstream UUID:", latestFile.uuid);
+                    return latestFile;
+                }
+                return data;
+            } else {
+                const errorText = await response.text().catch(() => "No error body");
+                console.error(`Upload failed with status ${response.status}:`, errorText);
+            }
+            return null;
+        } catch (error) {
+            console.error("Critical error in uploadFile:", error);
+            return null;
+        }
+    }
+
+    async updateBitstreamMetadata(bitstreamUuid, label) {
+        try {
+            const token = this.getStoredToken();
+            const headers = this.getCsrfHeaders({
+                "Content-Type": "application/json-patch+json",
+                Accept: "application/json",
+            });
+            if (token) {
+                headers["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+            }
+
+            // Standard DSpace 7/8/9 BITSTREAM metadata update via PATCH
+            // We use dc.description to store the 'label' since it's a standard field
+            const patch = [
+                {
+                    op: "add",
+                    path: "/metadata/dc.description",
+                    value: [{ value: label, language: null, authority: null, confidence: -1 }]
+                }
+            ];
+
+            const url = `${DSPACE_API_URL}/core/bitstreams/${bitstreamUuid}`;
+            console.log(`DSpace 9: Patching bitstream metadata at ${url}`);
+
+            const response = await fetch(url, {
+                method: "PATCH",
+                credentials: "include",
+                headers: headers,
+                body: JSON.stringify(patch),
+            });
+
+            if (!response.ok) {
+                console.error(`Failed to update bitstream metadata: ${response.status}`);
+            }
             return response.ok;
         } catch (error) {
+            console.error("Error updating bitstream metadata:", error);
             return false;
         }
     }
@@ -468,7 +608,13 @@ class DSpaceService {
 
     async searchItems(query, limit = 100) {
         try {
-            const params = new URLSearchParams({ query: query || "*", page: "0", size: String(limit) });
+            // Add embed=owningCollection to get collection details in one request
+            const params = new URLSearchParams({
+                query: query || "*",
+                page: "0",
+                size: String(limit),
+                embed: "owningCollection"
+            });
             const headers = this.getCsrfHeaders({ Accept: "application/json" });
             const response = await fetch(`${DSPACE_API_URL}/discover/search/objects?${params}`, {
                 credentials: "include",

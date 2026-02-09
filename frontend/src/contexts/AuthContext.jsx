@@ -30,28 +30,28 @@ export const AuthProvider = ({ children }) => {
 
     const checkAuth = async () => {
         try {
-            // Check if we have a stored auth token
+            // Restore token to service first
             const storedToken = localStorage.getItem('dspaceAuthToken');
             if (storedToken) {
                 dspaceService.authToken = storedToken;
-                dspaceService.isAuthenticated = true;
+            }
 
-                // Try to get auth status
-                const status = await dspaceService.checkAuthStatus();
-                if (status.authenticated) {
-                    const userInfo = {
-                        username: status.email || 'User',
-                        authenticated: true,
-                        id: status.id || status.uuid,
-                        ...status
-                    };
-                    setUser(userInfo);
-                } else {
-                    // Token might be expired
-                    localStorage.removeItem('dspaceAuthToken');
-                    setUser(null);
-                }
+            // Always check status as cookies might exist even if local token doesn't
+            const status = await dspaceService.checkAuthStatus();
+
+            if (status.authenticated) {
+                const eperson = status._embedded?.eperson;
+                const userInfo = {
+                    username: eperson?.name || eperson?.email || status.email || 'User',
+                    email: eperson?.email || status.email,
+                    authenticated: true,
+                    id: eperson?.id || eperson?.uuid || status.id || status.uuid,
+                    ...status
+                };
+                setUser(userInfo);
             } else {
+                // Token might be expired
+                localStorage.removeItem('dspaceAuthToken');
                 setUser(null);
             }
         } catch (error) {

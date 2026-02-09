@@ -17,12 +17,12 @@ const Navbar = () => {
                 <div className="flex justify-between items-center h-16">
                     <div className="flex items-center space-x-8">
                         <Link to="/" className="text-xl font-bold">
-                            ኢትዮጵያ ቤተ መዛግብት እና ቤተ መጻሕፍት አገልግሎት (ወመዘክር)
+                            የፌዴራል ጠቅላይ ፍርድ ቤት ዲጂታል ማህደር
                         </Link>
                         <div className="flex space-x-6">
                             {user && (
                                 <Link to="/editor" className="hover:text-gray-200">
-                                    Upload
+                                    ሰነድ ይጫኑ
                                 </Link>
                             )}
                             {user?.role === "admin" && (

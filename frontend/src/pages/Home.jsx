@@ -116,6 +116,29 @@ const Home = () => {
                         return mk ? mk.map(m => m.value).join(", ") : "";
                     };
 
+                    // Extract collection name from owningCollection
+                    let collectionName = null;
+                    const indexableObject = item._embedded?.indexableObject;
+
+                    // 1. Try embedded object (now available via embed=owningCollection)
+                    if (indexableObject?._embedded?.owningCollection?.name) {
+                        collectionName = indexableObject._embedded.owningCollection.name;
+                    }
+                    // 2. Try direct property
+                    else if (indexableObject?.owningCollection?.name) {
+                        collectionName = indexableObject.owningCollection.name;
+                    }
+                    // 3. Fallback to UUID from relationship link
+                    else if (indexableObject?._links?.owningCollection?.href) {
+                        const href = indexableObject._links.owningCollection.href;
+                        // Handle both /collections/uuid and /items/uuid/owningCollection patterns
+                        const uuidMatch = href.match(/collections\/([a-f0-9\-]+)/i) ||
+                            href.match(/items\/([a-f0-9\-]+)\/owningCollection/i);
+                        if (uuidMatch) {
+                            collectionName = uuidMatch[1];
+                        }
+                    }
+
                     return {
                         id: item._embedded?.indexableObject?.uuid,
                         title: getVal("dc.title") || item._embedded?.indexableObject?.name,
@@ -123,6 +146,7 @@ const Home = () => {
                         year: getVal("dc.date.issued")?.substring(0, 4),
                         publisher: getVal("dc.publisher"),
                         source: "dspace",
+                        collection_name: collectionName,
                         description: getVal("dc.description") || getVal("dc.description.abstract"),
                         abstract: getVal("dc.description.abstract"),
                         external_id: item._embedded?.indexableObject?.handle || item._embedded?.indexableObject?.uuid,
@@ -136,6 +160,14 @@ const Home = () => {
                         issn: getVal("dc.identifier.issn"),
                         subjects: getValList("dc.subject"),
                         format: getVal("dc.format"),
+                        // Legal/Case fields mapping
+                        bench_session: getVal("legal.bench.session"),
+                        complaint_number: getVal("legal.case.complaintNumber"),
+                        file_number: getVal("legal.case.fileNumber"),
+                        case_document_type: getVal("legal.document.type"),
+                        judge_number: getVal("legal.judge.number"),
+                        location: getVal("legal.location"),
+                        case_level: getVal("legal.case.level"),
                     };
                 });
 
@@ -182,10 +214,10 @@ const Home = () => {
     const fetchSystemStats = async () => {
         try {
             setStats({
-                totalResources: 12457,
-                monthlyDownloads: 5678,
-                activeUsers: 890,
-                communities: 12,
+                totalResources: 1000000,
+                monthlyDownloads: 250000,
+                activeUsers: 180000,
+                communities: 3,
             });
         } catch (error) {
             console.error("Error fetching stats:", error);
@@ -347,6 +379,7 @@ const Home = () => {
                     scope: collectionId,
                     page: "0",
                     size: "100",
+                    embed: "owningCollection"
                 });
 
                 const response = await fetch(
@@ -378,6 +411,29 @@ const Home = () => {
                                 return mk ? mk.map(m => m.value).join(", ") : "";
                             };
 
+                            // Extract collection name from owningCollection
+                            let collectionName = null;
+                            const indexableObject = item._embedded?.indexableObject;
+
+                            // 1. Try embedded object (now available via embed=owningCollection)
+                            if (indexableObject?._embedded?.owningCollection?.name) {
+                                collectionName = indexableObject._embedded.owningCollection.name;
+                            }
+                            // 2. Try direct property
+                            else if (indexableObject?.owningCollection?.name) {
+                                collectionName = indexableObject.owningCollection.name;
+                            }
+                            // 3. Fallback to UUID from relationship link
+                            else if (indexableObject?._links?.owningCollection?.href) {
+                                const href = indexableObject._links.owningCollection.href;
+                                // Handle both /collections/uuid and /items/uuid/owningCollection patterns
+                                const uuidMatch = href.match(/collections\/([a-f0-9\-]+)/i) ||
+                                    href.match(/items\/([a-f0-9\-]+)\/owningCollection/i);
+                                if (uuidMatch) {
+                                    collectionName = uuidMatch[1];
+                                }
+                            }
+
                             return {
                                 id: item._embedded?.indexableObject?.uuid,
                                 title: getVal("dc.title") || item._embedded?.indexableObject?.name,
@@ -385,6 +441,7 @@ const Home = () => {
                                 year: getVal("dc.date.issued")?.substring(0, 4),
                                 publisher: getVal("dc.publisher"),
                                 source: "dspace",
+                                collection_name: collectionName,
                                 description: getVal("dc.description") || getVal("dc.description.abstract"),
                                 abstract: getVal("dc.description.abstract"),
                                 external_id: item._embedded?.indexableObject?.handle || item._embedded?.indexableObject?.uuid,
@@ -405,7 +462,28 @@ const Home = () => {
                 }
             }
 
-            setAllResources(allItems);
+            // Post-process to map collection UUIDs to names
+            const processedItems = allItems.map(resource => {
+                if (resource.collection_name && collections.length > 0) {
+                    // Check if collection_name is a UUID (matches UUID pattern)
+                    const isUuid = /^[a-f0-9\-]{36}$/i.test(resource.collection_name);
+                    if (isUuid) {
+                        // Find matching collection by UUID
+                        const matchingCollection = collections.find(
+                            col => col.uuid === resource.collection_name || col.id === resource.collection_name
+                        );
+                        if (matchingCollection) {
+                            return {
+                                ...resource,
+                                collection_name: matchingCollection.name
+                            };
+                        }
+                    }
+                }
+                return resource;
+            });
+
+            setAllResources(processedItems);
             setCurrentPage(1);
         } catch (error) {
             console.error("Error fetching collection items:", error);
@@ -451,6 +529,8 @@ const Home = () => {
                 let resourceValue;
                 if (category === 'source') {
                     resourceValue = resource.source_name || resource.source || 'Unknown';
+                } else if (category === 'collection') {
+                    resourceValue = resource.collection_name;
                 } else if (category === 'type') {
                     resourceValue = resource.resource_type || 'Unknown';
                 } else if (category === 'year') {
@@ -467,6 +547,14 @@ const Home = () => {
                     continue; // Skip the equality check below for authors
                 } else if (category === 'publisher') {
                     resourceValue = resource.publisher || 'Unknown';
+                } else if (category === 'bench_session') {
+                    resourceValue = resource.bench_session;
+                } else if (category === 'location') {
+                    resourceValue = resource.location;
+                } else if (category === 'case_document_type') {
+                    resourceValue = resource.case_document_type;
+                } else if (category === 'case_level') {
+                    resourceValue = resource.case_level;
                 }
 
                 if (resourceValue === null || resourceValue === undefined) {
@@ -502,33 +590,8 @@ const Home = () => {
             {/* Hero Section */}
             <Carousel />
 
-            {/* Search Bar Overlay */}
-            <div className="max-w-4xl mx-auto px-4 -mt-10 relative z-10 mb-8">
-                <div className="bg-white p-4 rounded-xl">
-                    <form onSubmit={handleSearch} className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search resources, books, documents..."
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-colors"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="bg-blue-900 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm cursor-pointer"
-                        >
-                            Search
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-
             {/* Collections Section */}
-            <section className="bg-white py-16">
+            {/* <section className="bg-white py-16">
                 <div className="max-w-[95%] px-4">
                     <div className="text-center mb-8">
                         <h2 className="text-3xl font-bold text-gray-900">Collections</h2>
@@ -540,21 +603,92 @@ const Home = () => {
                         selectedCollections={selectedCollections}
                     />
                 </div>
-            </section>
+            </section> */}
+
+            {/* Stats and Additional Sections - Same as before */}
+            <div className="max-w-7xl mx-auto px-4 mt-10">
+                {/* System Overview */}
+                <section className="mb-16">
+                    <div className="text-center mb-12">
+                        <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                            የፌዴራል ጠቅላይ ፍርድ ቤት
+                        </h2>
+                        <p className="text-xl text-gray-600 max-w-4xl mx-auto">
+                            የፌደራል ጠቅላይ ፍርድ ቤት በ1934 ዓ.ም የተመሠረተ ፣ ቀልጣፋ፣ ውጤታማና ተደራሽ የዳንነት አገልግሎ በመስጠት የህግ የበላይነትን ለማረጋገጥ የሚሰራ ተቋም ነው።
+                        </p>
+                    </div>
+
+                    {/* Stats Overview */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                            <BarChart3 className="w-8 h-8 text-gray-800 mx-auto mb-3" />
+                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
+                                {stats.totalResources.toLocaleString()}+
+                            </h3>
+                            <p className="text-gray-600 font-medium">ውሳኔ ያገኙ ሰነዶች</p>
+                        </Card>
+                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                            <Download className="w-8 h-8 text-gray-800 mx-auto mb-3" />
+                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
+                                {stats.monthlyDownloads.toLocaleString()}+
+                            </h3>
+                            <p className="text-gray-600 font-medium">የወንጀል ክሶች</p>
+                        </Card>
+                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                            <Users className="w-8 h-8 text-gray-800 mx-auto mb-3" />
+                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
+                                {stats.activeUsers.toLocaleString()}+
+                            </h3>
+                            <p className="text-gray-600 font-medium">ሰበር ውሳኔዎች</p>
+                        </Card>
+                        <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
+                            <MapPin className="w-8 h-8 text-gray-800 mx-auto mb-3" />
+                            <h3 className="text-4xl font-bold text-gray-900 mb-2">
+                                {stats.communities}
+                            </h3>
+                            <p className="text-gray-600 font-medium">ፍርድ ቤቶች</p>
+                        </Card>
+                    </div>
+                </section>
+            </div>
+
+            {/* Search Bar Overlay */}
+            <div className="max-w-4xl mx-auto px-4 -mt-10 relative z-10 mb-8">
+                <div className="bg-white p-4 rounded-xl">
+                    <form onSubmit={handleSearch} className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="ሰነዶችን፣ ፋይሎችን ይፈልጉ..."
+                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition-colors"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="bg-blue-900 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm cursor-pointer"
+                        >
+                            ፈልግ
+                        </button>
+                    </form>
+                </div>
+            </div>
 
             {/* Latest Additions / Featured Items */}
-            <section className="bg-white py-16">
+            <section className="bg-white">
                 <div className="max-w-[95%] px-4">
-                    <div className="text-center mb-12">
+                    {/* <div className="text-center mb-12">
 
 
-                    </div>
+                    </div> */}
 
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-bold text-gray-900">
-                            Recent Records and Cataloges
+                            የቅርብ ጊዜ ሰነዶች እና ካታሎጎች
                             <span className="text-gray-500 text-lg ml-2">
-                                ({resourcesToDisplay.length} results)
+                                ({resourcesToDisplay.length} ውጤቶች)
                             </span>
                         </h3>
                         <div className="flex space-x-4"></div>
@@ -690,7 +824,7 @@ const Home = () => {
                                             disabled={currentPage === 1}
                                             className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                         >
-                                            Previous
+                                            ቀዳሚ
                                         </button>
                                         <button
                                             onClick={() => {
@@ -700,14 +834,14 @@ const Home = () => {
                                             disabled={currentPage === Math.ceil(resourcesToDisplay.length / pageSize)}
                                             className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                         >
-                                            Next
+                                            ቀጣይ
                                         </button>
                                     </div>
                                     <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                                         <div>
                                             <p className="text-sm text-gray-700">
-                                                Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to <span className="font-medium">{Math.min(currentPage * pageSize, resourcesToDisplay.length)}</span> of{' '}
-                                                <span className="font-medium">{resourcesToDisplay.length}</span> results
+                                                ከ <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> እስከ <span className="font-medium">{Math.min(currentPage * pageSize, resourcesToDisplay.length)}</span> ያሉት እየታዩ ነው (ከጠቅላላው {' '}
+                                                <span className="font-medium">{resourcesToDisplay.length}</span> ውጤቶች)
                                             </p>
                                         </div>
                                         <div>
@@ -725,7 +859,7 @@ const Home = () => {
                                                     </svg>
                                                 </button>
                                                 <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                                                    Page {currentPage} of {Math.ceil(resourcesToDisplay.length / pageSize)}
+                                                    ገጽ {currentPage} ከ {Math.ceil(resourcesToDisplay.length / pageSize)}
                                                 </span>
                                                 <button
                                                     onClick={() => {
@@ -734,7 +868,7 @@ const Home = () => {
                                                     disabled={currentPage === Math.ceil(resourcesToDisplay.length / pageSize)}
                                                     className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${currentPage === Math.ceil(resourcesToDisplay.length / pageSize) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                                 >
-                                                    <span className="sr-only">Next</span>
+                                                    <span className="sr-only">ቀጣይ</span>
                                                     <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                         <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                                                     </svg>
@@ -762,8 +896,8 @@ const Home = () => {
             {/* Stats and Additional Sections - Same as before */}
             <div className="max-w-7xl mx-auto px-4 py-12">
                 {/* System Overview */}
-                <section className="mb-16">
-                    <div className="text-center mb-12">
+                {/* <section className="mb-16"> */}
+                {/* <div className="text-center mb-12">
                         <h2 className="text-4xl font-bold text-gray-900 mb-4">
                             ብሔራዊ መዛግብት እና መጻሕፍት መድረክ
                         </h2>
@@ -771,16 +905,16 @@ const Home = () => {
                             የኢትዮጵያ ማዕከላዊ የመዛግብት እና መጻሕፍት መድረክ። ከ2016 ጀምሮ በማስረጃ ላይ የተመሰረተ የምርምር
                             እና የህዝብ ብዛት ድግፍ።
                         </p>
-                    </div>
+                    </div> */}
 
-                    {/* Stats Overview */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {/* Stats Overview */}
+                {/* <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                         <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
                             <BarChart3 className="w-8 h-8 text-gray-800 mx-auto mb-3" />
                             <h3 className="text-4xl font-bold text-gray-900 mb-2">
                                 {stats.totalResources.toLocaleString()}
                             </h3>
-                            <p className="text-gray-600 font-medium">መዛግብት እና መጻሕፍት</p>
+                            <p className="text-gray-600 font-medium">የክስ ሰነዶች</p>
                         </Card>
                         <Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
                             <Download className="w-8 h-8 text-gray-800 mx-auto mb-3" />
@@ -803,8 +937,8 @@ const Home = () => {
                             </h3>
                             <p className="text-gray-600 font-medium">ክልላዊ ቢሮዎች</p>
                         </Card>
-                    </div>
-                </section>
+                    </div> */}
+                {/* </section> */}
 
                 {/* Guidelines for Submitters */}
                 <section className="mb-16">

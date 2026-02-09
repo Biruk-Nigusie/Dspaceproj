@@ -41,13 +41,15 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
         e.stopPropagation();
         let url = "";
         if (resource.source === "dspace") {
+            // Prefer UUID for the preview URL to avoid handle slashes breaking paths
+            const itemUuid = resource.id || resource.external_id;
             if (resource.preview_url) {
                 url = resource.preview_url;
-            } else if (resource.external_id) {
-                url = `/api/resources/dspace-bitstream/${resource.external_id}/`;
-            } else if (resource.id && resource.id.startsWith("dspace_")) {
-                const itemUuid = resource.id.replace("dspace_", "");
+            } else if (itemUuid && !itemUuid.includes("/")) {
                 url = `/api/resources/dspace-bitstream/${itemUuid}/`;
+            } else if (resource.id && resource.id.startsWith("dspace_")) {
+                const cleanUuid = resource.id.replace("dspace_", "");
+                url = `/api/resources/dspace-bitstream/${cleanUuid}/`;
             }
         }
 
@@ -79,7 +81,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
         return (
             <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800"></div>
-                <p className="mt-4 text-gray-600 text-lg">መዛግብት እና መጻሕፍት በመጫን ላይ...</p>
+                <p className="mt-4 text-gray-600 text-lg">ሰነዶችን በመጫን ላይ...</p>
             </div>
         );
     }
@@ -102,7 +104,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                     />
                 </svg>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    ምንም መዝገቦች አልተገኙም
+                    ምንም ሰነዶች አልተገኙም
                 </h3>
                 <p className="text-gray-600 mb-4">
                     የፍለጋ መስፈርቶችዎን ማስተካከል ወይም በምድብ ማሰስ ይሞክሩ
@@ -123,25 +125,34 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Title
+                                ርዕስ
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Author
+                                ጸሐፊ
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Publisher
+                                አሳታሚ
                             </th>
 
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Issue date
+                                የወጣበት ቀን
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Citation
+                                ጥቅስ
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                የችሎት አይነት
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ቦታ
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ደረጃ
                             </th>
 
 
                             <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
+                                ተግባራት
                             </th>
                         </tr>
                     </thead>
@@ -169,11 +180,17 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                 <td className="px-6 py-4 text-sm text-gray-700">
                                     {resource.year || "—"}
                                 </td>
-                                <td>{resource.citation && (
-                                    <div className=" mt-1">
-                                        {resource.citation}
-                                    </div>
-                                )}
+                                <td className="px-6 py-4 text-sm text-gray-700">
+                                    {resource.citation || "—"}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-700">
+                                    {resource.bench_session || "—"}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-700">
+                                    {resource.location || "—"}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-700">
+                                    {resource.case_level || "—"}
                                 </td>
 
                                 <td className="px-6 py-4 text-center">
@@ -188,10 +205,10 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                                     {previewLoading[resource.id] ? (
                                                         <>
                                                             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                                                            Loading...
+                                                            በመጫን ላይ...
                                                         </>
                                                     ) : (
-                                                        "Preview"
+                                                        "ቅድመ እይታ"
                                                     )}
                                                 </button>
                                                 {isAuthenticated && (
@@ -202,7 +219,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                                         }}
                                                         className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 cursor-pointer"
                                                     >
-                                                        Catalog
+                                                        ካታሎግ
                                                     </button>
                                                 )}
                                             </>
@@ -216,7 +233,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                                 className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 cursor-pointer flex items-center gap-1"
                                             >
                                                 <Search className="w-3 h-3" />
-                                                View In Catalog
+                                                በካታሎግ ውስጥ ይመልከቱ
                                             </button>
                                         )}
                                     </div>
@@ -233,7 +250,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                         <div className="flex justify-between items-center px-6 py-4 bg-gray-900 border-b border-gray-800 text-white z-10 shadow-lg">
                             <div className="flex items-center gap-4">
                                 <h3 className="text-lg font-semibold truncate max-w-md">
-                                    {resources.find(r => r.id === Object.keys(previewLoading).find(id => previewUrl.includes(id)) || {})?.title || "Document Preview"}
+                                    {resources.find(r => r.id === Object.keys(previewLoading).find(id => previewUrl.includes(id)) || {})?.title || "የሰነድ ቅድመ እይታ"}
                                 </h3>
                                 <div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 gap-4 text-sm">
                                     <button
@@ -246,7 +263,7 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                         </svg>
                                     </button>
                                     <span className="font-medium whitespace-nowrap">
-                                        Page {pageNumber} / {numPages || "--"}
+                                        ገጽ {pageNumber} / {numPages || "--"}
                                     </span>
                                     <button
                                         onClick={() => setPageNumber(prev => Math.min(prev + 1, numPages))}
@@ -290,12 +307,12 @@ const ResourceTable = ({ resources, loading, onCatalogClick }) => {
                                 <button
                                     onClick={handleDownload}
                                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                                    title="Download File"
+                                    title="አውርድ"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
-                                    Download
+                                    አውርድ
                                 </button>
                             </div>
 

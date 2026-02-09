@@ -78,17 +78,28 @@ const MetadataEditor = () => {
     const [otherTitles, setOtherTitles] = useState([""]);
     const [dateOfIssue, setDateOfIssue] = useState("");
     const [publisher, setPublisher] = useState("");
-    const [citation, setCitation] = useState("");
-    const [seriesReportNo, setSeriesReportNo] = useState([""]);
-    const [accessionNumber, setAccessionNumber] = useState("");
+    // const [citation, setCitation] = useState("");
+    // const [seriesReportNo, setSeriesReportNo] = useState([""]);
+    // const [accessionNumber, setAccessionNumber] = useState("");
     const [publicationDate, setPublicationDate] = useState("");
-    const [identifiers, setIdentifiers] = useState([{ type: "ISSN", value: "" }]);
+    // const [identifiers, setIdentifiers] = useState([{ type: "ISSN", value: "" }]);
     const [type, setType] = useState("");
     const [language, setLanguage] = useState("en_US");
     const [subjectKeywords, setSubjectKeywords] = useState([""]);
     const [abstractText, setAbstractText] = useState("");
     const [sponsors, setSponsors] = useState("");
     const [description, setDescription] = useState("");
+
+    // New Legal/Case fields
+    const [benchSession, setBenchSession] = useState("");
+    const [complaintNumber, setComplaintNumber] = useState("");
+    const [fileNumber, setFileNumber] = useState("");
+    const [documentType, setDocumentType] = useState("");
+    const [judgeNumber, setJudgeNumber] = useState("");
+    const [location, setLocation] = useState("");
+    const [caseLevel, setCaseLevel] = useState("");
+    const [caseType, setCaseType] = useState("");
+
     const [confirmLicense, setConfirmLicense] = useState(false);
 
     // PDF viewer states
@@ -125,6 +136,7 @@ const MetadataEditor = () => {
             lastModified: new Date(file.lastModified),
             fileObject: file,
             fileUrl: URL.createObjectURL(file),
+            label: "",
         }));
 
         const updatedFiles = [...files, ...newFileItems];
@@ -170,6 +182,13 @@ const MetadataEditor = () => {
             return;
         }
 
+        // Judge Number validation (1-9)
+        if (judgeNumber && (isNaN(judgeNumber) || parseInt(judgeNumber) < 1 || parseInt(judgeNumber) > 9)) {
+            alert("Judge Number must be a number between 1 and 9.");
+            setUploading(false);
+            return;
+        }
+
         setUploading(true);
 
         // Check if user is authenticated with DSpace
@@ -193,19 +212,26 @@ const MetadataEditor = () => {
                 subjectKeywords: subjectKeywords.filter(k => k.trim()),
                 type: type,
                 language: language,
-                reportNo: accessionNumber,
-                series: seriesReportNo.filter(s => s.trim()),
+                // reportNo: accessionNumber,
                 sponsors: sponsors,
                 dateIssued: dateOfIssue,
                 publisher: publisher,
-                citation: citation,
+                // citation: citation,
+                // series: seriesReportNo.filter(s => s.trim()),
                 abstract: abstractText,
+                // Legal/Case fields
+                benchSession,
+                complaintNumber,
+                fileNumber,
+                documentType,
+                judgeNumber,
+                location,
+                caseLevel,
+                caseType,
             };
 
-            const metaSuccess = await dspaceService.updateMetadata(workspaceItemId, metadata);
-            if (!metaSuccess) {
-                console.error("Metadata update failed, but proceeding with file upload...");
-            }
+            await dspaceService.updateMetadata(workspaceItemId, metadata);
+            // If we're here, metadata update succeeded because it would have thrown otherwise
 
             // 3. Upload files
             // Sort files so Primary is first (if selected), otherwise keeping order
@@ -216,11 +242,13 @@ const MetadataEditor = () => {
             });
 
             for (const fileItem of filesToUpload) {
-                const uploadSuccess = await dspaceService.uploadFile(workspaceItemId, fileItem.fileObject);
-                if (!uploadSuccess) {
+                const bitstream = await dspaceService.uploadFile(workspaceItemId, fileItem.fileObject);
+                if (bitstream && bitstream.uuid) {
+                    if (fileItem.label && fileItem.label.trim()) {
+                        await dspaceService.updateBitstreamMetadata(bitstream.uuid, fileItem.label.trim());
+                    }
+                } else {
                     console.error(`Failed to upload file: ${fileItem.name}`);
-                    // We continue even if one fails, or should we stop? 
-                    // Usually better to try all.
                 }
             }
 
@@ -242,15 +270,23 @@ const MetadataEditor = () => {
             setSubjectKeywords([""]);
             setAbstractText("");
             setPublisher("");
-            setCitation("");
-            setAccessionNumber("");
-            setSeriesReportNo([""]);
+            // setCitation("");
+            // setAccessionNumber("");
+            // setSeriesReportNo([""]);
             setSponsors("");
             setDateOfIssue("");
+            setBenchSession("");
+            setComplaintNumber("");
+            setFileNumber("");
+            setDocumentType("");
+            setJudgeNumber("");
+            setLocation("");
+            setCaseLevel("");
+            setCaseType("");
             setConfirmLicense(false);
         } catch (e) {
             console.error("Critical upload error:", e);
-            alert("Upload failed: " + (e?.message || e));
+            alert(`Upload failed: ${e.message}`);
         } finally {
             setUploading(false);
         }
@@ -279,7 +315,7 @@ const MetadataEditor = () => {
     const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3.0));
     const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5));
 
-    const handleIdentifierChange = (index, field, value) => {
+    /* const handleIdentifierChange = (index, field, value) => {
         const newIdentifiers = [...identifiers];
         newIdentifiers[index][field] = value;
         setIdentifiers(newIdentifiers);
@@ -287,7 +323,7 @@ const MetadataEditor = () => {
     const addIdentifier = () =>
         setIdentifiers([...identifiers, { type: "ISSN", value: "" }]);
     const removeIdentifier = (index) =>
-        setIdentifiers(identifiers.filter((_, i) => i !== index));
+        setIdentifiers(identifiers.filter((_, i) => i !== index)); */
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">
@@ -444,37 +480,21 @@ const MetadataEditor = () => {
                                     <label htmlFor="publisher" className="block text-sm font-medium text-gray-700">Publisher</label>
                                     <input id="publisher" type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
                                 </div>
-                                <div>
-                                    <label htmlFor="citation" className="block text-sm font-medium text-gray-700">Citation</label>
-                                    <input id="citation" type="text" value={citation} onChange={(e) => setCitation(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
-                                </div>
-                                <RepeatableField label="Series/Report No." values={seriesReportNo} setValues={setSeriesReportNo} placeholder="Enter series/report number" />
-                                <div>
+
+                                { /* <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Accession Number / Barcode</label>
                                     <input type="text" value={accessionNumber} onChange={(e) => setAccessionNumber(e.target.value)} placeholder="Enter accession number or barcode" className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
-                                </div>
+                                </div> */ }
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Publication Date</label>
                                     <input type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Identifiers</label>
-                                    {identifiers.map((id, index) => (
-                                        <div key={index} className="flex items-center space-x-2 mb-2">
-                                            <select value={id.type} onChange={(e) => handleIdentifierChange(index, "type", e.target.value)} className="p-2 border border-gray-300 rounded-md">
-                                                {["ISSN", "Other", "ISMN", "Gov't Doc #", "URI", "ISBN"].map((t) => (<option key={t} value={t}>{t}</option>))}
-                                            </select>
-                                            <input type="text" placeholder="Enter identifier" value={id.value} onChange={(e) => handleIdentifierChange(index, "value", e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md" />
-                                            <button type="button" onClick={() => removeIdentifier(index)} className="text-red-600 hover:text-red-800"><Trash2 size={18} /></button>
-                                        </div>
-                                    ))}
-                                    <button type="button" onClick={addIdentifier} className="flex items-center text-sm text-blue-600 hover:text-blue-800"><PlusCircle size={16} className="mr-1" /> Add Identifier</button>
-                                </div>
+
                                 <div>
                                     <label htmlFor="type" className="block text-sm font-medium text-gray-700">Type *</label>
                                     <select id="type" value={type} onChange={(e) => setType(e.target.value)} required className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                                         <option value="" disabled>Select a type</option>
-                                        {["Animation", "Article", "Learning Object", "Image", "Image, 3-D", "Musical Score", "Plan or blueprint", "Preprint", "Presentation", "Recording acoustical", "Recording musical", "Recording oral", "Technical Report", "Thesis", "Video", "Working Paper"].map((t) => (<option key={t} value={t}>{t}</option>))}
+                                        {["Article", "Learning Object", "Legal Case", "Image", "Image, 3-D", "Musical Score", "Plan or blueprint", "Preprint", "Presentation", "Recording acoustical", "Recording musical", "Recording oral", "Technical Report", "Thesis", "Video", "Working Paper"].map((t) => (<option key={t} value={t}>{t}</option>))}
                                     </select>
                                 </div>
                                 <div>
@@ -497,6 +517,64 @@ const MetadataEditor = () => {
                                     <textarea id="sponsors" value={sponsors} onChange={(e) => setSponsors(e.target.value)} rows="2" placeholder="Enter sponsor details (optional)" className="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
                                 </div>
 
+                                <div className="border-t border-gray-200 pt-6">
+                                    <h3 className="text-md font-semibold text-gray-800 mb-4">Legal & Case Information</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor="benchSession" className="block text-sm font-medium text-gray-700">Bench Session</label>
+                                            <input id="benchSession" type="text" value={benchSession} onChange={(e) => setBenchSession(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="location" className="block text-sm font-medium text-gray-700">Location</label>
+                                            <input id="location" type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="complaintNumber" className="block text-sm font-medium text-gray-700">Complaint Number</label>
+                                            <input id="complaintNumber" type="text" value={complaintNumber} onChange={(e) => setComplaintNumber(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="fileNumber" className="block text-sm font-medium text-gray-700">File Number</label>
+                                            <input id="fileNumber" type="text" value={fileNumber} onChange={(e) => setFileNumber(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="documentType" className="block text-sm font-medium text-gray-700">Document Type</label>
+                                            <input id="documentType" type="text" value={documentType} onChange={(e) => setDocumentType(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="judgeNumber" className="block text-sm font-medium text-gray-700">Judge Number</label>
+                                            <input id="judgeNumber" type="text" value={judgeNumber} onChange={(e) => setJudgeNumber(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="caseLevel" className="block text-sm font-medium text-gray-700">Case Level</label>
+                                            <select
+                                                id="caseLevel"
+                                                value={caseLevel}
+                                                onChange={(e) => setCaseLevel(e.target.value)}
+                                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                                            >
+                                                <option value="">Select Level</option>
+                                                {["Registrar", "Screening", "Litigation", "Archive"].map(l => (
+                                                    <option key={l} value={l}>{l}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="caseType" className="block text-sm font-medium text-gray-700">Case Type</label>
+                                            <select
+                                                id="caseType"
+                                                value={caseType}
+                                                onChange={(e) => setCaseType(e.target.value)}
+                                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                                            >
+                                                <option value="">Select Type</option>
+                                                {["Civil", "Criminal", "Cassation"].map(t => (
+                                                    <option key={t} value={t}>{t}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* File List Section */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Primary file</label>
@@ -508,7 +586,24 @@ const MetadataEditor = () => {
                                                         <div className="mr-2 text-gray-500">{getFileIcon(file.type)}</div>
                                                         <span className="text-sm truncate max-w-[150px]" title={file.name}>{file.name}</span>
                                                     </div>
-                                                    <div className="flex items-center ml-2">
+                                                    <div className="flex items-center ml-2 space-x-2">
+                                                        <select
+                                                            value={file.label}
+                                                            onChange={(e) => {
+                                                                const newFiles = [...files];
+                                                                const idx = newFiles.findIndex(f => f.id === file.id);
+                                                                if (idx !== -1) {
+                                                                    newFiles[idx].label = e.target.value;
+                                                                    setFiles(newFiles);
+                                                                }
+                                                            }}
+                                                            className="text-xs p-1 border border-gray-300 rounded w-40 flex-shrink-0"
+                                                        >
+                                                            <option value="">Select Category</option>
+                                                            {["Pleadings", "Orders & Minutes", "Evidence", "Administrative"].map(opt => (
+                                                                <option key={opt} value={opt}>{opt}</option>
+                                                            ))}
+                                                        </select>
                                                         <label className="inline-flex items-center cursor-pointer">
                                                             <input
                                                                 type="radio"
@@ -517,7 +612,7 @@ const MetadataEditor = () => {
                                                                 onChange={() => setPrimaryFileId(file.id)}
                                                                 className="form-radio h-4 w-4 text-blue-600 border-gray-300"
                                                             />
-                                                            <span className="ml-1 text-xs text-gray-600">Primary</span>
+                                                            <span className="ml-1 text-xs text-gray-600 font-medium">Primary</span>
                                                         </label>
                                                         <button
                                                             type="button"
@@ -528,7 +623,7 @@ const MetadataEditor = () => {
                                                                     if (selectedFileId === file.id) setSelectedFileId(null);
                                                                 }
                                                             }}
-                                                            className="ml-2 text-red-400 hover:text-red-600"
+                                                            className="ml-1 text-red-500 hover:text-red-700"
                                                         >
                                                             <Trash2 size={14} />
                                                         </button>
