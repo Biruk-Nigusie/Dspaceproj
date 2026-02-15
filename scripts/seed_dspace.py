@@ -9,18 +9,18 @@ DEFAULT_PASSWORD = "1234"
 
 DEFAULT_SUBMITTER_EMAIL = "submitter@dspace.com"
 DEFAULT_CASE_WORKER_EMAIL = "case.worker@dspace.com"
-DEFAULT_REVIEWER_EMAIL = "reviewer@dspace.com"
 DEFAULT_EDITOR_EMAIL = "editor@dspace.com"
 
 # Sub cities with woreda counts
 SUB_CITIES = {
     "Addis_Ketema": 10,
-    "Akaky_Kaliti": 12,
+    "Akaki_Kaliti": 12,
     "Arada": 12,
     "Bole": 14,
     "Gullele": 11,
     "Kirkos": 12,
     "Kolfe_Keranio": 15,
+    "Lemi_Kura": 10,
     "Lideta": 10,
     "Nifas_Silk_Lafto": 12,
     "Yeka": 13,
@@ -295,7 +295,7 @@ class DSpaceClient:
         ]
 
         # Standard DSpace workflow steps
-        workflow_roles = ["reviewer", "editor"]
+        workflow_roles = ["editor"]
 
         # We POST an empty body to these endpoints to trigger internal group creation
         for role in role_endpoints:
@@ -318,7 +318,6 @@ class DSpaceClient:
         collection_name: str,
         submitter_email: str = None,
         case_worker_email: str = None,
-        reviewer_email: str = None,
         editor_email: str = None,
     ):
         """
@@ -334,7 +333,6 @@ class DSpaceClient:
             "submittersGroup": [submitter_email],
             "itemReadGroup": [submitter_email, case_worker_email, editor_email],
             "bitstreamReadGroup": [submitter_email, case_worker_email, editor_email],
-            "workflowGroups/reviewer": [reviewer_email],
             "workflowGroups/editor": [editor_email],
         }
 
@@ -429,10 +427,6 @@ def main():
         input(f"Case Worker Email: [{DEFAULT_CASE_WORKER_EMAIL}]: ").strip()
         or DEFAULT_CASE_WORKER_EMAIL
     )
-    reviewer_email = (
-        input(f"Reviewer Email: [{DEFAULT_REVIEWER_EMAIL}]: ").strip()
-        or DEFAULT_REVIEWER_EMAIL
-    )
     editor_email = (
         input(f"Editor Email: [{DEFAULT_EDITOR_EMAIL}]: ").strip()
         or DEFAULT_EDITOR_EMAIL
@@ -487,7 +481,6 @@ def main():
                             woreda_name,
                             submitter_email,
                             case_worker_email,
-                            reviewer_email,
                             editor_email,
                         )
 
