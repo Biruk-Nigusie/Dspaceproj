@@ -639,11 +639,55 @@ class DSpaceService {
 				credentials: "include",
 				headers: headers,
 			});
-		} catch (error) {
+		} catch {
 		} finally {
 			this.isAuthenticated = false;
 			this.authToken = null;
 			this.csrfToken = null;
+		}
+	}
+
+	async getSubmissionForms(formName) {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+			const response = await fetch(
+				`${DSPACE_API_URL}/config/submissionforms/${formName}`,
+				{
+					credentials: "include",
+					headers: headers,
+				},
+			);
+			return response.ok ? await response.json() : null;
+		} catch {
+			return null;
+		}
+	}
+
+	async getVocabularies(vocab) {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const token = this.getStoredToken();
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+			const response = await fetch(
+				`${DSPACE_API_URL}/submission/vocabularies/${vocab}/entries`,
+				{
+					credentials: "include",
+					headers: headers,
+				},
+			);
+			return response.ok ? await response.json() : null;
+		} catch {
+			return null;
 		}
 	}
 }
