@@ -97,13 +97,11 @@ class DSpaceService {
 				body: formData.toString(),
 				credentials: "include",
 			});
-			console.log("🚀 ~ DSpaceService ~ login ~ response:", response);
 
 			const newToken =
 				response.headers.get("DSPACE-XSRF-TOKEN") ||
 				response.headers.get("XSRF-TOKEN") ||
 				response.headers.get("X-XSRF-TOKEN");
-			console.log("🚀 ~ DSpaceService ~ login ~ newToken:", newToken);
 			if (newToken) {
 				this.csrfToken = newToken;
 			}
@@ -111,7 +109,6 @@ class DSpaceService {
 			const authHeader =
 				response.headers.get("Authorization") ||
 				response.headers.get("authorization");
-			console.log("🚀 ~ DSpaceService ~ login ~ authHeader:", authHeader);
 			if (authHeader) {
 				this.authToken = authHeader;
 			}
@@ -416,7 +413,6 @@ class DSpaceService {
 				});
 			}
 		}
-
 		if (metadataUpdates.length === 0) return true;
 
 		try {
@@ -433,7 +429,7 @@ class DSpaceService {
 
 			const FIELD_SECTION_MAP = {
 				"crvs.family.count": "traditionalpagetwo",
-				"crvs.description.summary": "traditionalpagetwo",
+				"dc.description": "traditionalpagetwo",
 			};
 
 			const batch = metadataUpdates.map((p) => {
@@ -484,8 +480,94 @@ class DSpaceService {
 				},
 			);
 
-			return response.ok;
+			if (response.ok) {
+				const data = await response.json();
+
+				// In DSpace 9, the response is the WorkspaceItem.
+				// The bitstream info is inside sections.upload.files
+				const files = data.sections?.upload?.files;
+				if (files && files.length > 0) {
+					// The most recently uploaded file is usually the last one
+					const latestFile = files[files.length - 1];
+					return latestFile;
+				}
+				return data;
+			} else {
+				const errorText = await response.text().catch(() => "No error body");
+				console.error(
+					`Upload failed with status ${response.status}:`,
+					errorText,
+				);
+			}
+			return null;
 		} catch {
+			return false;
+		}
+	}
+
+	async updateBitstreamMetadata(bitstreamUuid, metadata) {
+		try {
+			const token = this.getStoredToken();
+			const headers = this.getCsrfHeaders({
+				"Content-Type": "application/json-patch+json",
+				Accept: "application/json",
+			});
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
+			}
+
+			// Standard DSpace 7/8/9 BITSTREAM metadata update via PATCH
+			const patch = [];
+			if (metadata.documentType) {
+				patch.push({
+					op: "add",
+					path: "/metadata/crvs.documentType",
+					value: [
+						{
+							value: metadata.documentType,
+							language: null,
+							authority: null,
+							confidence: -1,
+						},
+					],
+				});
+			}
+			if (metadata.documentStatus) {
+				patch.push({
+					op: "add",
+					path: "/metadata/crvs.document.status",
+					value: [
+						{
+							value: metadata.documentStatus,
+							language: null,
+							authority: null,
+							confidence: -1,
+						},
+					],
+				});
+			}
+
+			if (patch.length === 0) return true;
+
+			const url = `${DSPACE_API_URL}/core/bitstreams/${bitstreamUuid}`;
+
+			const response = await fetch(url, {
+				method: "PATCH",
+				credentials: "include",
+				headers: headers,
+				body: JSON.stringify(patch),
+			});
+
+			if (!response.ok) {
+				console.error(
+					`Failed to update bitstream metadata: ${response.status}`,
+				);
+			}
+			return response.ok;
+		} catch (error) {
+			console.error("Error updating bitstream metadata:", error);
 			return false;
 		}
 	}
@@ -514,7 +596,6 @@ class DSpaceService {
 					]),
 				},
 			);
-
 			return response.ok;
 		} catch {
 			return false;
@@ -546,10 +627,6 @@ class DSpaceService {
 				headers: headers,
 				body: workspaceUri,
 			});
-			console.log(
-				"🚀 ~ DSpaceService ~ submitWorkspaceItem ~ response:",
-				response,
-			);
 
 			if (response.ok || response.status === 201 || response.status === 202) {
 				return await response.json().catch(() => ({ id: workspaceItemId }));
@@ -624,7 +701,7 @@ class DSpaceService {
 				headers: headers,
 			});
 			return response.ok ? await response.json() : null;
-		} catch (error) {
+		} catch {
 			return null;
 		}
 	}
@@ -639,7 +716,7 @@ class DSpaceService {
 				credentials: "include",
 				headers: headers,
 			});
-		} catch (error) {
+		} catch {
 		} finally {
 			this.isAuthenticated = false;
 			this.authToken = null;
