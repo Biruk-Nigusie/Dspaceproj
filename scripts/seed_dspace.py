@@ -11,6 +11,8 @@ DEFAULT_SUBMITTER_EMAIL = "submitter@dspace.com"
 DEFAULT_CASE_WORKER_EMAIL = "case.worker@dspace.com"
 DEFAULT_EDITOR_EMAIL = "editor@dspace.com"
 
+CITY_NAME = "Addis_Ababa"
+
 # Sub cities with woreda counts
 SUB_CITIES = {
     "Addis_Ketema": 10,
@@ -163,13 +165,19 @@ class DSpaceClient:
             else:
                 print(f"❌ Failed to delete {name}: {res.status_code}")
 
-    def create_community(self, name):
-        """Creates a top-level community for the Sub-city."""
+    def create_community(self, name, parent_uuid=None):
+        """Creates a community, optionally as a sub-community."""
         payload = {
             "name": name,
             "metadata": {"dc.title": [{"value": name, "language": "en"}]},
         }
-        r = self.session.post(f"{self.base_url}/core/communities", json=payload)
+        params = {}
+        if parent_uuid:
+            params["parent"] = parent_uuid
+
+        r = self.session.post(
+            f"{self.base_url}/core/communities", json=payload, params=params
+        )
         if r.status_code == 201:
             uuid = r.json().get("uuid")
             print(f"🏘️  Community Created: {name} (UUID: {uuid})")
@@ -465,15 +473,49 @@ def main():
             # --- START SEED LOGIC ---
             print("\n🏗️  Starting DSpace Structure Seeding for Addis Ababa...")
 
-            for sub_city, woreda_count in SUB_CITIES.items():
-                community_uuid = client.create_community(sub_city)
+            print("\n🏛 Creating City Center Structure...")
 
-                if community_uuid:
+            city_comm_uuid = client.create_community(CITY_NAME)
+            city_collection_name = f"{CITY_NAME.upper()}__CENTER_REGISTRY"
+
+            city_coll_uuid = client.create_collection(
+                city_comm_uuid, city_collection_name
+            )
+
+            client.add_users_to_collection_groups(
+                city_coll_uuid,
+                city_collection_name,
+                submitter_email,
+                case_worker_email,
+                editor_email,
+            )
+
+            for sub_city, woreda_count in SUB_CITIES.items():
+                subcity_community_uuid = client.create_community(
+                    sub_city, parent_uuid=city_comm_uuid
+                )
+
+                # Sub-city registry collection
+                subcity_collection_name = f"{sub_city.upper()}__REGISTRY"
+
+                subcity_coll_uuid = client.create_collection(
+                    subcity_community_uuid, subcity_collection_name
+                )
+
+                client.add_users_to_collection_groups(
+                    subcity_coll_uuid,
+                    subcity_collection_name,
+                    submitter_email,
+                    case_worker_email,
+                    editor_email,
+                )
+
+                if subcity_community_uuid:
                     for i in range(1, woreda_count + 1):
                         # Formatting: name_of_sub_city_woreda_number (e.g., Bole_Woreda_05)
                         woreda_name = f"{sub_city}_Woreda_{str(i).zfill(2)}"
                         coll_uuid = client.create_collection(
-                            community_uuid, woreda_name
+                            subcity_community_uuid, woreda_name
                         )
 
                         client.add_users_to_collection_groups(
