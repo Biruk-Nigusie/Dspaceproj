@@ -35,7 +35,7 @@ class DSpaceService {
 						this.csrfToken = token;
 						return true;
 					}
-				} catch (e) {}
+				} catch {}
 			}
 
 			await new Promise((resolve) => setTimeout(resolve, 200));
@@ -59,10 +59,10 @@ class DSpaceService {
 					this.csrfToken = body.token || body.csrfToken || body.xsrfToken;
 					return true;
 				}
-			} catch (e) {}
+			} catch {}
 
 			return false;
-		} catch (error) {
+		} catch {
 			return false;
 		}
 	}
@@ -267,7 +267,7 @@ class DSpaceService {
 				const obj = JSON.parse(raw);
 				if (obj?.accessToken) return obj.accessToken;
 			}
-		} catch (e) {}
+		} catch {}
 		try {
 			const m = document.cookie.match(/(?:^|;\s*)dsAuthInfo=([^;]+)/);
 			if (m) {
@@ -275,7 +275,7 @@ class DSpaceService {
 				const obj = JSON.parse(decoded);
 				if (obj?.accessToken) return obj.accessToken;
 			}
-		} catch (e) {}
+		} catch {}
 		return null;
 	}
 
@@ -637,14 +637,22 @@ class DSpaceService {
 		}
 	}
 
-	async searchItems(query, limit = 100) {
+	async searchItems(filters = {}, limit = 100) {
 		try {
 			const params = new URLSearchParams({
-				query: query || "*",
 				page: "0",
 				size: String(limit),
 				dsoType: "item",
 			});
+
+			Object.entries(filters).forEach(([key, filter]) => {
+				if (filter?.value) {
+					const value = filter.value;
+					const operator = filter.operator || "contains";
+					params.append(`f.${key}`, `${value},${operator}`);
+				}
+			});
+
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
 			const token = this.getStoredToken();
 			if (token) {
@@ -652,17 +660,15 @@ class DSpaceService {
 					? token
 					: `Bearer ${token}`;
 			}
-			const response = await fetch(
-				`${DSPACE_API_URL}/discover/search/objects?${params}`,
-				{
-					credentials: "include",
-					headers: headers,
-				},
-			);
+			const url = `${DSPACE_API_URL}/discover/search/objects?${params}`;
+			const response = await fetch(url, {
+				credentials: "include",
+				headers: headers,
+			});
 
 			if (response.ok) {
 				const data = await response.json();
-				return data._embedded?.searchResult?._embedded?.objects || [];
+				return data?._embedded?.searchResult?._embedded?.objects || [];
 			}
 			return [];
 		} catch {

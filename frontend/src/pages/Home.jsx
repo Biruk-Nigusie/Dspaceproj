@@ -1,17 +1,6 @@
 import axios from "axios";
-import {
-	AlertCircle,
-	BarChart3,
-	Book,
-	CheckCircle,
-	Download,
-	MapPin,
-	Search,
-	Users,
-	X,
-} from "lucide-react";
+import { AlertCircle, Book, CheckCircle, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import HowItWorks from "../components/HowItWorks";
 import MetadataTreeFilter from "../components/MetadataTreeFilter";
 import Card from "../components/UI/Card";
 import dspaceService from "../services/dspaceService";
@@ -20,10 +9,8 @@ import CatalogModal from "./CatalogModal";
 import ResourceTable from "./ResourceTable";
 
 const Home = () => {
-	const [searchQuery, setSearchQuery] = useState("");
 	const [allResources, setAllResources] = useState([]); // For all resources (mixed)
-	const [catalogedResources, setCatalogedResources] = useState([]); // For Koha cataloged items
-	const [dspaceItems, setDspaceItems] = useState([]); // For DSpace items fetched directly
+	const [catalogedResources] = useState([]); // For Koha cataloged items
 	const [loading, setLoading] = useState(false);
 	const [showCatalogModal, setShowCatalogModal] = useState(false);
 	const [catalogData, setCatalogData] = useState({
@@ -73,32 +60,23 @@ const Home = () => {
 		},
 	});
 
-	const [stats, setStats] = useState({
-		totalResources: 0,
-		monthlyDownloads: 0,
-		activeUsers: 0,
-		communities: 0,
-	});
-
-	const [collections, setCollections] = useState([]);
 	const [selectedCollections, setSelectedCollections] = useState([]);
 	const [activeFilters, setActiveFilters] = useState({});
 	const [displayMode, setDisplayMode] = useState("digital"); // "digital", "cataloged"
-	const [currentPage, setCurrentPage] = useState(1);
-	const pageSize = 10;
-	const [dspacePagination, setDspacePagination] = useState({
-		page: 0,
-		size: 10,
-		totalPages: 0,
-		totalElements: 0,
+
+	const [columnFilters, setColumnFilters] = useState({
+		houseType: { value: "", operator: "equals" },
+		houseNumber: { value: "", operator: "contains" },
+		husband: { value: "", operator: "contains" },
+		wife: { value: "", operator: "contains" },
 	});
 
 	// Fetch all resources (using DSpace search)
-	const fetchAllResources = useCallback(async (query = "") => {
+	const fetchAllResources = useCallback(async () => {
 		setLoading(true);
 		try {
 			// Use DSpace service to search
-			const results = await dspaceService.searchItems(query);
+			const results = await dspaceService.searchItems(columnFilters, 100);
 
 			// Transform DSpace items to common resource format
 			// Filter out collections - only include actual items
@@ -133,10 +111,9 @@ const Home = () => {
 							item._embedded?.indexableObject?.name,
 						husband: getValList("crvs.head.husband"),
 						wife: getValList("crvs.head.wife"),
-						dateOfRegistration: getVal("crvs.date.registration")?.substring(
-							0,
-							4,
-						),
+						houseNumber: getVal("crvs.identifier.houseNumber"),
+						houseType: getVal("crvs.identifier.houseType"),
+						dateOfRegistration: getVal("crvs.date.registration"),
 						source: "dspace",
 						familySummary: getVal("crvs.description.summary"),
 						external_id:
@@ -153,70 +130,13 @@ const Home = () => {
 			);
 
 			setAllResources(mappedResults);
-			setCurrentPage(1);
 		} catch (error) {
 			console.error("Error fetching resources:", error);
 			setAllResources([]);
 		} finally {
 			setLoading(false);
 		}
-	}, []);
-
-	// Fetch items from Koha (Cataloged)
-	const fetchCatalogedResources = useCallback(async (query = "") => {
-		setLoading(true);
-		try {
-			const response = await axios.get("/api/resources/search/", {
-				params: {
-					q: query,
-					source: "koha",
-					limit: 100,
-				},
-			});
-
-			if (response.data?.results) {
-				// Map the results to our consistent format
-				const mapped = response.data.results.map((item) => ({
-					...item,
-					source: item.source || "koha",
-					source_name: item.source_name || "Koha Catalog",
-				}));
-				setCatalogedResources(mapped);
-			}
-		} catch (error) {
-			console.error("Error fetching cataloged resources:", error);
-			setCatalogedResources([]);
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	const fetchSystemStats = useCallback(async () => {
-		try {
-			setStats({
-				totalResources: 12457,
-				monthlyDownloads: 5678,
-				activeUsers: 890,
-				communities: 12,
-			});
-		} catch (error) {
-			console.error("Error fetching stats:", error);
-		}
-	}, []);
-
-	const handleSearch = (e) => {
-		e.preventDefault();
-		// Search is handled by useEffect now
-	};
-
-	const fetchCollections = useCallback(async () => {
-		try {
-			const collectionList = await dspaceService.getCollections();
-			setCollections(collectionList || []);
-		} catch (error) {
-			console.error("Error fetching collections:", error);
-		}
-	}, []);
+	}, [columnFilters]);
 
 	const handleCatalogSubmit = async () => {
 		try {
@@ -231,11 +151,7 @@ const Home = () => {
 					}
 				: {};
 
-			const response = await axios.post(
-				"/api/resources/catalog-external/",
-				catalogData,
-				config,
-			);
+			await axios.post("/api/resources/catalog-external/", catalogData, config);
 			alert("Successfully cataloged in Koha!");
 			setShowCatalogModal(false);
 			// Reset catalog data
@@ -331,146 +247,20 @@ const Home = () => {
 		setShowCatalogModal(true);
 	};
 
-	const handleCollectionClick = (collection) => {
-		setSelectedCollections((prev) => {
-			const collectionId = collection.uuid || collection.id;
-			const isAlreadySelected = prev.some(
-				(c) => (c.uuid || c.id) === collectionId,
-			);
-
-			if (isAlreadySelected) {
-				// Remove from selection
-				const newSelection = prev.filter(
-					(c) => (c.uuid || c.id) !== collectionId,
-				);
-				if (newSelection.length === 0) {
-					// If no collections selected, fetch all items
-					fetchAllResources(searchQuery);
-				} else {
-					// Fetch items for remaining collections
-					fetchDspaceItemsByCollections(newSelection);
-				}
-				return newSelection;
-			} else {
-				// Add to selection and fetch items
-				const newSelection = [...prev, collection];
-				fetchDspaceItemsByCollections(newSelection);
-				return newSelection;
-			}
-		});
-
-		// When a collection is selected, switch to digital mode
-		setDisplayMode("digital");
-		setCurrentPage(1);
-		setActiveFilters({});
-	};
-
-	// Fetch items from specific DSpace collections
-	const fetchDspaceItemsByCollections = useCallback(
-		async (collections) => {
-			if (!collections || collections.length === 0) {
-				return;
-			}
-
-			setLoading(true);
-			try {
-				// Fetch items from each collection and combine results
-				const allItems = [];
-
-				for (const collection of collections) {
-					const collectionId = collection.uuid || collection.id;
-					// Use DSpace discover API to search within a specific collection
-					const params = new URLSearchParams({
-						query: searchQuery || "*",
-						scope: collectionId,
-						page: "0",
-						size: "100",
-					});
-
-					const response = await fetch(
-						`/api/dspace/discover/search/objects?${params}`,
-						{
-							credentials: "include",
-							headers: dspaceService.getCsrfHeaders({
-								Accept: "application/json",
-							}),
-						},
-					);
-
-					if (response.ok) {
-						const data = await response.json();
-						const items =
-							data._embedded?.searchResult?._embedded?.objects || [];
-
-						// Transform items to common format and filter out collections
-						const transformedItems = items
-							.filter((item) => {
-								const type = item._embedded?.indexableObject?.type;
-								return type === "item"; // Only items, not collections
-							})
-							.map((item) => {
-								const metadata =
-									item._embedded?.indexableObject?.metadata || {};
-								const getVal = (key) => {
-									const mk = metadata[key];
-									return mk && mk.length > 0 ? mk[0].value : "";
-								};
-								const getValList = (key) => {
-									const mk = metadata[key];
-									return mk ? mk.map((m) => m.value).join(", ") : "";
-								};
-
-								return {
-									id: item._embedded?.indexableObject?.uuid,
-									houseFamilyKey:
-										getVal("crvs.identifier.houseFamilyKey") ||
-										item._embedded?.indexableObject?.name,
-									husband: getValList("crvs.head.husband"),
-									wife: getValList("crvs.head.wife"),
-									dateOfRegistration: getVal(
-										"crvs.date.registration",
-									)?.substring(0, 4),
-									source: "dspace",
-									familySummary: getVal("crvs.description.summary"),
-									external_id:
-										item._embedded?.indexableObject?.handle ||
-										item._embedded?.indexableObject?.uuid,
-									isbn: getVal("dc.identifier.isbn"),
-									issn: getVal("dc.identifier.issn"),
-								};
-							});
-
-						allItems.push(...transformedItems);
-					}
-				}
-
-				setAllResources(allItems);
-				setCurrentPage(1);
-			} catch (error) {
-				console.error("Error fetching collection items:", error);
-			} finally {
-				setLoading(false);
-			}
-		},
-		[searchQuery],
-	);
-
 	const clearCollectionFilter = () => {
 		setSelectedCollections([]);
-		fetchAllResources(searchQuery);
-		setCurrentPage(1);
+		fetchAllResources();
 		setActiveFilters({});
 	};
 
 	const handleDisplayModeChange = (mode) => {
 		setDisplayMode(mode);
-		setCurrentPage(1);
 		setActiveFilters({}); // Reset all side filters when switching modes
 		if (mode === "cataloged") {
 			setSelectedCollections([]);
-			fetchCatalogedResources(searchQuery);
+			// fetchCatalogedResources(searchQuery); // Deleted
 		} else {
-			fetchAllResources(searchQuery);
+			fetchAllResources();
 		}
 	};
 
@@ -526,85 +316,30 @@ const Home = () => {
 
 	const resourcesToDisplay = applyTreeFilters(baseResources);
 
-	const handleDspacePageChange = (newPage) => {
-		if (selectedCollections.length > 0) {
-			fetchDspaceItemsByCollections(
-				selectedCollections,
-				newPage,
-				dspacePagination.size,
-			);
-		}
-	};
-
 	useEffect(() => {
 		// Initial fetch
 		fetchAllResources();
-		fetchSystemStats();
-		fetchCollections();
-	}, [fetchAllResources, fetchCollections, fetchSystemStats]);
-
-	// Debounced search effect
-	useEffect(() => {
-		const delayDebounceFn = setTimeout(() => {
-			if (searchQuery !== undefined) {
-				if (displayMode === "cataloged") {
-					fetchCatalogedResources(searchQuery);
-				} else if (selectedCollections.length > 0) {
-					fetchDspaceItemsByCollections(selectedCollections);
-				} else {
-					fetchAllResources(searchQuery);
-				}
-			}
-		}, 500);
-
-		return () => clearTimeout(delayDebounceFn);
-	}, [
-		searchQuery,
-		selectedCollections,
-		displayMode,
-		fetchAllResources,
-		fetchCatalogedResources,
-		fetchDspaceItemsByCollections,
-	]);
+	}, [fetchAllResources]);
 
 	return (
 		<div className="min-h-screen bg-white">
 			{/* Hero Section */}
 			<section className="bg-primary py-16 text-primary-foreground">
 				<div className="max-w-6xl mx-auto px-4">
-					<div className="text-center mb-8">
-						<h1 className="text-5xl font-bold mb-4">{ORG_NAME}</h1>
+					<div className="text-center">
+						<h1 className="text-5xl font-bold">{ORG_NAME}</h1>
 					</div>
-
-					<form onSubmit={handleSearch} className="max-w-3xl mx-auto">
-						<div className="relative">
-							<Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-							<input
-								type="text"
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-								placeholder="የነዋሪነት፣ ወሳኝ ኩነት መረጃዎች ይፈልጉ..."
-								className="w-full pl-12 pr-32 py-4 text-lg bg-white text-gray-800 rounded-lg border border-gray-300 focus:border-blue-500 focus:outline-none shadow-sm"
-							/>
-							<button
-								type="submit"
-								className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#1A3D64] hover:bg-[#2A4D74] text-white px-8 py-2 rounded-lg font-medium transition-colors cursor-pointer"
-							>
-								ፈልግ
-							</button>
-						</div>
-					</form>
 				</div>
 			</section>
 
 			{/* Latest Additions / Featured Items */}
 			<section className="bg-white py-16">
-				<div className="mx-auto container px-4">
+				<div className="w-full px-4 lg:px-8">
 					<div className="text-center mb-12" />
 
 					<div className="flex justify-between items-center mb-6">
 						<h3 className="text-2xl font-bold text-gray-900">
-							Recent Records and Catalogs
+							Search Results
 							<span className="text-gray-500 text-lg ml-2">
 								({resourcesToDisplay.length} results)
 							</span>
@@ -648,44 +383,6 @@ const Home = () => {
 									</button>
 								)}
 							</div>
-
-							{/* DSpace pagination info */}
-							{dspaceItems.length > 0 && dspacePagination.totalPages > 1 && (
-								<div className="mt-2 pt-2 border-t border-blue-100">
-									<div className="flex items-center justify-between">
-										<span className="text-blue-600 text-xs">
-											Page {dspacePagination.number + 1} of{" "}
-											{dspacePagination.totalPages}(
-											{dspacePagination.totalElements} total items)
-										</span>
-										<div className="flex space-x-2">
-											{dspacePagination.number > 0 && (
-												<button
-													type="button"
-													onClick={() =>
-														handleDspacePageChange(dspacePagination.number - 1)
-													}
-													className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
-												>
-													Previous
-												</button>
-											)}
-											{dspacePagination.number <
-												dspacePagination.totalPages - 1 && (
-												<button
-													type="button"
-													onClick={() =>
-														handleDspacePageChange(dspacePagination.number + 1)
-													}
-													className="px-2 py-1 text-xs bg-white border border-blue-200 text-blue-600 rounded hover:bg-blue-50 cursor-pointer"
-												>
-													Next
-												</button>
-											)}
-										</div>
-									</div>
-								</div>
-							)}
 						</div>
 					)}
 
@@ -733,176 +430,16 @@ const Home = () => {
 						{/* Right Content - Resource Table */}
 						<div className="lg:w-3/4">
 							<ResourceTable
-								resources={resourcesToDisplay.slice(
-									(currentPage - 1) * pageSize,
-									currentPage * pageSize,
-								)}
+								resources={resourcesToDisplay}
 								loading={loading}
 								onCatalogClick={handleCatalogClick}
+								columnFilters={columnFilters}
+								onColumnFilterChange={setColumnFilters}
 							/>
-
-							{/* Pagination Controls */}
-							{resourcesToDisplay.length > pageSize && (
-								<div className="mt-4 flex items-center justify-between bg-white px-4 py-3 border-t border-gray-200 sm:px-6 rounded-lg border">
-									<div className="flex-1 flex justify-between sm:hidden">
-										<button
-											type="button"
-											onClick={() => {
-												setCurrentPage(Math.max(1, currentPage - 1));
-												window.scrollTo({
-													top: document.querySelector("#resource-section")
-														? document.querySelector("#resource-section")
-																.offsetTop - 100
-														: 0,
-													behavior: "smooth",
-												});
-											}}
-											disabled={currentPage === 1}
-											className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${
-												currentPage === 1
-													? "opacity-50 cursor-not-allowed"
-													: "cursor-pointer"
-											}`}
-										>
-											Previous
-										</button>
-										<button
-											type="button"
-											onClick={() => {
-												setCurrentPage(
-													Math.min(
-														Math.ceil(resourcesToDisplay.length / pageSize),
-														currentPage + 1,
-													),
-												);
-												window.scrollTo({
-													top: document.querySelector("#resource-section")
-														? document.querySelector("#resource-section")
-																.offsetTop - 100
-														: 0,
-													behavior: "smooth",
-												});
-											}}
-											disabled={
-												currentPage ===
-												Math.ceil(resourcesToDisplay.length / pageSize)
-											}
-											className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ${
-												currentPage ===
-												Math.ceil(resourcesToDisplay.length / pageSize)
-													? "opacity-50 cursor-not-allowed"
-													: "cursor-pointer"
-											}`}
-										>
-											Next
-										</button>
-									</div>
-									<div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-										<div>
-											<p className="text-sm text-gray-700">
-												Showing{" "}
-												<span className="font-medium">
-													{(currentPage - 1) * pageSize + 1}
-												</span>{" "}
-												to{" "}
-												<span className="font-medium">
-													{Math.min(
-														currentPage * pageSize,
-														resourcesToDisplay.length,
-													)}
-												</span>{" "}
-												of{" "}
-												<span className="font-medium">
-													{resourcesToDisplay.length}
-												</span>{" "}
-												results
-											</p>
-										</div>
-										<div>
-											<nav
-												className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
-												aria-label="Pagination"
-											>
-												<button
-													type="button"
-													onClick={() => {
-														setCurrentPage(Math.max(1, currentPage - 1));
-													}}
-													disabled={currentPage === 1}
-													className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${
-														currentPage === 1
-															? "opacity-50 cursor-not-allowed"
-															: "cursor-pointer"
-													}`}
-												>
-													<span className="sr-only">Previous</span>
-													<svg
-														className="h-5 w-5"
-														xmlns="http://www.w3.org/2000/svg"
-														viewBox="0 0 20 20"
-														fill="currentColor"
-														aria-hidden="true"
-													>
-														<title>previous</title>
-														<path
-															fillRule="evenodd"
-															d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-															clipRule="evenodd"
-														/>
-													</svg>
-												</button>
-												<span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-													Page {currentPage} of{" "}
-													{Math.ceil(resourcesToDisplay.length / pageSize)}
-												</span>
-												<button
-													type="button"
-													onClick={() => {
-														setCurrentPage(
-															Math.min(
-																Math.ceil(resourcesToDisplay.length / pageSize),
-																currentPage + 1,
-															),
-														);
-													}}
-													disabled={
-														currentPage ===
-														Math.ceil(resourcesToDisplay.length / pageSize)
-													}
-													className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer ${
-														currentPage ===
-														Math.ceil(resourcesToDisplay.length / pageSize)
-															? "opacity-50 cursor-not-allowed"
-															: "cursor-pointer"
-													}`}
-												>
-													<span className="sr-only">Next</span>
-													<svg
-														className="h-5 w-5"
-														xmlns="http://www.w3.org/2000/svg"
-														viewBox="0 0 20 20"
-														fill="currentColor"
-														aria-hidden="true"
-													>
-														<title>next</title>
-														<path
-															fillRule="evenodd"
-															d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-															clipRule="evenodd"
-														/>
-													</svg>
-												</button>
-											</nav>
-										</div>
-									</div>
-								</div>
-							)}
 						</div>
 					</div>
 				</div>
 			</section>
-
-			<HowItWorks />
 
 			<CatalogModal
 				isOpen={showCatalogModal}
@@ -913,52 +450,68 @@ const Home = () => {
 			/>
 
 			{/* Stats and Additional Sections - Same as before */}
+			<section className="container mx-auto px-4 py-12">
+				<div className="text-center mb-12">
+					<h2 className="text-4xl font-bold text-gray-900 mb-4">
+						{`${ORG_NAME} ቁጥራዊ መረጃዎች`}
+					</h2>
+				</div>
+
+				<Card>
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>3.2M</span>
+							</h3>
+							<h4>Registered Residents </h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>2.7M</span>
+							</h3>
+							<h4>Digital ID</h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>347.1K</span>
+							</h3>
+							<h4>Married </h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>377.6K</span>
+							</h3>
+							<h4>Non Marital</h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>1.3M</span>
+							</h3>
+							<h4>Birth Certificates </h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>84.6K</span>
+							</h3>
+							<h4>Death</h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>24.9K</span>
+							</h3>
+							<h4>Divorce </h4>
+						</div>
+						<div className="text-center flex flex-col items-center gap-2">
+							<h3 className="font-bold text-4xl">
+								<span>2.1K</span>
+							</h3>
+							<h4>Adoption</h4>
+						</div>
+					</div>
+				</Card>
+			</section>
+
 			<div className="max-w-7xl mx-auto px-4 py-12">
-				{/* System Overview */}
-				<section className="mb-16">
-					<div className="text-center mb-12">
-						<h2 className="text-4xl font-bold text-gray-900 mb-4">
-							ብሔራዊ መዛግብት እና መጻሕፍት መድረክ
-						</h2>
-						<p className="text-xl text-gray-600 max-w-4xl mx-auto">
-							የኢትዮጵያ ማዕከላዊ የመዛግብት እና መጻሕፍት መድረክ። ከ2016 ጀምሮ በማስረጃ ላይ የተመሰረተ የምርምር
-							እና የህዝብ ብዛት ድግፍ።
-						</p>
-					</div>
-
-					{/* Stats Overview */}
-					<div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-						<Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
-							<BarChart3 className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-							<h3 className="text-4xl font-bold text-gray-900 mb-2">
-								{stats.totalResources.toLocaleString()}
-							</h3>
-							<p className="text-gray-600 font-medium">መዛግብት እና መጻሕፍት</p>
-						</Card>
-						<Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
-							<Download className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-							<h3 className="text-4xl font-bold text-gray-900 mb-2">
-								{stats.monthlyDownloads.toLocaleString()}+
-							</h3>
-							<p className="text-gray-600 font-medium">ወርሃዊ መዳረሻ</p>
-						</Card>
-						<Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
-							<Users className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-							<h3 className="text-4xl font-bold text-gray-900 mb-2">
-								{stats.activeUsers.toLocaleString()}
-							</h3>
-							<p className="text-gray-600 font-medium">የተመዘገቡ ተጠቃሚዎች</p>
-						</Card>
-						<Card className="text-center bg-white hover:shadow-lg transition-shadow border border-gray-200">
-							<MapPin className="w-8 h-8 text-gray-800 mx-auto mb-3" />
-							<h3 className="text-4xl font-bold text-gray-900 mb-2">
-								{stats.communities}
-							</h3>
-							<p className="text-gray-600 font-medium">ክልላዊ ቢሮዎች</p>
-						</Card>
-					</div>
-				</section>
-
 				{/* Guidelines for Submitters */}
 				<section className="mb-16">
 					<div className="bg-blue-50 rounded-2xl p-8">

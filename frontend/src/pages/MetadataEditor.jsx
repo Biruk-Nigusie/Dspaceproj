@@ -24,6 +24,12 @@ import {
 } from "lucide-react";
 import { useRef } from "react";
 import dspaceService from "../services/dspaceService";
+import {
+	documentStatusOptions,
+	documentTypeOptions,
+	houseTypeOptions,
+	identifierOptions,
+} from "../utils/constants";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -710,37 +716,6 @@ const MetadataEditor = () => {
 		setPageNumber((prev) => Math.min(Math.max(prev + offset, 1), numPages));
 	const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3.0));
 	const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5));
-
-	const identifierOptions = [
-		"Other",
-		"ISSN",
-		"ISMN",
-		"Gov't Doc #",
-		"URI",
-		"ISBN",
-	];
-
-	const houseTypeOptions = [
-		"Private House",
-		"Kebele Owned",
-		"Military Camp",
-		"Religious Organization",
-		"Commercial",
-	];
-
-	const documentTypeOptions = [
-		"ID Card",
-		"Birth Certificate",
-		"Death Certificate",
-		"Marriage Certificate",
-		"Divorce Decree",
-		"Not-married Certificate",
-		"Adoption Decree",
-		"Supporting Document",
-		"Other",
-	];
-
-	const documentStatusOptions = ["Active", "Inactive"];
 
 	return (
 		<div className="flex flex-col h-screen bg-gray-50">

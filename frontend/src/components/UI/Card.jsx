@@ -1,13 +1,10 @@
-const Card = ({ children, className = "", ...props }) => {
+export default function Card({ children, className = "", ...props }) {
 	return (
 		<div
-			className={`bg-white rounded-lg border border-[#8FABD4] shadow-sm p-6 ${className}`}
+			className={`bg-card rounded-lg border border-border shadow-sm p-6 h-fit ${className}`}
 			{...props}
 		>
 			{children}
 		</div>
 	);
-};
-
-export { Card };
-export default Card;
+}
