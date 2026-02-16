@@ -9,8 +9,8 @@ Successfully refactored the digital library application to work directly with DS
 1. **Direct DSpace Authentication**
    - Login via DSpace REST API at `http://localhost:8080/server/api/authn/login`
    - CSRF token handling through Vite proxy
-   - Auth token storage in localStorage
-   - User state management in AuthContext
+   - Auth token storage in sessionStorage (prevents persistence but survives refresh/HMR)
+   - User state management in AuthContext with synchronous initialization
 
 2. **Proxy Configuration** (`vite.config.js`)
    - Port: 8000

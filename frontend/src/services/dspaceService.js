@@ -1,5 +1,38 @@
 const DSPACE_API_URL = "/api/dspace";
 
+// Cookie Helpers
+export const setCookie = (name, value, days = 7) => {
+	const expires = new Date(Date.now() + days * 864e5).toUTCString();
+	document.cookie = `${name}=${encodeURIComponent(
+		value,
+	)}; expires=${expires}; path=/; SameSite=Lax`;
+};
+
+export const getCookie = (name) => {
+	const nameEQ = `${name}=`;
+	const ca = document.cookie.split(";");
+	for (let i = 0; i < ca.length; i++) {
+		let c = ca[i];
+		while (c.charAt(0) === " ") c = c.substring(1, c.length);
+		if (c.indexOf(nameEQ) === 0)
+			return decodeURIComponent(c.substring(nameEQ.length, c.length));
+	}
+	return null;
+};
+
+export const deleteCookie = (name) => {
+	const hostname = window.location.hostname;
+	const paths = ["/"];
+	const domains = [hostname, `.${hostname}`, ""];
+
+	for (const path of paths) {
+		for (const domain of domains) {
+			const domainPart = domain ? `; domain=${domain}` : "";
+			document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path}${domainPart};`;
+		}
+	}
+};
+
 class DSpaceService {
 	constructor() {
 		this.isAuthenticated = false;
@@ -40,17 +73,13 @@ class DSpaceService {
 
 			await new Promise((resolve) => setTimeout(resolve, 200));
 
-			const cookies = document.cookie.split(";");
-			for (const cookie of cookies) {
-				const [name, value] = cookie.trim().split("=");
-				if (
-					name === "DSPACE-XSRF-COOKIE" ||
-					name === "XSRF-TOKEN" ||
-					name === "DSPACE-XSRF-TOKEN"
-				) {
-					this.csrfToken = decodeURIComponent(value);
-					return true;
-				}
+			const token =
+				getCookie("DSPACE-XSRF-COOKIE") ||
+				getCookie("XSRF-TOKEN") ||
+				getCookie("DSPACE-XSRF-TOKEN");
+			if (token) {
+				this.csrfToken = token;
+				return true;
 			}
 
 			try {
@@ -71,8 +100,15 @@ class DSpaceService {
 		const headers = { ...additionalHeaders };
 		if (this.csrfToken) {
 			headers["X-XSRF-TOKEN"] = this.csrfToken;
-			// headers["DSPACE-XSRF-TOKEN"] = this.csrfToken;
 		}
+
+		const token = this.getStoredToken();
+		if (token) {
+			headers.Authorization = token.startsWith("Bearer ")
+				? token
+				: `Bearer ${token}`;
+		}
+
 		return headers;
 	}
 
@@ -170,12 +206,6 @@ class DSpaceService {
 	async getOwningCollection(url) {
 		try {
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 			const response = await fetch(`${DSPACE_API_URL}${url}`, {
 				credentials: "include",
 				headers: headers,
@@ -194,12 +224,6 @@ class DSpaceService {
 	async getParentCommunity(url) {
 		try {
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 			const response = await fetch(`${DSPACE_API_URL}${url}`, {
 				credentials: "include",
 				headers: headers,
@@ -221,12 +245,6 @@ class DSpaceService {
 				Accept: "application/json",
 				"Content-Type": "application/json",
 			});
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 			const response = await fetch(
 				`${DSPACE_API_URL}/core/collections/search/findSubmitAuthorized?page=${page}&size=${size}&query=&embed=parentCommunity`,
 				{
@@ -261,19 +279,19 @@ class DSpaceService {
 
 	getStoredToken() {
 		if (this.authToken) return this.authToken;
+
 		try {
-			const raw = localStorage.getItem("dsAuthInfo");
-			if (raw) {
-				const obj = JSON.parse(raw);
-				if (obj?.accessToken) return obj.accessToken;
-			}
-		} catch {}
-		try {
+			const token = getCookie("dspaceAuthToken");
+			if (token) return token;
+
 			const m = document.cookie.match(/(?:^|;\s*)dsAuthInfo=([^;]+)/);
 			if (m) {
 				const decoded = decodeURIComponent(m[1]);
-				const obj = JSON.parse(decoded);
-				if (obj?.accessToken) return obj.accessToken;
+				if (decoded.startsWith("{")) {
+					const obj = JSON.parse(decoded);
+					if (obj?.accessToken) return obj.accessToken;
+				}
+				return decoded;
 			}
 		} catch {}
 		return null;
@@ -321,13 +339,6 @@ class DSpaceService {
 			"Content-Type": "application/json",
 		});
 
-		const token = this.getStoredToken();
-		if (token) {
-			headers.Authorization = token.startsWith("Bearer ")
-				? token
-				: `Bearer ${token}`;
-		}
-
 		const metadataList = this.buildMetadataListFromForm(metadata || {});
 		if (!metadataList.length) {
 			throw new Error("No metadata provided.");
@@ -372,13 +383,6 @@ class DSpaceService {
 				"Content-Type": "application/json",
 			});
 
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
-
 			const response = await fetch(
 				`${DSPACE_API_URL}/submission/workspaceitems?owningCollection=${collectionId}`,
 				{
@@ -416,16 +420,10 @@ class DSpaceService {
 		if (metadataUpdates.length === 0) return true;
 
 		try {
-			const token = this.getStoredToken();
 			const baseHeaders = this.getCsrfHeaders({
 				"Content-Type": "application/json-patch+json",
 				Accept: "application/json",
 			});
-			if (token) {
-				baseHeaders.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 
 			const FIELD_SECTION_MAP = {
 				"crvs.family.count": "traditionalpagetwo",
@@ -463,12 +461,6 @@ class DSpaceService {
 			formData.append("name", file.name);
 
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 
 			const response = await fetch(
 				`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`,
@@ -507,16 +499,10 @@ class DSpaceService {
 
 	async updateBitstreamMetadata(bitstreamUuid, metadata) {
 		try {
-			const token = this.getStoredToken();
 			const headers = this.getCsrfHeaders({
 				"Content-Type": "application/json-patch+json",
 				Accept: "application/json",
 			});
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 
 			// Standard DSpace 7/8/9 BITSTREAM metadata update via PATCH
 			const patch = [];
@@ -578,12 +564,6 @@ class DSpaceService {
 				"Content-Type": "application/json-patch+json",
 				Accept: "application/json",
 			});
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 
 			const response = await fetch(
 				`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`,
@@ -608,12 +588,6 @@ class DSpaceService {
 				Accept: "application/json",
 				"Content-Type": "text/uri-list",
 			});
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 
 			const id =
 				typeof workspaceItemId === "object"
@@ -654,12 +628,6 @@ class DSpaceService {
 			});
 
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 			const url = `${DSPACE_API_URL}/discover/search/objects?${params}`;
 			const response = await fetch(url, {
 				credentials: "include",
@@ -679,12 +647,6 @@ class DSpaceService {
 	async getMySubmissions(userUuid) {
 		try {
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
-			const token = this.getStoredToken();
-			if (token) {
-				headers.Authorization = token.startsWith("Bearer ")
-					? token
-					: `Bearer ${token}`;
-			}
 			const response = await fetch(
 				`${DSPACE_API_URL}/submission/workspaceitems/search/findBySubmitter?uuid=${userUuid}`,
 				{

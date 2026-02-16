@@ -6,7 +6,11 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import dspaceService from "../services/dspaceService";
+import dspaceService, {
+	deleteCookie,
+	getCookie,
+	setCookie,
+} from "../services/dspaceService";
 
 // Configure axios defaults
 axios.defaults.xsrfCookieName = "csrftoken";
@@ -26,39 +30,63 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-	const [user, setUser] = useState(null);
-	const [loading, setLoading] = useState(true);
+	const [user, setUser] = useState(() => {
+		try {
+			const savedUser = getCookie("dspaceUser");
+			return savedUser ? JSON.parse(savedUser) : null;
+		} catch {
+			return null;
+		}
+	});
+	const [loading, setLoading] = useState(!user);
+
+	const deleteAuthCookies = useCallback(() => {
+		[
+			"DSPACE-XSRF-COOKIE",
+			"DSPACE-XSRF-TOKEN",
+			"csrftoken",
+			"sessionid",
+			"dsAuthInfo",
+			"dspaceAuthToken",
+			"djangoToken",
+			"dspaceUser",
+		].forEach(deleteCookie);
+	}, []);
 
 	const checkAuth = useCallback(async () => {
 		try {
-			const storedToken = localStorage.getItem("dspaceAuthToken");
+			const storedToken = getCookie("dspaceAuthToken");
 			if (storedToken) {
+				// Also update service state
 				dspaceService.authToken = storedToken;
 				dspaceService.isAuthenticated = true;
 
 				const status = await dspaceService.checkAuthStatus();
 				if (status.authenticated) {
-					setUser({
+					const userInfo = {
 						username: status.email || "User",
 						authenticated: true,
 						id: status.id || status.uuid,
 						...status,
-					});
+					};
+					setUser(userInfo);
+					setCookie("dspaceUser", JSON.stringify(userInfo));
 				} else {
-					localStorage.removeItem("dspaceAuthToken");
+					deleteAuthCookies();
 					setUser(null);
 				}
 			} else {
 				setUser(null);
+				deleteCookie("dspaceUser");
 			}
 		} catch (error) {
 			console.error("Auth check failed", error);
-			localStorage.removeItem("dspaceAuthToken");
+			deleteAuthCookies();
 			setUser(null);
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [deleteAuthCookies]);
 
 	useEffect(() => {
 		checkAuth();
@@ -74,9 +102,9 @@ export const AuthProvider = ({ children }) => {
 				result === true ||
 				dspaceService.isAuthenticated
 			) {
-				// Store the DSpace auth token
+				// Store the DSpace auth token in cookie
 				if (dspaceService.authToken) {
-					localStorage.setItem("dspaceAuthToken", dspaceService.authToken);
+					setCookie("dspaceAuthToken", dspaceService.authToken);
 				}
 
 				// 2. ALSO Login to our Django Backend to get a local token for cataloging/uploading
@@ -87,7 +115,7 @@ export const AuthProvider = ({ children }) => {
 					});
 
 					if (djangoResponse.data?.token) {
-						localStorage.setItem("djangoToken", djangoResponse.data.token);
+						setCookie("djangoToken", djangoResponse.data.token);
 					}
 				} catch (djangoErr) {
 					console.warn(
@@ -104,6 +132,7 @@ export const AuthProvider = ({ children }) => {
 					authenticated: true,
 				};
 				setUser(userInfo);
+				setCookie("dspaceUser", JSON.stringify(userInfo));
 
 				return { success: true };
 			} else {
@@ -120,43 +149,13 @@ export const AuthProvider = ({ children }) => {
 		return { success: false, message: "Use DSpace UI to register" };
 	};
 
-	const deleteCookie = (name) => {
-		const paths = ["/"];
-		const domains = [
-			window.location.hostname,
-			`.${window.location.hostname}`,
-		];
-
-		for (const path of paths) {
-			for (const domain of domains) {
-				document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path}; domain=${domain};`;
-			}
-		}
-	};
-
-	const deleteAuthCookies = () => {
-		[
-			"DSPACE-XSRF-COOKIE",
-			"DSPACE-XSRF-TOKEN",
-			"csrftoken",
-			"sessionid",
-			"dsAuthInfo"
-		].forEach(deleteCookie);
-	};
-
 	const logout = async () => {
 		try {
 			await dspaceService.logout();
-			localStorage.removeItem("dspaceAuthToken");
-			localStorage.removeItem("djangoToken");
-			localStorage.removeItem("dsAuthInfo")
 			deleteAuthCookies();
 			setUser(null);
 		} catch (error) {
 			console.error("Logout error:", error);
-			localStorage.removeItem("dspaceAuthToken");
-			localStorage.removeItem("djangoToken");
-			localStorage.removeItem("dsAuthInfo")
 			deleteAuthCookies();
 			setUser(null);
 		}
@@ -164,8 +163,8 @@ export const AuthProvider = ({ children }) => {
 
 	const value = {
 		user,
-		token: dspaceService.authToken || localStorage.getItem("dspaceAuthToken"),
-		djangoToken: localStorage.getItem("djangoToken"),
+		token: dspaceService.authToken || getCookie("dspaceAuthToken"),
+		djangoToken: getCookie("djangoToken"),
 		login,
 		register,
 		logout,

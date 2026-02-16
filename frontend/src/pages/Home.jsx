@@ -3,12 +3,14 @@ import { AlertCircle, Book, CheckCircle, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import MetadataTreeFilter from "../components/MetadataTreeFilter";
 import Card from "../components/UI/Card";
+import { useAuth } from "../contexts/AuthContext";
 import dspaceService from "../services/dspaceService";
 import { ORG_NAME } from "../utils/constants";
 import CatalogModal from "./CatalogModal";
 import ResourceTable from "./ResourceTable";
 
 const Home = () => {
+	const { djangoToken } = useAuth();
 	const [allResources, setAllResources] = useState([]); // For all resources (mixed)
 	const [catalogedResources] = useState([]); // For Koha cataloged items
 	const [loading, setLoading] = useState(false);
@@ -141,7 +143,7 @@ const Home = () => {
 	const handleCatalogSubmit = async () => {
 		try {
 			// Use Django token for backend requests
-			const activeToken = djangoToken || localStorage.getItem("djangoToken");
+			const activeToken = djangoToken;
 
 			const config = activeToken
 				? {
