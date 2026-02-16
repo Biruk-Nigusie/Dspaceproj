@@ -73,12 +73,26 @@ const Home = () => {
 		wife: { value: "", operator: "contains" },
 	});
 
+	const [pagination, setPagination] = useState({
+		number: 0,
+		size: 10,
+		totalPages: 0,
+		totalElements: 0,
+	});
+
 	// Fetch all resources (using DSpace search)
 	const fetchAllResources = useCallback(async () => {
 		setLoading(true);
 		try {
 			// Use DSpace service to search
-			const results = await dspaceService.searchItems(columnFilters, 100);
+			const response = await dspaceService.searchItems(
+				columnFilters,
+				pagination.number,
+				pagination.size,
+			);
+
+			const results = response.objects;
+			setPagination(response.page);
 
 			// Transform DSpace items to common resource format
 			// Filter out collections - only include actual items
@@ -138,7 +152,15 @@ const Home = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [columnFilters]);
+	}, [columnFilters, pagination.number, pagination.size]);
+
+	const handlePageChange = (newPage) => {
+		setPagination((prev) => ({ ...prev, number: newPage }));
+	};
+
+	const handlePageSizeChange = (newSize) => {
+		setPagination((prev) => ({ ...prev, size: newSize, number: 0 }));
+	};
 
 	const handleCatalogSubmit = async () => {
 		try {
@@ -437,6 +459,9 @@ const Home = () => {
 								onCatalogClick={handleCatalogClick}
 								columnFilters={columnFilters}
 								onColumnFilterChange={setColumnFilters}
+								pagination={pagination}
+								onPageChange={handlePageChange}
+								onPageSizeChange={handlePageSizeChange}
 							/>
 						</div>
 					</div>

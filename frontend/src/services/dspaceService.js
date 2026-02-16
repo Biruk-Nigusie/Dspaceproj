@@ -611,11 +611,11 @@ class DSpaceService {
 		}
 	}
 
-	async searchItems(filters = {}, limit = 100) {
+	async searchItems(filters = {}, page = 0, size = 10) {
 		try {
 			const params = new URLSearchParams({
-				page: "0",
-				size: String(limit),
+				page: String(page),
+				size: String(size),
 				dsoType: "item",
 			});
 
@@ -636,11 +636,25 @@ class DSpaceService {
 
 			if (response.ok) {
 				const data = await response.json();
-				return data?._embedded?.searchResult?._embedded?.objects || [];
+				return {
+					objects: data?._embedded?.searchResult?._embedded?.objects || [],
+					page: data?._embedded?.searchResult?.page || {
+						number: 0,
+						size: size,
+						totalPages: 1,
+						totalElements: 0,
+					},
+				};
 			}
-			return [];
+			return {
+				objects: [],
+				page: { number: 0, size: size, totalPages: 0, totalElements: 0 },
+			};
 		} catch {
-			return [];
+			return {
+				objects: [],
+				page: { number: 0, size: size, totalPages: 0, totalElements: 0 },
+			};
 		}
 	}
 

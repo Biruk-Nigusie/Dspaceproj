@@ -16,6 +16,9 @@ const ResourceTable = ({
 	onCatalogClick,
 	columnFilters,
 	onColumnFilterChange,
+	pagination,
+	onPageChange,
+	onPageSizeChange,
 }) => {
 	const { user } = useAuth();
 	const isAuthenticated = !!user;
@@ -413,6 +416,89 @@ const ResourceTable = ({
 					</table>
 				</div>
 			)}
+
+			{/* Pagination Controls */}
+			{resources.length > 0 && (
+				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 py-4 border-t border-border rounded-b-lg bg-background">
+					{/* Results info */}
+					<div className="text-sm text-muted-foreground text-center sm:text-left">
+						Showing{" "}
+						<span className="font-semibold text-foreground">
+							{pagination.number * pagination.size + 1}
+						</span>{" "}
+						to{" "}
+						<span className="font-semibold text-foreground">
+							{Math.min(
+								(pagination.number + 1) * pagination.size,
+								pagination.totalElements,
+							)}
+						</span>{" "}
+						of{" "}
+						<span className="font-semibold text-foreground">
+							{pagination.totalElements}
+						</span>{" "}
+						results
+					</div>
+
+					{/* Controls */}
+					<div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+						{/* Rows per page */}
+						<div className="flex items-center gap-2">
+							<span className="text-sm text-muted-foreground whitespace-nowrap">
+								Rows per page:
+							</span>
+							<select
+								value={pagination.size}
+								onChange={(e) => onPageSizeChange(Number(e.target.value))}
+								className="text-sm bg-background border border-border rounded-md px-3 py-1.5 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none cursor-pointer transition-all hover:border-primary"
+							>
+								{[5, 10, 20, 50, 100].map((size) => (
+									<option key={size} value={size}>
+										{size}
+									</option>
+								))}
+							</select>
+						</div>
+
+						{/* Pagination buttons */}
+						<div className="flex items-center gap-2">
+							{/* Previous */}
+							<button
+								type="button"
+								onClick={() => onPageChange(pagination.number - 1)}
+								disabled={pagination.number === 0}
+								className="px-4 py-2 text-sm font-medium rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-sm"
+							>
+								Previous
+							</button>
+
+							{/* Page indicator */}
+							<div className="flex items-center gap-1">
+								<span className="min-w-[40px] text-center px-3 py-2 text-sm font-semibold text-foreground bg-muted border border-border rounded-md">
+									{pagination.number + 1}
+								</span>
+
+								<span className="text-muted-foreground text-sm">/</span>
+
+								<span className="min-w-[40px] text-center px-3 py-2 text-sm font-medium text-muted-foreground border border-border rounded-md bg-background">
+									{pagination.totalPages}
+								</span>
+							</div>
+
+							{/* Next */}
+							<button
+								type="button"
+								onClick={() => onPageChange(pagination.number + 1)}
+								disabled={pagination.number >= pagination.totalPages - 1}
+								className="px-4 py-2 text-sm font-medium rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 shadow-sm"
+							>
+								Next
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 			{/* Full-screen Preview Modal */}
 			{/* Full-screen Preview Modal with react-pdf */}
 			{showPreviewModal && (
