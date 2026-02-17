@@ -120,6 +120,14 @@ const Home = () => {
 					const getValList = (key) =>
 						metadata[key]?.map((m) => m.value).join(", ") || "";
 
+					// Capture bundles when available
+					const bundles =
+						item._embedded?.indexableObject?._embedded?.bundles?._embedded
+							?.bundles || [];
+
+					const originalBundleId =
+						bundles.find((bundle) => bundle.name === "ORIGINAL")?.uuid || null;
+
 					return {
 						id: item._embedded?.indexableObject?.uuid,
 						houseFamilyKey:
@@ -141,6 +149,9 @@ const Home = () => {
 						// enrich
 						collection: owningCollection.name,
 						community: parentCommunity.name,
+
+						// original bundle
+						originalBundleId: originalBundleId,
 					};
 				}),
 			);

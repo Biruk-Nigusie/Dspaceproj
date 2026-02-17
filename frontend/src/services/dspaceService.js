@@ -617,6 +617,7 @@ class DSpaceService {
 				page: String(page),
 				size: String(size),
 				dsoType: "item",
+				embed: "bundles",
 			});
 
 			Object.entries(filters).forEach(([key, filter]) => {
@@ -703,6 +704,31 @@ class DSpaceService {
 			this.isAuthenticated = false;
 			this.authToken = null;
 			this.csrfToken = null;
+		}
+	}
+
+	async getBitstreams(bundleId) {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const [primaryRes, bundledRes] = await Promise.all([
+				fetch(`${DSPACE_API_URL}/core/bundles/${bundleId}/primaryBitstream`, {
+					credentials: "include",
+					headers: headers,
+				}),
+				fetch(`${DSPACE_API_URL}/core/bundles/${bundleId}/bitstreams`, {
+					credentials: "include",
+					headers: headers,
+				}),
+			]);
+
+			const primaryBitstream =
+				primaryRes.ok && primaryRes.status !== 204
+					? await primaryRes.json()
+					: null;
+			const bundledBitstreams = bundledRes.ok ? await bundledRes.json() : null;
+			return { primaryBitstream, bundledBitstreams };
+		} catch {
+			return null;
 		}
 	}
 }

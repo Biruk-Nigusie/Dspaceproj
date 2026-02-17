@@ -1,6 +1,6 @@
-import { FileTextIcon, Search, XIcon } from "lucide-react";
-import { useState } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import { ChevronDownIcon, FileTextIcon, Search, XIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { pdfjs } from "react-pdf";
 import { useAuth } from "../contexts/AuthContext";
 import { houseTypeOptions } from "../utils/constants";
 
@@ -9,6 +9,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+import { PdfPreview } from "../components/PDFPreview";
+import dspaceService from "../services/dspaceService";
 
 const ResourceTable = ({
 	resources,
@@ -22,14 +24,11 @@ const ResourceTable = ({
 }) => {
 	const { user } = useAuth();
 	const isAuthenticated = !!user;
-	// ... existing preview states ...
-	const [previewLoading] = useState({});
+
 	const [showPreviewModal, setShowPreviewModal] = useState(false);
-	const [previewUrl, setPreviewUrl] = useState("");
-	const [numPages, setNumPages] = useState(null);
-	const [pageNumber, setPageNumber] = useState(1);
-	const [scale, setScale] = useState(1.0);
-	const [pdfLoading, setPdfLoading] = useState(true);
+	const [primaryBitstream, setPrimaryBitstream] = useState(null);
+	const [bundledBitstreams, setBundledBitstreams] = useState(null);
+	const [selectedBitstream, setSelectedBitstream] = useState(null);
 
 	const handleColumnFilterChange = (field, type, value) => {
 		onColumnFilterChange((prev) => ({
@@ -38,41 +37,24 @@ const ResourceTable = ({
 		}));
 	};
 
-	function onDocumentLoadSuccess({ numPages }) {
-		setNumPages(numPages);
-		setPdfLoading(false);
-	}
-
-	const handleDownload = () => {
-		if (!previewUrl) return;
-		const link = document.createElement("a");
-		link.href = previewUrl;
-		// Extract filename from URL or use a default
-		const filename = previewUrl.split("/").pop() || "document.pdf";
-		link.download = filename;
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
-	};
-
 	const handlePreview = async (resource, e) => {
 		e.stopPropagation();
-		let url = "";
-		if (resource.source === "dspace") {
-			if (resource.preview_url) {
-				url = resource.preview_url;
-			} else if (resource.external_id) {
-				url = `/api/resources/dspace-bitstream/${resource.external_id}/`;
-			} else if (resource.id?.startsWith("dspace_")) {
-				const itemUuid = resource.id.replace("dspace_", "");
-				url = `/api/resources/dspace-bitstream/${itemUuid}/`;
-			}
+
+		if (!resource.originalBundleId) {
+			console.warn("No bitstream links found on resource");
+			return;
 		}
 
-		if (url) {
-			setPreviewUrl(url);
-			setPageNumber(1);
-			setPdfLoading(true);
+		const res = await dspaceService.getBitstreams(resource.originalBundleId);
+		console.log("🚀 ~ handlePreview ~ res:", res);
+		if (res.primaryBitstream || res.bundledBitstreams) {
+			setPrimaryBitstream(res.primaryBitstream);
+			setBundledBitstreams(
+				res.bundledBitstreams?._embedded?.bitstreams.filter(
+					(bitstream) => bitstream.uuid !== res?.primaryBitstream?.uuid,
+				) ?? [],
+			);
+
 			setShowPreviewModal(true);
 		}
 	};
@@ -104,6 +86,12 @@ const ResourceTable = ({
 		// { value: "notauthority", label: "Not Authority" },
 		// { value: "query", label: "Query" },
 	];
+
+	useEffect(() => {
+		if (bundledBitstreams?.length > 0) {
+			setSelectedBitstream(bundledBitstreams[0]);
+		}
+	}, [bundledBitstreams]);
 
 	return (
 		<div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
@@ -369,17 +357,9 @@ const ResourceTable = ({
 													<button
 														type="button"
 														onClick={(e) => handlePreview(resource, e)}
-														disabled={previewLoading[resource.id]}
 														className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center cursor-pointer"
 													>
-														{previewLoading[resource.id] ? (
-															<>
-																<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />
-																Loading...
-															</>
-														) : (
-															"Preview"
-														)}
+														Preview
 													</button>
 													{isAuthenticated && (
 														<button
@@ -502,200 +482,165 @@ const ResourceTable = ({
 			{/* Full-screen Preview Modal */}
 			{/* Full-screen Preview Modal with react-pdf */}
 			{showPreviewModal && (
-				<div className="fixed inset-0 z-50 flex flex-col bg-black bg-opacity-95 overflow-hidden">
-					{/* Modal Header */}
-					<div className="flex justify-between items-center px-6 py-4 bg-gray-900 border-b border-gray-800 text-white z-10 shadow-lg">
-						<div className="flex items-center gap-4">
-							<h3 className="text-lg font-semibold truncate max-w-md">
-								{resources.find(
-									(r) =>
-										r.id ===
-											Object.keys(previewLoading).find((id) =>
-												previewUrl.includes(id),
-											) || {},
-								)?.title || "Document Preview"}
-							</h3>
-							<div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 gap-4 text-sm">
-								<button
-									type="button"
-									onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
-									disabled={pageNumber <= 1}
-									className="hover:text-blue-400 disabled:opacity-30 disabled:hover:text-white transition-colors cursor-pointer"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										className="h-5 w-5"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-									>
-										<title>Previous Page</title>
-										<path
-											fillRule="evenodd"
-											d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-											clipRule="evenodd"
-										/>
-									</svg>
-								</button>
-								<span className="font-medium whitespace-nowrap">
-									Page {pageNumber} / {numPages || "--"}
-								</span>
-								<button
-									type="button"
-									onClick={() =>
-										setPageNumber((prev) => Math.min(prev + 1, numPages))
-									}
-									disabled={pageNumber >= numPages}
-									className="hover:text-blue-400 disabled:opacity-30 disabled:hover:text-white transition-colors cursor-pointer"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										className="h-5 w-5"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-									>
-										<title>Next Page</title>
-										<path
-											fillRule="evenodd"
-											d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-											clipRule="evenodd"
-										/>
-									</svg>
-								</button>
-							</div>
-
-							<div className="h-6 w-px bg-gray-700 mx-2" />
-
-							<div className="flex items-center bg-gray-800 rounded-lg px-2 py-1 gap-4 text-sm">
-								<button
-									type="button"
-									onClick={() => setScale((prev) => Math.max(prev - 0.1, 0.5))}
-									className="hover:text-blue-400 transition-colors cursor-pointer"
-									title="Zoom Out"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										className="h-5 w-5"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-									>
-										<title>Zoom Out</title>
-										<path
-											fillRule="evenodd"
-											d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z"
-											clipRule="evenodd"
-										/>
-									</svg>
-								</button>
-								<span className="font-medium w-12 text-center">
-									{Math.round(scale * 100)}%
-								</span>
-								<button
-									type="button"
-									onClick={() => setScale((prev) => Math.min(prev + 0.1, 3.0))}
-									className="hover:text-blue-400 transition-colors cursor-pointer"
-									title="Zoom In"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										className="h-5 w-5"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-									>
-										<title>Zoom In</title>
-										<path
-											fillRule="evenodd"
-											d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-											clipRule="evenodd"
-										/>
-									</svg>
-								</button>
-							</div>
-
-							<div className="h-6 w-px bg-gray-700 mx-2" />
-
-							<button
-								type="button"
-								onClick={handleDownload}
-								className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-								title="Download File"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									className="h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<title>Download Document</title>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-									/>
-								</svg>
-								Download
-							</button>
-						</div>
-
-						<button
-							type="button"
-							onClick={() => setShowPreviewModal(false)}
-							className="p-2 hover:bg-red-600/30 text-gray-400 hover:text-red-400 rounded-lg transition-all cursor-pointer"
-							aria-label="Close preview"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								className="h-6 w-6"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<title>Close</title>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M6 18L18 6M6 6l12 12"
-								/>
-							</svg>
-						</button>
-					</div>
-
-					{/* Document Content */}
-					<div className="flex-1 overflow-auto bg-gray-100 dark:bg-zinc-900 scroll-smooth">
-						<div className="flex flex-col items-center py-8 min-h-full">
-							{pdfLoading && (
-								<div className="flex flex-col items-center justify-center p-12">
-									<div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-									<p className="mt-4 text-gray-600 font-medium">
-										መረጃው በመጫን ላይ ነው...
-									</p>
+				<div
+					className="fixed inset-0 z-50 bg-foreground bg-opacity-95 flex"
+					style={{ height: "100vh", width: "100vw" }}
+				>
+					{/* Left: Primary Bitstream */}
+					<div className="flex flex-col w-1/2 h-full overflow-auto">
+						{primaryBitstream ? (
+							<>
+								<div className="flex flex-col border-r min-w-0 bg-primary text-primary-foreground px-4 py-2">
+									<h2 className="text-lg font-semibold truncate">
+										{primaryBitstream?.name || "Preview"}
+									</h2>
+									<div className="flex flex-wrap gap-x-4 gap-y-1 text-sm opacity-90">
+										{primaryBitstream?.metadata?.["crvs.documentType"]?.[0]
+											?.value && (
+											<span>
+												<span className="font-medium">Type:</span>{" "}
+												{
+													primaryBitstream.metadata["crvs.documentType"][0]
+														.value
+												}
+											</span>
+										)}
+										{primaryBitstream?.metadata?.["crvs.document.status"]?.[0]
+											?.value && (
+											<span>
+												<span className="font-medium">Status:</span>{" "}
+												{
+													primaryBitstream.metadata["crvs.document.status"][0]
+														.value
+												}
+											</span>
+										)}
+										{primaryBitstream?.sizeBytes && (
+											<span>
+												<span className="font-medium">Size:</span>{" "}
+												{(primaryBitstream.sizeBytes / 1024).toFixed(1)} KB
+											</span>
+										)}
+									</div>
 								</div>
-							)}
-							<div
-								className={`transition-opacity duration-300 ${
-									pdfLoading ? "opacity-0 h-0" : "opacity-100 shadow-2xl"
-								}`}
-							>
-								<Document
-									file={previewUrl}
-									onLoadSuccess={onDocumentLoadSuccess}
-									loading={null}
-									onLoadError={(error) =>
-										console.error("PDF Load Error:", error)
-									}
-								>
-									<Page
-										pageNumber={pageNumber}
-										scale={scale}
-										renderAnnotationLayer={true}
-										renderTextLayer={true}
+
+								{/* Scrollable PDF */}
+								<div className="flex-1 overflow-auto p-4 bg-white">
+									<PdfPreview
+										fileUrl={`/api/resources/dspace-bitstream/${primaryBitstream?.uuid}`}
 									/>
-								</Document>
+								</div>
+							</>
+						) : (
+							<div className="flex justify-center items-center bg-background h-full">
+								Primary file not found
 							</div>
-						</div>
+						)}
 					</div>
+
+					{/* Right: Bundled Bitstreams */}
+					<div className="flex flex-col w-1/2 h-full overflow-auto">
+						{bundledBitstreams?.length > 0 ? (
+							<>
+								{/* Header Dropdown */}
+								<div className="flex flex-col min-w-0 bg-primary text-primary-foreground px-4 py-2">
+									<div className="relative inline-block w-full">
+										<button
+											type="button"
+											className="w-full flex items-center justify-between px-3 py-0.5 text-left bg-primary text-primary-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+										>
+											<span className="flex items-center gap-3">
+												<ChevronDownIcon />
+												<div>
+													{selectedBitstream?.name ||
+														primaryBitstream?.name ||
+														"Preview"}
+													<div className="flex flex-wrap gap-x-4 gap-y-1 text-sm opacity-90">
+														{selectedBitstream?.metadata?.[
+															"crvs.documentType"
+														]?.[0]?.value && (
+															<span>
+																<span className="font-medium">Type:</span>{" "}
+																{
+																	selectedBitstream.metadata[
+																		"crvs.documentType"
+																	][0].value
+																}
+															</span>
+														)}
+														{selectedBitstream?.metadata?.[
+															"crvs.document.status"
+														]?.[0]?.value && (
+															<span>
+																<span className="font-medium">Status:</span>{" "}
+																{
+																	selectedBitstream.metadata[
+																		"crvs.document.status"
+																	][0].value
+																}
+															</span>
+														)}
+														{selectedBitstream?.sizeBytes && (
+															<span>
+																<span className="font-medium">Size:</span>{" "}
+																{(selectedBitstream.sizeBytes / 1024).toFixed(
+																	1,
+																)}{" "}
+																KB
+															</span>
+														)}
+													</div>
+												</div>
+											</span>
+										</button>
+
+										{/* Dropdown menu */}
+										<select
+											value={selectedBitstream?.uuid}
+											onChange={(e) =>
+												setSelectedBitstream(
+													bundledBitstreams.find(
+														(b) => b.uuid === e.target.value,
+													),
+												)
+											}
+											className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+										>
+											{bundledBitstreams.map((b) => (
+												<option key={b.uuid} value={b.uuid}>
+													{b.name}
+												</option>
+											))}
+										</select>
+									</div>
+								</div>
+
+								{/* Scrollable PDF */}
+								<div className="flex-1 overflow-auto p-4 bg-white">
+									<PdfPreview
+										fileUrl={`/api/resources/dspace-bitstream/${selectedBitstream?.uuid}`}
+									/>
+								</div>
+							</>
+						) : (
+							<div className="flex justify-center items-center bg-background h-full">
+								Additional files not found
+							</div>
+						)}
+					</div>
+
+					{/* Close Button */}
+					<button
+						type="button"
+						onClick={() => {
+							setShowPreviewModal(false);
+							setPrimaryBitstream(null);
+							setBundledBitstreams([]);
+						}}
+						className="absolute top-4 right-4 w-10 h-10 rounded-lg bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground text-xl font-bold flex items-center justify-center"
+					>
+						×
+					</button>
 				</div>
 			)}
 		</div>
