@@ -99,7 +99,7 @@ const MetadataEditor = () => {
 	const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
 
 	// Metadata
-	const [houseType, setHouseType] = useState("Private House");
+	const [houseType, setHouseType] = useState("የግል መኖሪያ ቤት");
 	const [houseNumber, setHouseNumber] = useState("");
 	const [husbandName, setHusbandName] = useState("");
 	const [wifeName, setWifeName] = useState("");
