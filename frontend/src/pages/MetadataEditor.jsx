@@ -106,7 +106,7 @@ const MetadataEditor = () => {
 	const [additionalFamilyMembers, setAdditionalFamilyMembers] = useState([""]);
 	const [dateOfRegistration, setDateOfRegistration] = useState("");
 	const [identifiers, setIdentifiers] = useState([
-		{ type: "Other", value: "" },
+		{ type: "filenumber", value: "" },
 	]);
 	const [familyCount, setFamilyCount] = useState(0);
 	const [familySummary, setFamilySummary] = useState("");
@@ -544,9 +544,7 @@ const MetadataEditor = () => {
 		}
 
 		if (!houseNumber || !collectionId) {
-			alert(
-				"Please fill all mandatory fields: House Number, Wife Name, Husband Name, and Collection",
-			);
+			alert("Please fill all mandatory fields: House Number and Collection");
 			return;
 		}
 
@@ -568,12 +566,9 @@ const MetadataEditor = () => {
 			// 2. Update metadata
 			// Process identifiers
 			const identifierMap = {
-				ISBN: "dc.identifier.isbn",
-				ISSN: "dc.identifier.issn",
-				ISMN: "dc.identifier.ismn",
-				URI: "dc.identifier.uri",
-				"Gov't Doc #": "dc.identifier.govdoc",
-				Other: "dc.identifier.other",
+				filenumber: "dc.identifier.filenumber",
+				issn: "dc.identifier.issn",
+				other: "dc.identifier.other",
 			};
 
 			const processedIdentifiers = {};
@@ -582,12 +577,15 @@ const MetadataEditor = () => {
 			identifiers.forEach((id) => {
 				if (!id.value || !id.value.trim()) return;
 
-				if (id.type === "Other") {
+				if (id.type === "other") {
 					otherIdentifiers.push(id.value);
 				} else {
 					const key = identifierMap[id.type];
 					if (key) {
-						processedIdentifiers[key] = id.value;
+						if (!processedIdentifiers[key]) {
+							processedIdentifiers[key] = [];
+						}
+						processedIdentifiers[key].push(id.value);
 					}
 				}
 			});
@@ -671,7 +669,7 @@ const MetadataEditor = () => {
 			setDateOfRegistration("");
 			setFamilyCount("");
 			setFamilySummary("");
-			setIdentifiers([[{ type: "Other", value: "" }]]);
+			setIdentifiers([{ type: "filenumber", value: "" }]);
 		} catch (e) {
 			console.error("Critical upload error:", e);
 			alert(`Upload failed: ${e?.message || e}`);
@@ -706,7 +704,7 @@ const MetadataEditor = () => {
 		setIdentifiers(newIdentifiers);
 	};
 	const addIdentifier = () => {
-		setIdentifiers([...identifiers, { type: "Other", value: "" }]);
+		setIdentifiers([...identifiers, { type: "filenumber", value: "" }]);
 	};
 	const removeIdentifier = (index) =>
 		setIdentifiers(identifiers.filter((_, i) => i !== index));
@@ -1072,18 +1070,11 @@ const MetadataEditor = () => {
 													}
 													className="p-2 border border-gray-300 rounded-sm bg-white"
 												>
-													{identifierOptions
-														.filter(
-															(t) =>
-																t === "Other" ||
-																t === id.type ||
-																!identifiers.some((i) => i.type === t),
-														)
-														.map((t) => (
-															<option key={t} value={t}>
-																{t}
-															</option>
-														))}
+													{identifierOptions.map((t) => (
+														<option key={t.stored} value={t.stored}>
+															{t.display}
+														</option>
+													))}
 												</select>
 												<input
 													type="text"

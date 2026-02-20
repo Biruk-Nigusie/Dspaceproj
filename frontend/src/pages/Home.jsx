@@ -71,6 +71,7 @@ const Home = () => {
 		houseNumber: { value: "", operator: "contains" },
 		husband: { value: "", operator: "contains" },
 		wife: { value: "", operator: "contains" },
+		itemidentifier: { value: "", operator: "equals" },
 	});
 
 	const [pagination, setPagination] = useState({
@@ -128,8 +129,34 @@ const Home = () => {
 					const originalBundleId =
 						bundles.find((bundle) => bundle.name === "ORIGINAL")?.uuid || null;
 
+					// Group identifier fields by type so the UI can show which group each id belongs to
+					const idFieldGroups = {
+						issn: ["dc.identifier.issn"],
+						filenumber: [
+							"dc.identifier.filenumber",
+							"dc.identifier.fileNumber",
+						],
+						other: ["dc.identifier.other"],
+					};
+
+					const identifierGroups = {};
+					Object.entries(idFieldGroups).forEach(([group, keys]) => {
+						const vals = keys.flatMap(
+							(k) => metadata[k]?.map((m) => m.value) || [],
+						);
+						const uniq = Array.from(new Set(vals));
+						if (uniq.length) identifierGroups[group] = uniq;
+					});
+
+					// Keep a simple flattened identifiers array for backward compatibility
+					const identifiers = Array.from(
+						new Set(Object.values(identifierGroups).flat()),
+					);
+
 					return {
 						id: item._embedded?.indexableObject?.uuid,
+						identifiers: identifiers,
+						identifierGroups: identifierGroups,
 						houseFamilyKey:
 							getVal("crvs.identifier.houseFamilyKey") ||
 							item._embedded?.indexableObject?.name,
@@ -452,7 +479,7 @@ const Home = () => {
 
 					<div className="flex flex-col lg:flex-row gap-6">
 						{/* Left Sidebar - Metadata Tree Filter */}
-						<div className="lg:w-1/4">
+						<div className="lg:w-1/5">
 							<MetadataTreeFilter
 								resources={baseResources}
 								selectedFilters={activeFilters}
@@ -463,7 +490,7 @@ const Home = () => {
 						</div>
 
 						{/* Right Content - Resource Table */}
-						<div className="lg:w-3/4">
+						<div className="lg:w-4/5">
 							<ResourceTable
 								resources={resourcesToDisplay}
 								loading={loading}

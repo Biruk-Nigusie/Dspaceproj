@@ -30,6 +30,49 @@ const ResourceTable = ({
 	const [bundledBitstreams, setBundledBitstreams] = useState(null);
 	const [selectedBitstream, setSelectedBitstream] = useState(null);
 
+	// Helper to pick a primary identifier for display and to render grouped identifiers
+	const renderPrimaryIdentifier = (resource) => {
+		const order = ["issn", "filenumber", "other"];
+		if (resource.identifierGroups) {
+			for (const g of order) {
+				if (
+					resource.identifierGroups[g] &&
+					resource.identifierGroups[g].length > 0
+				)
+					return resource.identifierGroups[g][0];
+			}
+		}
+		return resource.identifiers?.[0] || resource.isbn || resource.issn || "—";
+	};
+
+	const renderIdentifierPopover = (resource) => {
+		if (!resource.identifierGroups) return null;
+		const labels = {
+			issn: "ISSN",
+			filenumber: "File Number",
+			other: "Other",
+		};
+		const ordered = ["filenumber", "issn", "other"];
+		return (
+			<div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 z-10 w-64 bg-white border border-gray-200 p-2 text-xs rounded shadow-lg">
+				{ordered.map((g) =>
+					resource.identifierGroups[g] ? (
+						<div key={g} className="mb-2">
+							<div className="font-semibold text-[11px] text-gray-600">
+								{labels[g]}
+							</div>
+							{resource.identifierGroups[g].map((id, idx) => (
+								<div key={idx} className="truncate text-gray-800">
+									{id}
+								</div>
+							))}
+						</div>
+					) : null,
+				)}
+			</div>
+		);
+	};
+
 	const handleColumnFilterChange = (field, type, value) => {
 		onColumnFilterChange((prev) => ({
 			...prev,
@@ -46,7 +89,6 @@ const ResourceTable = ({
 		}
 
 		const res = await dspaceService.getBitstreams(resource.originalBundleId);
-		console.log("🚀 ~ handlePreview ~ res:", res);
 		if (res.primaryBitstream || res.bundledBitstreams) {
 			setPrimaryBitstream(res.primaryBitstream);
 			setBundledBitstreams(
@@ -122,6 +164,47 @@ const ResourceTable = ({
 					)}
 				</div>
 				<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+					<div>
+						<div className="flex items-center justify-between mb-1">
+							<label
+								htmlFor="filter-itemidentifier"
+								className="block text-xs font-medium text-gray-500"
+							>
+								Identifier
+							</label>
+							<select
+								value={columnFilters.itemidentifier?.operator || "equals"}
+								onChange={(e) =>
+									handleColumnFilterChange(
+										"itemidentifier",
+										"operator",
+										e.target.value,
+									)
+								}
+								className="text-[10px] bg-transparent border-none text-blue-600 font-medium cursor-pointer focus:ring-0 p-0"
+							>
+								{operators.map((op) => (
+									<option key={op.value} value={op.value}>
+										{op.label}
+									</option>
+								))}
+							</select>
+						</div>
+						<input
+							id="filter-itemidentifier"
+							type="text"
+							placeholder="e.g. 123"
+							value={columnFilters.itemidentifier?.value || ""}
+							onChange={(e) =>
+								handleColumnFilterChange(
+									"itemidentifier",
+									"value",
+									e.target.value,
+								)
+							}
+							className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm"
+						/>
+					</div>
 					<div>
 						<div className="flex items-center justify-between mb-1">
 							<label
@@ -306,6 +389,9 @@ const ResourceTable = ({
 									House Number
 								</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+									Identifier
+								</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 									House Type
 								</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -337,6 +423,16 @@ const ResourceTable = ({
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-700">
 										{resource.houseNumber || "—"}
+									</td>
+									<td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
+										<div className="relative group inline-block max-w-48">
+											<span className="block truncate">
+												{renderPrimaryIdentifier(resource)}
+											</span>
+											{resource.identifierGroups &&
+												Object.keys(resource.identifierGroups).length > 0 &&
+												renderIdentifierPopover(resource)}
+										</div>
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-700">
 										{resource.houseType || "—"}

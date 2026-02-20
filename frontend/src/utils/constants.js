@@ -19,12 +19,18 @@ export const houseTypeOptions = [
 ];
 
 export const identifierOptions = [
-	"Other",
-	"ISSN",
-	"ISMN",
-	"Gov't Doc #",
-	"URI",
-	"ISBN",
+	{
+		display: "File Number",
+		stored: "filenumber",
+	},
+	{
+		display: "ISSN",
+		stored: "issn",
+	},
+	{
+		display: "Other",
+		stored: "other",
+	},
 ];
 
 export const documentTypeOptions = [
