@@ -99,22 +99,6 @@ const Home = () => {
 			// Filter out collections - only include actual items
 			const mappedResults = await Promise.all(
 				results.map(async (item) => {
-					const owningCollectionLink =
-						item._embedded?.indexableObject?._links.owningCollection?.href.split(
-							"/server/api",
-						)[1];
-
-					const owningCollection =
-						await dspaceService.getOwningCollection(owningCollectionLink);
-
-					const parentCommunityLink =
-						owningCollection?._links.parentCommunity?.href.split(
-							"/server/api",
-						)[1];
-
-					const parentCommunity =
-						await dspaceService.getParentCommunity(parentCommunityLink);
-
 					const metadata = item._embedded?.indexableObject?.metadata || {};
 
 					const getVal = (key) => metadata[key]?.[0]?.value || "";
@@ -174,8 +158,12 @@ const Home = () => {
 						issn: getVal("dc.identifier.issn"),
 
 						// enrich
-						collection: owningCollection.name,
-						community: parentCommunity.name,
+						owningCollection:
+							item._embedded?.indexableObject?._embedded?.owningCollection
+								?.name || null,
+						parentCommunity:
+							item._embedded?.indexableObject?._embedded?.owningCollection
+								?._embedded.parentCommunity.name,
 
 						// original bundle
 						originalBundleId: originalBundleId,

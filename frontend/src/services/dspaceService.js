@@ -617,7 +617,7 @@ class DSpaceService {
 				page: String(page),
 				size: String(size),
 				dsoType: "item",
-				embed: "bundles",
+				embed: "bundles,owningCollection/parentCommunity",
 			});
 
 			Object.entries(filters).forEach(([key, filter]) => {

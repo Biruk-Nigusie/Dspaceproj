@@ -416,10 +416,10 @@ const ResourceTable = ({
 									onClick={() => handleRowClick(resource)}
 								>
 									<td className="px-6 py-4 max-w-xs">
-										{resource.community || "—"}
+										{resource.parentCommunity || "—"}
 									</td>
 									<td className="px-6 py-4 max-w-xs">
-										{resource.collection || "—"}
+										{resource.owningCollection || "—"}
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-700">
 										{resource.houseNumber || "—"}
