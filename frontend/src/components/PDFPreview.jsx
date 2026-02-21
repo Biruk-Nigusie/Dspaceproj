@@ -12,7 +12,7 @@ export const PdfPreview = ({ fileUrl }) => {
 	};
 
 	return (
-		<div className="overflow-auto h-full p-4 bg-background">
+		<div className="overflow-auto h-full w-full flex justify-center bg-background">
 			<Document
 				file={fileUrl}
 				onLoadSuccess={onDocumentLoadSuccess}
