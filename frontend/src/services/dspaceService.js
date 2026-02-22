@@ -68,7 +68,7 @@ class DSpaceService {
 						this.csrfToken = token;
 						return true;
 					}
-				} catch {}
+				} catch { }
 			}
 
 			await new Promise((resolve) => setTimeout(resolve, 200));
@@ -88,7 +88,7 @@ class DSpaceService {
 					this.csrfToken = body.token || body.csrfToken || body.xsrfToken;
 					return true;
 				}
-			} catch {}
+			} catch { }
 
 			return false;
 		} catch {
@@ -293,7 +293,7 @@ class DSpaceService {
 				}
 				return decoded;
 			}
-		} catch {}
+		} catch { }
 		return null;
 	}
 
@@ -446,7 +446,7 @@ class DSpaceService {
 					credentials: "include",
 					body: JSON.stringify(batch),
 				},
-			).catch(() => {});
+			).catch(() => { });
 
 			return true;
 		} catch {

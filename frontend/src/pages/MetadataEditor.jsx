@@ -112,7 +112,6 @@ const MetadataEditor = () => {
 	const [familySummary, setFamilySummary] = useState("");
 
 	// PDF viewer states
-	const [primaryFileId, setPrimaryFileId] = useState(null);
 	const [numPages, setNumPages] = useState(null);
 	const [pageNumber, setPageNumber] = useState(1);
 	const [scale, setScale] = useState(1.0);
@@ -625,27 +624,19 @@ const MetadataEditor = () => {
 				);
 			}
 
-			// 3. Upload files
-			// Sort files so Primary is first (if selected), otherwise keeping order
-			const filesToUpload = [...files].sort((a, b) => {
-				if (a.id === primaryFileId) return -1;
-				if (b.id === primaryFileId) return 1;
-				return 0;
-			});
-
-			for (const fileItem of filesToUpload) {
+			for (const file of files) {
 				const bitstream = await dspaceService.uploadFile(
 					workspaceItemId,
-					fileItem.fileObject,
+					file.fileObject,
 				);
 
 				if (bitstream?.uuid) {
 					await dspaceService.updateBitstreamMetadata(bitstream.uuid, {
-						documentType: fileItem.documentType,
-						documentStatus: fileItem.documentStatus,
+						documentType: file.documentType,
+						documentStatus: file.documentStatus,
 					});
 				} else {
-					console.error(`Failed to upload file: ${fileItem.name}`);
+					console.error(`Failed to upload file: ${file.name}`);
 				}
 			}
 
@@ -660,7 +651,6 @@ const MetadataEditor = () => {
 			// Reset form
 			setCollectionId("");
 			setFiles([]);
-			setPrimaryFileId(null);
 			setSelectedFileId(null);
 			setHouseNumber("");
 			setHusbandName("");
@@ -744,9 +734,8 @@ const MetadataEditor = () => {
 									{selectedFile ? selectedFile.name : "Select File"}
 								</span>
 								<ChevronDown
-									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${
-										showFileDropdown ? "rotate-180" : ""
-									}`}
+									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${showFileDropdown ? "rotate-180" : ""
+										}`}
 								/>
 							</button>
 							{showFileDropdown && (
@@ -782,24 +771,6 @@ const MetadataEditor = () => {
 															</div>
 														</div>
 													</button>
-													<div
-														className="ml-2 flex items-center"
-														title="Set as Primary File"
-													>
-														<input
-															type="radio"
-															name="primaryFile"
-															checked={
-																primaryFileId === file.id ||
-																(!primaryFileId && files[0].id === file.id)
-															}
-															onChange={() => setPrimaryFileId(file.id)}
-															className="cursor-pointer"
-														/>
-														<span className="text-xs text-gray-500 ml-1">
-															Primary
-														</span>
-													</div>
 												</div>
 											))
 										) : (
@@ -859,13 +830,12 @@ const MetadataEditor = () => {
 											>
 												{collectionId
 													? collections.find((c) => c.uuid === collectionId)
-															?.name || "Select a collection"
+														?.name || "Select a collection"
 													: "Select a collection"}
 											</span>
 											<ChevronDown
-												className={`w-4 h-4 text-gray-500 transition-transform ${
-													showCollectionDropdown ? "rotate-180" : ""
-												}`}
+												className={`w-4 h-4 text-gray-500 transition-transform ${showCollectionDropdown ? "rotate-180" : ""
+													}`}
 											/>
 										</button>
 										{showCollectionDropdown && (
@@ -893,11 +863,10 @@ const MetadataEditor = () => {
 																	setCollectionId(c.uuid);
 																	setShowCollectionDropdown(false);
 																}}
-																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${
-																	collectionId === c.uuid
-																		? "bg-blue-100 text-blue-900"
-																		: "text-gray-900"
-																}`}
+																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${collectionId === c.uuid
+																	? "bg-blue-100 text-blue-900"
+																	: "text-gray-900"
+																	}`}
 															>
 																{c.name}
 															</button>
@@ -1115,7 +1084,7 @@ const MetadataEditor = () => {
 										htmlFor="file-input"
 										className="block text-sm font-medium text-gray-700 mb-2"
 									>
-										Primary file
+										Files
 									</label>
 									<div id="file-input">
 										{files.length > 0 ? (
@@ -1131,29 +1100,13 @@ const MetadataEditor = () => {
 																	{getFileIcon(file.type)}
 																</div>
 																<span
-																	className="text-sm truncate max-w-[150px]"
+																	className="text-sm truncate max-w-37.5"
 																	title={file.name}
 																>
 																	{file.name}
 																</span>
 															</div>
 															<div className="flex items-center ml-2">
-																<label className="inline-flex items-center cursor-pointer">
-																	<input
-																		type="radio"
-																		name="primaryFile"
-																		checked={
-																			primaryFileId === file.id ||
-																			(!primaryFileId &&
-																				files[0].id === file.id)
-																		}
-																		onChange={() => setPrimaryFileId(file.id)}
-																		className="form-radio h-4 w-4 text-blue-600 border-gray-300"
-																	/>
-																	<span className="ml-1 text-xs text-gray-600">
-																		Primary
-																	</span>
-																</label>
 																<button
 																	type="button"
 																	onClick={() => {
