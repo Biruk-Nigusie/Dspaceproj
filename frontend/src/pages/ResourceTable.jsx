@@ -47,7 +47,7 @@ export default function ResourceTable({
 
 	// Helper to pick a primary identifier for display and to render grouped identifiers
 	const renderPrimaryIdentifier = (resource) => {
-		const order = ["issn", "filenumber", "other"];
+		const order = ["filenumber", "issn", "other"];
 		if (resource.identifierGroups) {
 			for (const g of order) {
 				if (
@@ -445,13 +445,15 @@ export default function ResourceTable({
 										{resource.houseNumber || "—"}
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
-										<div className="relative group inline-block max-w-48">
+										<div className="group max-w-48">
 											<span className="block truncate">
 												{renderPrimaryIdentifier(resource)}
 											</span>
-											{resource.identifierGroups &&
-												Object.keys(resource.identifierGroups).length > 0 &&
-												renderIdentifierPopover(resource)}
+											<div className="absolute">
+												{resource.identifierGroups &&
+													Object.keys(resource.identifierGroups).length > 0 &&
+													renderIdentifierPopover(resource)}
+											</div>
 										</div>
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-700">
