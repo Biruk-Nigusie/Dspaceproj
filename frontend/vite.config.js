@@ -1,3 +1,4 @@
+import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
@@ -9,6 +10,11 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		plugins: [react(), tailwindcss()],
+		resolve: {
+			alias: {
+				"@": path.resolve(__dirname, "./src"),
+			},
+		},
 		server: {
 			port: 3000,
 			host: true,
@@ -20,7 +26,7 @@ export default defineConfig(({ mode }) => {
 					secure: false,
 					rewrite: (path) => path.replace(/^\/api\/dspace/, "/server/api"),
 					configure: (proxy, _options) => {
-						proxy.on("proxyRes", (proxyRes, req, res) => {
+						proxy.on("proxyRes", (proxyRes, _req, _res) => {
 							const setCookie = proxyRes.headers["set-cookie"];
 							if (setCookie) {
 								proxyRes.headers["set-cookie"] = setCookie.map((cookie) => {

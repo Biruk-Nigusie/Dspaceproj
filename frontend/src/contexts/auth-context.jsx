@@ -144,11 +144,6 @@ export const AuthProvider = ({ children }) => {
 		}
 	};
 
-	const register = async (userData) => {
-		console.warn("Registration not fully implemented for DSpace direct mode");
-		return { success: false, message: "Use DSpace UI to register" };
-	};
-
 	const logout = async () => {
 		try {
 			await dspaceService.logout();
@@ -166,7 +161,6 @@ export const AuthProvider = ({ children }) => {
 		token: dspaceService.authToken || getCookie("dspaceAuthToken"),
 		djangoToken: getCookie("djangoToken"),
 		login,
-		register,
 		logout,
 		loading,
 	};

@@ -734,8 +734,9 @@ const MetadataEditor = () => {
 									{selectedFile ? selectedFile.name : "Select File"}
 								</span>
 								<ChevronDown
-									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${showFileDropdown ? "rotate-180" : ""
-										}`}
+									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${
+										showFileDropdown ? "rotate-180" : ""
+									}`}
 								/>
 							</button>
 							{showFileDropdown && (
@@ -830,12 +831,13 @@ const MetadataEditor = () => {
 											>
 												{collectionId
 													? collections.find((c) => c.uuid === collectionId)
-														?.name || "Select a collection"
+															?.name || "Select a collection"
 													: "Select a collection"}
 											</span>
 											<ChevronDown
-												className={`w-4 h-4 text-gray-500 transition-transform ${showCollectionDropdown ? "rotate-180" : ""
-													}`}
+												className={`w-4 h-4 text-gray-500 transition-transform ${
+													showCollectionDropdown ? "rotate-180" : ""
+												}`}
 											/>
 										</button>
 										{showCollectionDropdown && (
@@ -863,10 +865,11 @@ const MetadataEditor = () => {
 																	setCollectionId(c.uuid);
 																	setShowCollectionDropdown(false);
 																}}
-																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${collectionId === c.uuid
-																	? "bg-blue-100 text-blue-900"
-																	: "text-gray-900"
-																	}`}
+																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${
+																	collectionId === c.uuid
+																		? "bg-blue-100 text-blue-900"
+																		: "text-gray-900"
+																}`}
 															>
 																{c.name}
 															</button>
