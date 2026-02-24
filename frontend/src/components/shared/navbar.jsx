@@ -1,4 +1,4 @@
-import { HomeIcon, LogInIcon, UploadIcon } from "lucide-react";
+import { HomeIcon, LogInIcon, LogOutIcon, UploadIcon } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
@@ -48,12 +48,12 @@ const Navbar = () => {
 				{/* Buttons */}
 				<div className="flex items-center gap-2">
 					{user ? (
-						<Button variant="ghost" onClick={logout}>
+						<Button variant="secondary" onClick={logout}>
 							<LogOutIcon />
 							Log Out
 						</Button>
 					) : (
-						<Button variant="secondary" onClick={() => navigate("/login")}>
+						<Button variant="secondary" onClick={() => navigate("/signin")}>
 							<LogInIcon />
 							Log In
 						</Button>

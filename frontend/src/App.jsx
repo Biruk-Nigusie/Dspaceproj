@@ -2,9 +2,9 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Footer from "@/components/shared/footer";
 import Navbar from "@/components/shared/navbar";
 import { AuthProvider } from "@/contexts/auth-context";
-import Home from "@/pages/Home";
-import MetadataEditor from "@/pages/MetadataEditor";
-import SignIn from "@/pages/SignIn";
+import Home from "@/pages/home";
+import MetadataEditor from "@/pages/metadata-editor";
+import SignIn from "@/pages/sign-in";
 
 function App() {
 	return (

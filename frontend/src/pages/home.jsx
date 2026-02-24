@@ -1,5 +1,5 @@
 import { StatsCard, statsData } from "@/components/stats-card";
-import ResourceTable from "@/pages/ResourceTable";
+import ResourceTable from "@/pages/resource-table";
 import { ORG_NAME } from "@/utils/constants";
 
 const Home = () => {
