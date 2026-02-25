@@ -1,3 +1,4 @@
+import Hero from "@/components/hero";
 import { StatsCard, statsData } from "@/components/stats-card";
 import ResourceTable from "@/pages/resource-table";
 import { ORG_NAME } from "@/utils/constants";
@@ -5,8 +6,10 @@ import { ORG_NAME } from "@/utils/constants";
 const Home = () => {
 	return (
 		<div className="divide-y">
+			<Hero />
+
 			{/* Table section */}
-			<section className="container mx-auto py-24">
+			<section id="resources" className="container mx-auto py-24">
 				<ResourceTable />
 			</section>
 

@@ -68,7 +68,7 @@ class DSpaceService {
 						this.csrfToken = token;
 						return true;
 					}
-				} catch {}
+				} catch { }
 			}
 
 			await new Promise((resolve) => setTimeout(resolve, 200));
@@ -88,7 +88,7 @@ class DSpaceService {
 					this.csrfToken = body.token || body.csrfToken || body.xsrfToken;
 					return true;
 				}
-			} catch {}
+			} catch { }
 
 			return false;
 		} catch {
@@ -293,7 +293,7 @@ class DSpaceService {
 				}
 				return decoded;
 			}
-		} catch {}
+		} catch { }
 		return null;
 	}
 
@@ -446,7 +446,7 @@ class DSpaceService {
 					credentials: "include",
 					body: JSON.stringify(batch),
 				},
-			).catch(() => {});
+			).catch(() => { });
 
 			return true;
 		} catch {
@@ -728,6 +728,24 @@ class DSpaceService {
 			const bundledBitstreams = bundledRes.ok ? await bundledRes.json() : null;
 			return { primaryBitstream, bundledBitstreams };
 		} catch {
+			return null;
+		}
+	}
+
+	async fetchCollectionStats() {
+		try {
+			const headers = this.getCsrfHeaders({ Accept: "application/json" });
+			const response = await fetch(`${DSPACE_API_URL}/statistics/collectionstats`, {
+				credentials: "include",
+				headers: headers,
+			});
+			if (response.ok) {
+				const data = await response.json();
+				return data._embedded.collectionstatses;
+			}
+			throw new Error(`Failed to fetch collection stats: ${response.status}`);
+		} catch (error) {
+			console.warn("Failed to fetch collection stats:", error);
 			return null;
 		}
 	}
