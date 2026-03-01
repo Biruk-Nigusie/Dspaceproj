@@ -117,6 +117,7 @@ const MetadataEditor = () => {
 
 	// Metadata
 	const [houseType, setHouseType] = useState("የግል መኖሪያ ቤት");
+	const [otherHouseType, setOtherHouseType] = useState();
 	const [houseNumber, setHouseNumber] = useState("");
 	const [husbandName, setHusbandName] = useState("");
 	const [wifeName, setWifeName] = useState("");
@@ -135,7 +136,6 @@ const MetadataEditor = () => {
 	const [pdfError, setPdfError] = useState(null);
 
 	const [uploading, setUploading] = useState(false);
-	const [showFileDropdown, setShowFileDropdown] = useState(false);
 
 	// Refs
 	const collectionDropdownRef = useRef(null);
@@ -531,7 +531,6 @@ const MetadataEditor = () => {
 
 	const handleFileSelect = (fileId, _fileObj = null) => {
 		setSelectedFileId(fileId);
-		setShowFileDropdown(false);
 		setPageNumber(1);
 		setNumPages(null);
 		setPdfError(null);
@@ -609,6 +608,7 @@ const MetadataEditor = () => {
 
 			const rawMetadata = {
 				"crvs.identifier.houseType": houseType,
+				"crvs.identifier.otherHouseType": otherHouseType,
 				"crvs.identifier.houseNumber": houseNumber,
 				"crvs.identifier.houseFamilyKey": `${houseNumber} - ${husbandName} - ${wifeName}`,
 				"crvs.head.husband": husbandName,
@@ -869,6 +869,19 @@ const MetadataEditor = () => {
 										</SelectContent>
 									</Select>
 								</div>
+
+								{houseType === "ሌሎች" && (
+									<div>
+										<Label htmlFor="otherHouseType">Other House Type</Label>
+										<Input
+											id="otherHouseType"
+											type="text"
+											value={otherHouseType}
+											onChange={(e) => setOtherHouseType(e.target.value)}
+											required
+										/>
+									</div>
+								)}
 
 								<div>
 									<Label htmlFor="houseNumber">
