@@ -169,10 +169,10 @@ const Hero = () => {
 									/>
 
 									<DashboardCard
-										label="Citizens"
+										label="Residents"
 										value={selected?.houseStats?.totalRegisteredCitizens ?? 0}
 										icon={<UsersIcon size={20} />}
-										subtitle="Total registered citizens (selected)"
+										subtitle="Total registered residents (selected)"
 									/>
 
 									<DashboardCard

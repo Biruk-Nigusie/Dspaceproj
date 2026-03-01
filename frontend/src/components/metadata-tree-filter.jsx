@@ -42,8 +42,8 @@ export default function MetadataTreeFilter({
 			}
 
 			if (resource.parentCommunity) {
-				options.parentCommunity[resource.parentCommunity] =
-					(options.parentCommunity[resource.parentCommunity] || 0) + 1;
+				options.parentCommunity[resource?.parentCommunity] =
+					(options.parentCommunity[resource?.parentCommunity] || 0) + 1;
 			}
 
 			if (resource.owningCollection) {
@@ -55,10 +55,10 @@ export default function MetadataTreeFilter({
 		// Sort keys and take top authors
 		const sortedOptions = {
 			yearRange: minYear <= maxYear ? { min: minYear, max: maxYear } : null,
-			parentCommunity: Object.entries(options.parentCommunity).sort(
+			parentCommunity: Object.entries(options?.parentCommunity).sort(
 				(a, b) => b[1] - a[1],
 			),
-			owningCollection: Object.entries(options.owningCollection).sort(
+			owningCollection: Object.entries(options?.owningCollection).sort(
 				(a, b) => b[1] - a[1],
 			),
 		};
@@ -240,7 +240,7 @@ export default function MetadataTreeFilter({
 					<TreeNode
 						label="Sub City"
 						category="parentCommunity"
-						items={filterOptions.parentCommunity}
+						items={filterOptions?.parentCommunity}
 					/>
 					<TreeNode
 						label="Woreda"

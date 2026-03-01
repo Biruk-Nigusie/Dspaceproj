@@ -121,7 +121,7 @@ export default function ResourceTable() {
 								?.name || null,
 						parentCommunity:
 							item._embedded?.indexableObject?._embedded?.owningCollection
-								?._embedded.parentCommunity.name,
+								?._embedded?.parentCommunity?.name || "-",
 
 						originalBundleId: originalBundleId,
 					};

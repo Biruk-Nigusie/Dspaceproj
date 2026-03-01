@@ -3,8 +3,6 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import {
-	Check,
-	ChevronDown,
 	ChevronLeft,
 	Eye,
 	File as FileIcon,
@@ -16,20 +14,38 @@ import {
 	ChevronRight as RightIcon,
 	RotateCw,
 	Scissors,
-	Trash2,
-	Upload,
+	Trash2Icon,
+	UploadIcon,
 	X,
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
 import { useRef } from "react";
-import dspaceService from "../services/dspaceService";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import dspaceService from "@/services/dspaceService";
 import {
 	documentStatusOptions,
 	documentTypeOptions,
 	houseTypeOptions,
 	identifierOptions,
-} from "../utils/constants";
+} from "@/utils/constants";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -45,41 +61,42 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
 
 	return (
 		<div>
-			<label
+			<Label
 				htmlFor={`repeatable-field-container-${label}`}
-				className="block text-sm font-medium text-gray-700 mb-1"
+				className="text-muted-foreground"
 			>
 				{label}
-			</label>
+			</Label>
 			<div id={`repeatable-field-container-${label}`}>
 				{values.map((value, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: <ignore>
 					<div key={index} className="flex items-center mb-2">
-						<input
-							type="text"
-							value={value}
-							onChange={(e) => updateField(index, e.target.value)}
-							placeholder={placeholder}
-							autoComplete="off"
-							className="grow p-2 border border-gray-300 rounded-sm focus:ring-blue-500 focus:border-blue-500"
-						/>
-						<button
-							type="button"
-							onClick={() => removeField(index)}
-							className="ml-2 text-red-600 hover:text-red-800 cursor-pointer"
-						>
-							<Trash2 size={18} />
-						</button>
+						<InputGroup>
+							<InputGroupInput
+								type="text"
+								value={value}
+								onChange={(e) => updateField(index, e.target.value)}
+								placeholder={placeholder}
+								autoComplete="off"
+							/>
+							{values.length > 1 && (
+								<InputGroupAddon align="end">
+									<InputGroupButton
+										variant="ghost"
+										onClick={() => removeField(index)}
+									>
+										<Trash2Icon className="text-destructive" />
+									</InputGroupButton>
+								</InputGroupAddon>
+							)}
+						</InputGroup>
 					</div>
 				))}
 			</div>
-			<button
-				type="button"
-				onClick={addField}
-				className="flex items-center text-sm text-blue-900 hover:text-blue-800"
-			>
-				<PlusCircleIcon size={16} className="mr-1" />
+			<Button size="sm" variant="ghost" type="button" onClick={addField}>
+				<PlusCircleIcon size={16} />
 				Add {label}
-			</button>
+			</Button>
 		</div>
 	);
 };
@@ -514,16 +531,13 @@ const MetadataEditor = () => {
 
 	const handleFileSelect = (fileId, _fileObj = null) => {
 		setSelectedFileId(fileId);
-		// Do NOT overwrite user-entered title with filename
-		// const file = fileObj || files.find((f) => f.id === fileId);
-		// if (file) {
-		//    setTitle(file.name);
-		// }
 		setShowFileDropdown(false);
 		setPageNumber(1);
 		setNumPages(null);
 		setPdfError(null);
 	};
+
+	const isEmpty = files.length === 0;
 
 	const handleFileMetadataChange = (fileId, field, value) => {
 		setFiles((prev) =>
@@ -705,92 +719,70 @@ const MetadataEditor = () => {
 	const zoomIn = () => setScale((prev) => Math.min(prev + 0.25, 3.0));
 	const zoomOut = () => setScale((prev) => Math.max(prev - 0.25, 0.5));
 
+	// auto-select when only one collection exists
+	useEffect(() => {
+		if (collections.length === 1 && !collectionId) {
+			setCollectionId(collections[0].uuid);
+		}
+	}, [collections, collectionId]);
+
 	return (
-		<div className="flex flex-col h-screen bg-gray-50">
+		<div className="flex h-full min-h-[calc(100vh-4rem)] flex-col">
 			{/* Top Bar */}
-			<div className="bg-white border-b border-gray-300 p-3">
+			<div className="border-b border-border p-4 sticky top-0 bg-background z-50">
 				<div className="flex items-center justify-between">
-					<h1 className="text-lg font-bold text-gray-800 ml-4">Upload File</h1>
-					<div className="flex items-center space-x-3 mr-4">
-						<label className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer text-sm">
-							<Upload className="w-3 h-3 mr-1" />
+					<h1 className="text-lg font-bold">Upload Files</h1>
+					<div className="flex items-center space-x-3">
+						<Button size="lg" className="relative">
+							<UploadIcon />
 							Upload Files
 							<input
 								type="file"
 								multiple
+								className="absolute inset-0 cursor-pointer opacity-0"
 								onChange={handleFileUpload}
-								className="hidden"
 							/>
-						</label>
+						</Button>
 
-						<div className="relative">
-							<button
-								type="button"
-								onClick={() => setShowFileDropdown(!showFileDropdown)}
-								className="flex items-center px-3 py-1.5 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors text-sm cursor-pointer"
-							>
-								<Eye className="w-3 h-3 mr-1.5 text-gray-600" />
-								<span className="text-gray-700">
-									{selectedFile ? selectedFile.name : "Select File"}
-								</span>
-								<ChevronDown
-									className={`w-3 h-3 ml-1.5 text-gray-500 transition-transform ${
-										showFileDropdown ? "rotate-180" : ""
-									}`}
-								/>
-							</button>
-							{showFileDropdown && (
-								<div className="absolute top-full right-0 mt-1 w-72 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-									<div className="p-2">
-										{files.length > 0 ? (
-											files.map((file) => (
-												<div
-													key={file.id}
-													className={`w-full flex items-center px-2.5 py-2 hover:bg-blue-50 ${selectedFileId === file.id ? "bg-blue-50" : ""}`}
-												>
-													<button
-														type="button"
-														onClick={() => handleFileSelect(file.id)}
-														className="grow flex items-center text-left"
-													>
-														<div className="shrink-0">
-															{selectedFileId === file.id ? (
-																<Check className="w-3.5 h-3.5 text-blue-600" />
-															) : (
-																<div className="w-3.5 h-3.5 border border-gray-400 rounded"></div>
-															)}
-														</div>
-														<div className="ml-2 shrink-0">
-															{getFileIcon(file.type)}
-														</div>
-														<div className="ml-2 flex-1 min-w-0">
-															<div className="font-medium text-gray-900 truncate text-sm">
-																{file.name}
-															</div>
-															<div className="text-xs text-gray-500 mt-0.5">
-																{formatFileSize(file.size)} • {file.type}
-															</div>
-														</div>
-													</button>
-												</div>
-											))
-										) : (
-											<div className="p-3 text-center text-gray-600 text-sm">
-												No files uploaded.
+						<Select
+							value={isEmpty ? undefined : selectedFileId}
+							onValueChange={handleFileSelect}
+						>
+							<SelectTrigger className="min-w-72 h-9!" disabled={isEmpty}>
+								<SelectValue
+									placeholder={isEmpty ? "No file uploaded" : "Select File"}
+								>
+									{selectedFile?.name}
+								</SelectValue>
+							</SelectTrigger>
+
+							<SelectContent className="max-h-80">
+								{files.map((file) => (
+									<SelectItem key={file.id} value={file.id}>
+										<div className="flex items-center gap-2">
+											{getFileIcon(file.type)}
+											<div className="flex flex-col items-start overflow-hidden">
+												<span className="truncate text-sm font-medium">
+													{file.name}
+												</span>
+												<span className="text-xs text-muted-foreground">
+													{formatFileSize(file.size)} • {file.type}
+												</span>
 											</div>
-										)}
-									</div>
-								</div>
-							)}
-						</div>
-						<button
+										</div>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<Button
+							size="lg"
 							type="button"
 							onClick={handleSubmit}
 							disabled={uploading || files.length === 0}
-							className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:bg-gray-400"
+							className="bg-green-600 text-white hover:bg-green-700 transition-colors disabled:bg-gray-400"
 						>
 							{uploading ? "Uploading..." : "Submit"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -798,8 +790,8 @@ const MetadataEditor = () => {
 			{/* Main Content */}
 			<div className="flex flex-1 overflow-hidden">
 				{/* Left Panel - Metadata Form */}
-				<div className="w-1/2 overflow-y-auto p-6 border-r border-gray-300 bg-white">
-					<div className="max-w-2xl mx-auto">
+				<div className="w-1/2 overflow-y-auto p-6 border-r border-border">
+					<div className="max-w-2xl mx-auto h-full">
 						{selectedFile ? (
 							<form
 								onSubmit={(e) => {
@@ -810,157 +802,106 @@ const MetadataEditor = () => {
 							>
 								{/* Form fields here - keeping it brief for the rest */}
 								<div>
-									<label
-										htmlFor="collection"
-										className="block text-sm font-medium text-gray-700"
+									<Label htmlFor="collection">
+										Select Woreda <span className="text-destructive">*</span>
+									</Label>
+									<Select
+										value={collectionId || undefined}
+										onValueChange={(value) => setCollectionId(value)}
+										disabled={collections.length === 0}
 									>
-										Select Woreda *
-									</label>
-									<div className="relative mt-1" ref={collectionDropdownRef}>
-										<button
-											type="button"
-											onClick={() =>
-												setShowCollectionDropdown(!showCollectionDropdown)
-											}
-											className="w-full p-2 border border-gray-300 rounded-md bg-white text-left flex items-center justify-between hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-										>
-											<span
-												className={
-													collectionId ? "text-gray-900" : "text-gray-500"
+										<SelectTrigger className="w-full">
+											<SelectValue
+												placeholder={
+													loadingCollections
+														? "Loading collections..."
+														: collections.length === 0
+															? "No collections available"
+															: "Select a collection"
 												}
-											>
-												{collectionId
-													? collections.find((c) => c.uuid === collectionId)
-															?.name || "Select a collection"
-													: "Select a collection"}
-											</span>
-											<ChevronDown
-												className={`w-4 h-4 text-gray-500 transition-transform ${
-													showCollectionDropdown ? "rotate-180" : ""
-												}`}
 											/>
-										</button>
-										{showCollectionDropdown && (
-											<div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg overflow-y-auto">
-												<div
-													onScroll={(e) => {
-														const { scrollTop, scrollHeight, clientHeight } =
-															e.target;
-														// Load more when scrolled to 80% of the list
-														if (
-															scrollHeight - scrollTop <=
-															clientHeight * 1.2
-														) {
-															loadMoreCollections();
-														}
-													}}
-													className="max-h-120 overflow-y-auto"
-												>
-													{collections.length > 0 ? (
-														collections.map((c) => (
-															<button
-																key={c.uuid}
-																type="button"
-																onClick={() => {
-																	setCollectionId(c.uuid);
-																	setShowCollectionDropdown(false);
-																}}
-																className={`w-full text-left px-3 py-2 hover:bg-blue-50 ${
-																	collectionId === c.uuid
-																		? "bg-blue-100 text-blue-900"
-																		: "text-gray-900"
-																}`}
-															>
-																{c.name}
-															</button>
-														))
-													) : (
-														<div className="px-3 py-2 text-gray-500 text-sm">
-															{loadingCollections
-																? "Loading..."
-																: "No collections available"}
-														</div>
-													)}
-													{loadingCollections && collections.length > 0 && (
-														<div className="px-3 py-2 text-gray-500 text-sm text-center">
-															Loading more...
-														</div>
-													)}
+										</SelectTrigger>
+										<SelectContent
+											className="max-h-80"
+											onScroll={(e) => {
+												const { scrollTop, scrollHeight, clientHeight } =
+													e.currentTarget;
+
+												if (scrollHeight - scrollTop <= clientHeight * 1.2) {
+													loadMoreCollections();
+												}
+											}}
+										>
+											{collections.map((c) => (
+												<SelectItem key={c.uuid} value={c.uuid}>
+													{c.name}
+												</SelectItem>
+											))}
+
+											{loadingCollections && collections.length > 0 && (
+												<div className="px-3 py-2 text-sm text-muted-foreground text-center">
+													Loading more...
 												</div>
-											</div>
-										)}
-									</div>
+											)}
+										</SelectContent>
+									</Select>
 								</div>
 
 								<div>
-									<label
-										htmlFor="houseType"
-										className="block text-sm font-medium text-gray-700"
-									>
-										House Type *
-									</label>
-									<select
+									<Label htmlFor="houseType">
+										House Type <span className="text-destructive">*</span>
+									</Label>
+									<Select
 										id="houseType"
 										value={houseType}
-										onChange={(e) => setHouseType(e.target.value)}
-										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+										onValueChange={(e) => setHouseType(e)}
+										className="w-full"
 									>
-										{houseTypeOptions.map((t) => (
-											<option key={t} value={t}>
-												{t}
-											</option>
-										))}
-									</select>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Select house type" />
+										</SelectTrigger>
+										<SelectContent>
+											{houseTypeOptions.map((t) => (
+												<SelectItem key={t} value={t}>
+													{t}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
 								</div>
 
 								<div>
-									<label
-										htmlFor="houseNumber"
-										className="block text-sm font-medium text-gray-700"
-									>
-										House Number *
-									</label>
-									<input
+									<Label htmlFor="houseNumber">
+										House Number <span className="text-destructive">*</span>
+									</Label>
+									<Input
 										id="houseNumber"
 										type="text"
 										value={houseNumber}
 										onChange={(e) => setHouseNumber(e.target.value)}
 										required
-										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									/>
 								</div>
 
 								<div>
-									<label
-										htmlFor="husbandName"
-										className="block text-sm font-medium text-gray-700"
-									>
-										Husband Name
-									</label>
-									<input
+									<Label htmlFor="husbandName">Husband Name</Label>
+									<Input
 										id="husbandName"
 										type="text"
 										value={husbandName}
 										onChange={(e) => setHusbandName(e.target.value)}
 										required
-										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									/>
 								</div>
 
 								<div>
-									<label
-										htmlFor="wifeName"
-										className="block text-sm font-medium text-gray-700"
-									>
-										Wife Name
-									</label>
-									<input
+									<Label htmlFor="wifeName">Wife Name</Label>
+									<Input
 										id="wifeName"
 										type="text"
 										value={wifeName}
 										onChange={(e) => setWifeName(e.target.value)}
 										required
-										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									/>
 								</div>
 
@@ -972,207 +913,198 @@ const MetadataEditor = () => {
 								/>
 
 								<div>
-									<label
-										htmlFor="registrationDate"
-										className="block text-sm font-medium text-gray-700"
-									>
-										Registration Date
-									</label>
-									<input
+									<Label htmlFor="registrationDate">Registration Date</Label>
+									<Input
 										id="registrationDate"
 										type="date"
 										value={dateOfRegistration}
 										onChange={(e) => setDateOfRegistration(e.target.value)}
 										required
-										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
 									/>
 								</div>
 
 								<div>
-									<label
-										htmlFor="familyCount"
-										className="block text-sm font-medium text-gray-700"
-									>
-										Family Count
-									</label>
-									<input
+									<Label htmlFor="familyCount">Family Count</Label>
+									<Input
 										id="familyCount"
 										type="number"
 										value={familyCount}
 										onChange={(e) => setFamilyCount(e.target.value)}
 										autoComplete="off"
-										className="grow p-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
 									/>
 								</div>
 
 								<div>
-									<label
-										htmlFor="familySummary"
-										className="block text-sm font-medium text-gray-700"
-									>
-										Family Summary
-									</label>
-									<textarea
+									<Label htmlFor="familySummary">Family Summary</Label>
+									<Textarea
 										id="familySummary"
 										value={familySummary}
 										onChange={(e) => setFamilySummary(e.target.value)}
 										rows="3"
-										className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-									></textarea>
+									/>
 								</div>
 
 								<div>
-									<label
-										htmlFor="identifiers"
-										className="block text-sm font-medium text-gray-700 mb-1"
-									>
-										Identifiers
-									</label>
+									<Label htmlFor="identifiers">Identifiers</Label>
 									<div id="identifiers">
 										{identifiers.map((id, index) => (
-											<div key={index} className="flex space-x-2 mb-2">
-												<select
+											// biome-ignore lint/suspicious/noArrayIndexKey: <ignore>
+											<div key={index} className="flex gap-2 mb-2">
+												<Select
 													value={id.type}
-													onChange={(e) =>
-														handleIdentifierChange(
-															index,
-															"type",
-															e.target.value,
-														)
+													onValueChange={(e) =>
+														handleIdentifierChange(index, "type", e)
 													}
-													className="p-2 border border-gray-300 rounded-sm bg-white"
+													className="grow"
 												>
-													{identifierOptions.map((t) => (
-														<option key={t.stored} value={t.stored}>
-															{t.display}
-														</option>
-													))}
-												</select>
-												<input
-													type="text"
-													placeholder="Enter identifier"
-													value={id.value}
-													onChange={(e) =>
-														handleIdentifierChange(
-															index,
-															"value",
-															e.target.value,
-														)
-													}
-													autoComplete="off"
-													className="grow p-2 border border-gray-300 rounded-sm"
-												/>
-												<button
-													type="button"
-													onClick={() => removeIdentifier(index)}
-													className="text-red-400 hover:text-red-700 cursor-pointer"
-												>
-													<Trash2 size={18} />
-												</button>
+													<SelectTrigger className="w-40">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														{identifierOptions.map((t) => (
+															<SelectItem key={t.stored} value={t.stored}>
+																{t.display}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+												<InputGroup>
+													<InputGroupInput
+														type="text"
+														placeholder="Enter identifier"
+														value={id.value}
+														onChange={(e) =>
+															handleIdentifierChange(
+																index,
+																"value",
+																e.target.value,
+															)
+														}
+														autoComplete="off"
+													/>
+													{identifiers.length > 1 && (
+														<InputGroupAddon align="end">
+															<InputGroupButton
+																variant="ghost"
+																onClick={() => removeIdentifier(index)}
+															>
+																<Trash2Icon className="text-destructive" />
+															</InputGroupButton>
+														</InputGroupAddon>
+													)}
+												</InputGroup>
 											</div>
 										))}
 									</div>
-									<button
+									<Button
+										size="sm"
+										variant="ghost"
 										type="button"
 										onClick={addIdentifier}
-										className="flex items-center text-sm text-blue-900 hover:text-blue-800"
 									>
-										<PlusCircleIcon size={16} className="mr-1" /> Add Identifier
-									</button>
+										<PlusCircleIcon /> Add Identifier
+									</Button>
 								</div>
 
 								{/* File List Section */}
 								<div>
-									<label
-										htmlFor="file-input"
-										className="block text-sm font-medium text-gray-700 mb-2"
-									>
-										Files
-									</label>
+									<Label htmlFor="file-input">Files</Label>
 									<div id="file-input">
 										{files.length > 0 ? (
 											<div className="space-y-2">
 												{files.map((file) => (
-													<div
-														key={file.id}
-														className="flex flex-col p-2 bg-white rounded border border-gray-200"
-													>
-														<div className="flex items-center justify-between mb-2">
-															<div className="flex items-center overflow-hidden">
-																<div className="mr-2 text-gray-500">
-																	{getFileIcon(file.type)}
+													<Card key={file.id} className="rounded-md">
+														<CardContent>
+															<div className="flex items-center justify-between mb-2">
+																<div className="flex items-center overflow-hidden gap-2">
+																	<div className="text-muted-foreground">
+																		{getFileIcon(file.type)}
+																	</div>
+																	<div className="flex flex-col">
+																		<span
+																			className="text-sm truncate max-w-37.5"
+																			title={file.name}
+																		>
+																			{file.name}
+																		</span>
+																		<span className="text-xs text-muted-foreground">
+																			{formatFileSize(file.size)} • {file.type}
+																		</span>
+																	</div>
 																</div>
-																<span
-																	className="text-sm truncate max-w-37.5"
-																	title={file.name}
-																>
-																	{file.name}
-																</span>
+																<div className="flex items-center ml-2">
+																	<Button
+																		size="icon"
+																		variant="ghost"
+																		type="button"
+																		onClick={() => {
+																			if (
+																				window.confirm(
+																					"Are you sure you want to remove this file?",
+																				)
+																			) {
+																				const newFiles = files.filter(
+																					(f) => f.id !== file.id,
+																				);
+																				setFiles(newFiles);
+																				if (selectedFileId === file.id)
+																					setSelectedFileId(null);
+																			}
+																		}}
+																	>
+																		<Trash2Icon
+																			size={14}
+																			className="text-destructive"
+																		/>
+																	</Button>
+																</div>
 															</div>
-															<div className="flex items-center ml-2">
-																<button
-																	type="button"
-																	onClick={() => {
-																		if (
-																			window.confirm(
-																				"Are you sure you want to remove this file?",
-																			)
-																		) {
-																			const newFiles = files.filter(
-																				(f) => f.id !== file.id,
-																			);
-																			setFiles(newFiles);
-																			if (selectedFileId === file.id)
-																				setSelectedFileId(null);
-																		}
-																	}}
-																	className="ml-2 text-red-400 hover:text-red-600 cursor-pointer"
-																>
-																	<Trash2 size={14} />
-																</button>
-															</div>
-														</div>
-														<div className="flex space-x-2">
-															<div className="flex-1">
-																<select
+															<div className="flex space-x-2">
+																<Select
 																	value={file.documentType || "Other"}
 																	onChange={(e) =>
 																		handleFileMetadataChange(
 																			file.id,
 																			"documentType",
-																			e.target.value,
+																			e,
 																		)
 																	}
-																	className="w-full text-xs p-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
 																>
-																	{documentTypeOptions.map((opt) => (
-																		<option key={opt} value={opt}>
-																			{opt}
-																		</option>
-																	))}
-																</select>
-															</div>
-															<div className="flex-1">
-																<select
+																	<SelectTrigger>
+																		<SelectValue />
+																	</SelectTrigger>
+																	<SelectContent>
+																		{documentTypeOptions.map((opt) => (
+																			<SelectItem key={opt} value={opt}>
+																				{opt}
+																			</SelectItem>
+																		))}
+																	</SelectContent>
+																</Select>
+																<Select
 																	value={file.documentStatus || "Active"}
 																	onChange={(e) =>
 																		handleFileMetadataChange(
 																			file.id,
 																			"documentStatus",
-																			e.target.value,
+																			e,
 																		)
 																	}
-																	className="w-full text-xs p-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
 																>
-																	{documentStatusOptions.map((opt) => (
-																		<option key={opt} value={opt}>
-																			{opt}
-																		</option>
-																	))}
-																</select>
+																	<SelectTrigger>
+																		<SelectValue />
+																	</SelectTrigger>
+																	<SelectContent>
+																		{documentStatusOptions.map((opt) => (
+																			<SelectItem key={opt} value={opt}>
+																				{opt}
+																			</SelectItem>
+																		))}
+																	</SelectContent>
+																</Select>
 															</div>
-														</div>
-													</div>
+														</CardContent>
+													</Card>
 												))}
 											</div>
 										) : (
@@ -1184,10 +1116,12 @@ const MetadataEditor = () => {
 								</div>
 							</form>
 						) : (
-							<div className="text-center text-gray-500 pt-16">
-								<FileText size={48} className="mx-auto mb-4" />
-								<h3 className="text-lg font-semibold">No file selected</h3>
-								<p>Please upload a file and select it to edit metadata.</p>
+							<div className="flex justify-center text-muted-foreground/80 items-center h-full">
+								<div className="text-center">
+									<FileText size={48} className="mx-auto mb-4" />
+									<h3 className="text-lg font-semibold">No file selected</h3>
+									<p>Please upload a file and select it to edit metadata.</p>
+								</div>
 							</div>
 						)}
 					</div>
@@ -1478,7 +1412,7 @@ const MetadataEditor = () => {
 										</button>
 									</div>
 								)}
-								<div className="flex-1 overflow-auto p-4">
+								<div className="flex-1 w-full overflow-auto p-4">
 									{selectedFile.type === "application/pdf" ? (
 										<Document
 											key={selectedFile.id}
