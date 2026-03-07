@@ -46,3 +46,5 @@ export const documentTypeOptions = [
 ];
 
 export const documentStatusOptions = ["Active", "Inactive"];
+
+export const genderOptions = ["Male", "Female"];

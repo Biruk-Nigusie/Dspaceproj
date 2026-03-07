@@ -68,7 +68,7 @@ class DSpaceService {
 						this.csrfToken = token;
 						return true;
 					}
-				} catch { }
+				} catch {}
 			}
 
 			await new Promise((resolve) => setTimeout(resolve, 200));
@@ -88,7 +88,7 @@ class DSpaceService {
 					this.csrfToken = body.token || body.csrfToken || body.xsrfToken;
 					return true;
 				}
-			} catch { }
+			} catch {}
 
 			return false;
 		} catch {
@@ -293,7 +293,7 @@ class DSpaceService {
 				}
 				return decoded;
 			}
-		} catch { }
+		} catch {}
 		return null;
 	}
 
@@ -401,7 +401,11 @@ class DSpaceService {
 		}
 	}
 
-	async updateMetadata(workspaceItemId, metadataFields) {
+	async updateMetadata(
+		workspaceItemId,
+		metadataFields,
+		sectionedMetadataFields = [],
+	) {
 		const metadataUpdates = [];
 
 		for (const [field, raw] of Object.entries(metadataFields)) {
@@ -417,6 +421,34 @@ class DSpaceService {
 				});
 			}
 		}
+
+		const mergedSectionedByField = {};
+		for (const sectionedEntry of sectionedMetadataFields || []) {
+			const section = sectionedEntry?.section;
+			const field = sectionedEntry?.field;
+			const rawValues = sectionedEntry?.values;
+			if (!section || !field || !Array.isArray(rawValues)) continue;
+
+			const cleaned = rawValues.map((v) => String(v).trim()).filter(Boolean);
+			if (cleaned.length === 0) continue;
+
+			if (!mergedSectionedByField[field]) {
+				mergedSectionedByField[field] = {
+					section,
+					values: [],
+				};
+			}
+
+			mergedSectionedByField[field].values.push(...cleaned);
+		}
+
+		for (const [field, entry] of Object.entries(mergedSectionedByField)) {
+			metadataUpdates.push({
+				op: "add",
+				path: `/sections/${entry.section}/${field}`,
+				value: entry.values.map((v) => ({ value: v })),
+			});
+		}
 		if (metadataUpdates.length === 0) return true;
 
 		try {
@@ -428,17 +460,49 @@ class DSpaceService {
 			const FIELD_SECTION_MAP = {
 				"crvs.family.count": "traditionalpagetwo",
 				"dc.description": "traditionalpagetwo",
+				"crvs.birth.childName": "birth",
+				"crvs.birth.gender": "birth",
+				"crvs.birth.dateOfBirth": "birth",
+				"crvs.birth.placeOfBirth": "birth",
+				"crvs.birth.childCitizenship": "birth",
+				"crvs.birth.motherName": "birth",
+				"crvs.birth.motherCitizenship": "birth",
+				"crvs.birth.fatherName": "birth",
+				"crvs.birth.fatherCitizenship": "birth",
+				"crvs.birth.registeredDate": "birth",
+				"crvs.birth.certificateIssuedDate": "birth",
+				"crvs.marriage.husbandName": "marriageAndDivorce",
+				"crvs.marriage.wifeName": "marriageAndDivorce",
+				"crvs.marriage.date": "marriageAndDivorce",
+				"crvs.divorce.date": "marriageAndDivorce",
+				"crvs.divorce.courtApprovalDate": "marriageAndDivorce",
+				"crvs.divorce.courtCaseNumber": "marriageAndDivorce",
+				"crvs.death.personName": "death",
+				"crvs.death.gender": "death",
+				"crvs.death.dateOfDeath": "death",
+				"crvs.death.placeOfDeath": "death",
+				"crvs.death.dateOfBirth": "death",
+				"crvs.death.placeOfBirth": "death",
+				"crvs.death.citizenship": "death",
+				"crvs.death.motherName": "death",
+				"crvs.death.fatherName": "death",
+				"crvs.death.reason": "death",
+				"crvs.death.certificateIssuedDate": "death",
 			};
 
 			const batch = metadataUpdates.map((p) => {
+				if (!p.path.startsWith("/sections/traditionalpageone/")) {
+					return p;
+				}
+
 				const fieldName = p.path.split("/").pop();
 				let actualField = fieldName;
-				if (fieldName === "dc.language") actualField = "dc.language.iso";
+				if (actualField === "dc.language") actualField = "dc.language.iso";
 				const section = FIELD_SECTION_MAP[actualField] || "traditionalpageone";
 				return { ...p, path: `/sections/${section}/${actualField}` };
 			});
 
-			await fetch(
+			const res = await fetch(
 				`${DSPACE_API_URL}/submission/workspaceitems/${workspaceItemId}`,
 				{
 					method: "PATCH",
@@ -446,7 +510,8 @@ class DSpaceService {
 					credentials: "include",
 					body: JSON.stringify(batch),
 				},
-			).catch(() => { });
+			).catch(() => {});
+			console.log("🚀 ~ DSpaceService ~ updateMetadata ~ res:", res);
 
 			return true;
 		} catch {
@@ -735,10 +800,13 @@ class DSpaceService {
 	async fetchCollectionStats() {
 		try {
 			const headers = this.getCsrfHeaders({ Accept: "application/json" });
-			const response = await fetch(`${DSPACE_API_URL}/statistics/collectionstats`, {
-				credentials: "include",
-				headers: headers,
-			});
+			const response = await fetch(
+				`${DSPACE_API_URL}/statistics/collectionstats`,
+				{
+					credentials: "include",
+					headers: headers,
+				},
+			);
 			if (response.ok) {
 				const data = await response.json();
 				return data._embedded.collectionstatses;

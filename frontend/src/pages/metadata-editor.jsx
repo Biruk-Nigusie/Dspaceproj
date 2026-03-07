@@ -43,11 +43,294 @@ import dspaceService from "@/services/dspaceService";
 import {
 	documentStatusOptions,
 	documentTypeOptions,
+	genderOptions,
 	houseTypeOptions,
 	identifierOptions,
 } from "@/utils/constants";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+const houseSections = [
+	{
+		section: "house",
+		title: "House",
+		fields: [
+			{
+				metadata: "crvs.identifier.houseType",
+				label: "House Type",
+				inputType: "dropdown",
+				valuePairs: "house_types",
+				required: true,
+			},
+			{
+				metadata: "crvs.identifier.otherHouseType",
+				label: "Other House Type",
+				inputType: "text",
+				required: true,
+				visibleWhen: {
+					metadata: "crvs.identifier.houseType",
+					equals: "ሌሎች",
+				},
+			},
+			{
+				metadata: "crvs.identifier.houseNumber",
+				label: "House Number",
+				inputType: "text",
+				required: true,
+			},
+			{
+				metadata: "crvs.head.husband",
+				label: "Husband Name",
+				inputType: "text",
+			},
+			{
+				metadata: "crvs.head.wife",
+				label: "Wife Name",
+				inputType: "text",
+			},
+			{
+				metadata: "crvs.family.member",
+				label: "Additional Family Member(s)",
+				inputType: "repeatable-text",
+				placeholder: "Enter additional family member name",
+			},
+			{
+				metadata: "crvs.date.registration",
+				label: "Registration Date",
+				inputType: "date",
+			},
+			{
+				metadata: "crvs.family.count",
+				label: "Family Count",
+				inputType: "number",
+			},
+			{
+				metadata: "dc.description",
+				label: "Family Summary",
+				inputType: "textarea",
+			},
+		],
+	},
+];
+
+const vitalEventSections = [
+	{
+		section: "birth",
+		title: "Birth",
+		fields: [
+			{
+				metadata: "crvs.birth.childName",
+				label: "Child Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.gender",
+				label: "Gender",
+				inputType: "dropdown",
+				valuePairs: "gender_types",
+			},
+			{
+				metadata: "crvs.birth.dateOfBirth",
+				label: "Date of Birth",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.placeOfBirth",
+				label: "Place of Birth",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.childCitizenship",
+				label: "Citizenship",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.motherName",
+				label: "Mother Full Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.motherCitizenship",
+				label: "Mother's Citizenship",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.fatherName",
+				label: "Father Full Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.fatherCitizenship",
+				label: "Father's Citizenship",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.registeredDate",
+				label: "Birth Registered Date",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.birth.certificateIssuedDate",
+				label: "Certificate Issued Date",
+				inputType: "date",
+				valuePairs: null,
+			},
+		],
+	},
+	{
+		section: "marriageAndDivorce",
+		title: "Marriage and Divorce",
+		fields: [
+			{
+				metadata: "crvs.marriage.husbandName",
+				label: "Husband Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.marriage.wifeName",
+				label: "Wife Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.marriage.date",
+				label: "Marriage Date",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.divorce.date",
+				label: "Divorce Date",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.divorce.courtApprovalDate",
+				label: "Court Approval Date",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.divorce.courtCaseNumber",
+				label: "Court Case Number",
+				inputType: "text",
+				valuePairs: null,
+			},
+		],
+	},
+	{
+		section: "death",
+		title: "Death",
+		fields: [
+			{
+				metadata: "crvs.death.personName",
+				label: "Full Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.gender",
+				label: "Gender",
+				inputType: "dropdown",
+				valuePairs: "gender_types",
+			},
+			{
+				metadata: "crvs.death.dateOfDeath",
+				label: "Date of Death",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.placeOfDeath",
+				label: "Place of Death",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.dateOfBirth",
+				label: "Date of Birth",
+				inputType: "date",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.placeOfBirth",
+				label: "Place of Birth",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.citizenship",
+				label: "Citizenship",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.motherName",
+				label: "Mother Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.fatherName",
+				label: "Father Name",
+				inputType: "text",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.reason",
+				label: "Cause of Death",
+				inputType: "textarea",
+				valuePairs: null,
+			},
+			{
+				metadata: "crvs.death.certificateIssuedDate",
+				label: "Certificate Issued Date",
+				inputType: "date",
+				valuePairs: null,
+			},
+		],
+	},
+];
+
+const valuePairs = {
+	gender_types: genderOptions,
+	house_types: houseTypeOptions,
+};
+
+const getInitialHouseMetadata = () => ({
+	"crvs.identifier.houseType": "የግል መኖሪያ ቤት",
+	"crvs.identifier.otherHouseType": "",
+	"crvs.identifier.houseNumber": "",
+	"crvs.head.husband": "",
+	"crvs.head.wife": "",
+	"crvs.family.member": [""],
+	"crvs.date.registration": "",
+	"crvs.family.count": 0,
+	"dc.description": "",
+});
+
+const getEntityTypeFromCollection = (collection) => {
+	const entityTypeValues = collection?.metadata?.["dspace.entity.type"];
+	if (!Array.isArray(entityTypeValues)) return "House";
+	const match = entityTypeValues.find(
+		(entry) =>
+			typeof entry?.value === "string" && entry.value.trim().length > 0,
+	);
+	return match?.value || "House";
+};
+
+const normalizeEntityType = (entityType) =>
+	(entityType || "").replace(/\s+/g, "").toLowerCase();
 
 const RepeatableField = ({ label, values, setValues, placeholder }) => {
 	const addField = () => setValues([...values, ""]);
@@ -101,6 +384,66 @@ const RepeatableField = ({ label, values, setValues, placeholder }) => {
 	);
 };
 
+const IdentifiersField = ({
+	label,
+	identifiers,
+	onChange,
+	onAdd,
+	onRemove,
+}) => {
+	return (
+		<div>
+			<Label>{label}</Label>
+			<div>
+				{identifiers.map((id, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: <ignore>
+					<div key={index} className="mb-2 flex gap-2">
+						<Select
+							value={id.type}
+							onValueChange={(value) => onChange(index, "type", value)}
+							className="grow"
+						>
+							<SelectTrigger className="w-40">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{identifierOptions.map((t) => (
+									<SelectItem key={t.stored} value={t.stored}>
+										{t.display}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<InputGroup>
+							<InputGroupInput
+								type="text"
+								placeholder="Enter identifier"
+								value={id.value}
+								onChange={(e) => onChange(index, "value", e.target.value)}
+								autoComplete="off"
+							/>
+							{identifiers.length > 1 && (
+								<InputGroupAddon align="end">
+									<InputGroupButton
+										variant="ghost"
+										onClick={() => onRemove(index)}
+									>
+										<Trash2Icon className="text-destructive" />
+									</InputGroupButton>
+								</InputGroupAddon>
+							)}
+						</InputGroup>
+					</div>
+				))}
+			</div>
+			<Button size="sm" variant="ghost" type="button" onClick={onAdd}>
+				<PlusCircleIcon />
+				Add Identifier
+			</Button>
+		</div>
+	);
+};
+
 const MetadataEditor = () => {
 	// File
 	const [files, setFiles] = useState([]);
@@ -116,18 +459,16 @@ const MetadataEditor = () => {
 	const [showCollectionDropdown, setShowCollectionDropdown] = useState(false);
 
 	// Metadata
-	const [houseType, setHouseType] = useState("የግል መኖሪያ ቤት");
-	const [otherHouseType, setOtherHouseType] = useState();
-	const [houseNumber, setHouseNumber] = useState("");
-	const [husbandName, setHusbandName] = useState("");
-	const [wifeName, setWifeName] = useState("");
-	const [additionalFamilyMembers, setAdditionalFamilyMembers] = useState([""]);
-	const [dateOfRegistration, setDateOfRegistration] = useState("");
-	const [identifiers, setIdentifiers] = useState([
+	const [houseMetadata, setHouseMetadata] = useState(getInitialHouseMetadata);
+	const [houseIdentifiers, setHouseIdentifiers] = useState([
 		{ type: "filenumber", value: "" },
 	]);
-	const [familyCount, setFamilyCount] = useState(0);
-	const [familySummary, setFamilySummary] = useState("");
+	const [vitalEventMetadata, setVitalEventMetadata] = useState({});
+	const [vitalEventIdentifiers, setVitalEventIdentifiers] = useState({
+		birth: [{ type: "filenumber", value: "" }],
+		marriageAndDivorce: [{ type: "filenumber", value: "" }],
+		death: [{ type: "filenumber", value: "" }],
+	});
 
 	// PDF viewer states
 	const [numPages, setNumPages] = useState(null);
@@ -537,6 +878,10 @@ const MetadataEditor = () => {
 	};
 
 	const isEmpty = files.length === 0;
+	const selectedCollection = collections.find((c) => c.uuid === collectionId);
+	const entityType = getEntityTypeFromCollection(selectedCollection);
+	const isVitalEventType = normalizeEntityType(entityType) === "vitalevent";
+	const isHouseType = !isVitalEventType;
 
 	const handleFileMetadataChange = (fileId, field, value) => {
 		setFiles((prev) =>
@@ -549,14 +894,33 @@ const MetadataEditor = () => {
 		);
 	};
 
+	const handleVitalEventFieldChange = (metadataKey, value) => {
+		setVitalEventMetadata((prev) => ({
+			...prev,
+			[metadataKey]: value,
+		}));
+	};
+	const handleHouseFieldChange = (metadataKey, value) => {
+		setHouseMetadata((prev) => ({
+			...prev,
+			[metadataKey]: value,
+		}));
+	};
+
 	const handleSubmit = async () => {
 		if (uploading || files.length === 0) {
 			alert("Please select files to upload.");
 			return;
 		}
 
-		if (!houseNumber || !collectionId) {
-			alert("Please fill all mandatory fields: House Number and Collection");
+		if (
+			!collectionId ||
+			(isHouseType && !houseMetadata["crvs.identifier.houseNumber"])
+		) {
+			const message = isHouseType
+				? "Please fill all mandatory fields: House Number and Collection"
+				: "Please select a collection.";
+			alert(message);
 			return;
 		}
 
@@ -583,42 +947,83 @@ const MetadataEditor = () => {
 				other: "dc.identifier.other",
 			};
 
-			const processedIdentifiers = {};
-			const otherIdentifiers = [];
+			const processIdentifierList = (identifierList) => {
+				const result = {};
+				const otherIdentifiers = [];
 
-			identifiers.forEach((id) => {
-				if (!id.value || !id.value.trim()) return;
+				(identifierList || []).forEach((id) => {
+					if (!id.value || !id.value.trim()) return;
 
-				if (id.type === "other") {
-					otherIdentifiers.push(id.value);
-				} else {
-					const key = identifierMap[id.type];
-					if (key) {
-						if (!processedIdentifiers[key]) {
-							processedIdentifiers[key] = [];
+					if (id.type === "other") {
+						otherIdentifiers.push(id.value);
+					} else {
+						const key = identifierMap[id.type];
+						if (key) {
+							if (!result[key]) {
+								result[key] = [];
+							}
+							result[key].push(id.value);
 						}
-						processedIdentifiers[key].push(id.value);
 					}
+				});
+
+				if (otherIdentifiers.length > 0) {
+					result["dc.identifier.other"] = otherIdentifiers;
 				}
-			});
 
-			if (otherIdentifiers.length > 0) {
-				processedIdentifiers["dc.identifier.other"] = otherIdentifiers;
-			}
-
-			const rawMetadata = {
-				"crvs.identifier.houseType": houseType,
-				"crvs.identifier.otherHouseType": otherHouseType,
-				"crvs.identifier.houseNumber": houseNumber,
-				"crvs.identifier.houseFamilyKey": `${houseNumber} - ${husbandName} - ${wifeName}`,
-				"crvs.head.husband": husbandName,
-				"crvs.head.wife": wifeName,
-				"crvs.family.member": additionalFamilyMembers.filter((a) => a.trim()),
-				"crvs.date.registration": dateOfRegistration,
-				"crvs.family.count": familyCount,
-				"dc.description": familySummary,
-				...processedIdentifiers,
+				return result;
 			};
+
+			const processSectionIdentifierList = (section, identifierList) => {
+				const result = {};
+				const otherIdentifiers = [];
+
+				(identifierList || []).forEach((id) => {
+					if (!id.value || !id.value.trim()) return;
+
+					if (id.type === "other") {
+						otherIdentifiers.push(id.value);
+					} else {
+						const key = identifierMap[id.type];
+						if (key) {
+							if (!result[key]) {
+								result[key] = [];
+							}
+							result[key].push(id.value);
+						}
+					}
+				});
+
+				if (otherIdentifiers.length > 0) {
+					result["dc.identifier.other"] = otherIdentifiers;
+				}
+
+				return Object.entries(result).map(([field, values]) => ({
+					section,
+					field,
+					values,
+				}));
+			};
+
+			const processedHouseIdentifiers = processIdentifierList(houseIdentifiers);
+			const processedVitalEventIdentifiers = Object.entries(
+				vitalEventIdentifiers,
+			).flatMap(([section, list]) =>
+				processSectionIdentifierList(section, list),
+			);
+
+			const rawMetadata = isHouseType
+				? {
+						...houseMetadata,
+						"crvs.identifier.houseFamilyKey": `${houseMetadata["crvs.identifier.houseNumber"]} - ${houseMetadata["crvs.head.husband"] || ""} - ${houseMetadata["crvs.head.wife"] || ""}`,
+						"crvs.family.member": (
+							houseMetadata["crvs.family.member"] || []
+						).filter((value) => value.trim()),
+						...processedHouseIdentifiers,
+					}
+				: {
+						...vitalEventMetadata,
+					};
 
 			// Filter empty fields
 			const metadataFields = Object.fromEntries(
@@ -631,6 +1036,7 @@ const MetadataEditor = () => {
 			const metaSuccess = await dspaceService.updateMetadata(
 				workspaceItemId,
 				metadataFields,
+				processedVitalEventIdentifiers,
 			);
 			if (!metaSuccess) {
 				console.error(
@@ -666,14 +1072,14 @@ const MetadataEditor = () => {
 			setCollectionId("");
 			setFiles([]);
 			setSelectedFileId(null);
-			setHouseNumber("");
-			setHusbandName("");
-			setWifeName("");
-			setAdditionalFamilyMembers([""]);
-			setDateOfRegistration("");
-			setFamilyCount("");
-			setFamilySummary("");
-			setIdentifiers([{ type: "filenumber", value: "" }]);
+			setHouseMetadata(getInitialHouseMetadata());
+			setVitalEventMetadata({});
+			setHouseIdentifiers([{ type: "filenumber", value: "" }]);
+			setVitalEventIdentifiers({
+				birth: [{ type: "filenumber", value: "" }],
+				marriageAndDivorce: [{ type: "filenumber", value: "" }],
+				death: [{ type: "filenumber", value: "" }],
+			});
 		} catch (e) {
 			console.error("Critical upload error:", e);
 			alert(`Upload failed: ${e?.message || e}`);
@@ -702,16 +1108,42 @@ const MetadataEditor = () => {
 		setPdfError(null);
 	};
 
-	const handleIdentifierChange = (index, field, value) => {
-		const newIdentifiers = [...identifiers];
+	const handleHouseIdentifierChange = (index, field, value) => {
+		const newIdentifiers = [...houseIdentifiers];
 		newIdentifiers[index][field] = value;
-		setIdentifiers(newIdentifiers);
+		setHouseIdentifiers(newIdentifiers);
 	};
-	const addIdentifier = () => {
-		setIdentifiers([...identifiers, { type: "filenumber", value: "" }]);
+	const addHouseIdentifier = () => {
+		setHouseIdentifiers([
+			...houseIdentifiers,
+			{ type: "filenumber", value: "" },
+		]);
 	};
-	const removeIdentifier = (index) =>
-		setIdentifiers(identifiers.filter((_, i) => i !== index));
+	const removeHouseIdentifier = (index) =>
+		setHouseIdentifiers(houseIdentifiers.filter((_, i) => i !== index));
+
+	const handleVitalIdentifierChange = (section, index, field, value) => {
+		setVitalEventIdentifiers((prev) => {
+			const sectionIdentifiers = [...(prev[section] || [])];
+			sectionIdentifiers[index] = {
+				...sectionIdentifiers[index],
+				[field]: value,
+			};
+			return { ...prev, [section]: sectionIdentifiers };
+		});
+	};
+	const addVitalIdentifier = (section) => {
+		setVitalEventIdentifiers((prev) => ({
+			...prev,
+			[section]: [...(prev[section] || []), { type: "filenumber", value: "" }],
+		}));
+	};
+	const removeVitalIdentifier = (section, index) => {
+		setVitalEventIdentifiers((prev) => ({
+			...prev,
+			[section]: (prev[section] || []).filter((_, i) => i !== index),
+		}));
+	};
 
 	const onDocumentLoadError = (_error) => setPdfError("Failed to load PDF.");
 	const changePage = (offset) =>
@@ -847,177 +1279,192 @@ const MetadataEditor = () => {
 									</Select>
 								</div>
 
-								<div>
-									<Label htmlFor="houseType">
-										House Type <span className="text-destructive">*</span>
-									</Label>
-									<Select
-										id="houseType"
-										value={houseType}
-										onValueChange={(e) => setHouseType(e)}
-										className="w-full"
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Select house type" />
-										</SelectTrigger>
-										<SelectContent>
-											{houseTypeOptions.map((t) => (
-												<SelectItem key={t} value={t}>
-													{t}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
+								{isHouseType
+									? houseSections.map((section) => (
+											<div key={section.section} className="space-y-4">
+												{section.fields.map((field) => {
+													const isVisible = field.visibleWhen
+														? houseMetadata[field.visibleWhen.metadata] ===
+															field.visibleWhen.equals
+														: true;
+													if (!isVisible) return null;
 
-								{houseType === "ሌሎች" && (
-									<div>
-										<Label htmlFor="otherHouseType">Other House Type</Label>
-										<Input
-											id="otherHouseType"
-											type="text"
-											value={otherHouseType}
-											onChange={(e) => setOtherHouseType(e.target.value)}
-											required
-										/>
-									</div>
-								)}
-
-								<div>
-									<Label htmlFor="houseNumber">
-										House Number <span className="text-destructive">*</span>
-									</Label>
-									<Input
-										id="houseNumber"
-										type="text"
-										value={houseNumber}
-										onChange={(e) => setHouseNumber(e.target.value)}
-										required
-									/>
-								</div>
-
-								<div>
-									<Label htmlFor="husbandName">Husband Name</Label>
-									<Input
-										id="husbandName"
-										type="text"
-										value={husbandName}
-										onChange={(e) => setHusbandName(e.target.value)}
-										required
-									/>
-								</div>
-
-								<div>
-									<Label htmlFor="wifeName">Wife Name</Label>
-									<Input
-										id="wifeName"
-										type="text"
-										value={wifeName}
-										onChange={(e) => setWifeName(e.target.value)}
-										required
-									/>
-								</div>
-
-								<RepeatableField
-									label="Additional Family Member(s)"
-									values={additionalFamilyMembers}
-									setValues={setAdditionalFamilyMembers}
-									placeholder="Enter additional family member name"
-								/>
-
-								<div>
-									<Label htmlFor="registrationDate">Registration Date</Label>
-									<Input
-										id="registrationDate"
-										type="date"
-										value={dateOfRegistration}
-										onChange={(e) => setDateOfRegistration(e.target.value)}
-										required
-									/>
-								</div>
-
-								<div>
-									<Label htmlFor="familyCount">Family Count</Label>
-									<Input
-										id="familyCount"
-										type="number"
-										value={familyCount}
-										onChange={(e) => setFamilyCount(e.target.value)}
-										autoComplete="off"
-									/>
-								</div>
-
-								<div>
-									<Label htmlFor="familySummary">Family Summary</Label>
-									<Textarea
-										id="familySummary"
-										value={familySummary}
-										onChange={(e) => setFamilySummary(e.target.value)}
-										rows="3"
-									/>
-								</div>
-
-								<div>
-									<Label htmlFor="identifiers">Identifiers</Label>
-									<div id="identifiers">
-										{identifiers.map((id, index) => (
-											// biome-ignore lint/suspicious/noArrayIndexKey: <ignore>
-											<div key={index} className="flex gap-2 mb-2">
-												<Select
-													value={id.type}
-													onValueChange={(e) =>
-														handleIdentifierChange(index, "type", e)
+													if (field.inputType === "repeatable-text") {
+														return (
+															<RepeatableField
+																key={field.metadata}
+																label={field.label}
+																values={houseMetadata[field.metadata] || [""]}
+																setValues={(values) =>
+																	handleHouseFieldChange(field.metadata, values)
+																}
+																placeholder={field.placeholder}
+															/>
+														);
 													}
-													className="grow"
-												>
-													<SelectTrigger className="w-40">
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														{identifierOptions.map((t) => (
-															<SelectItem key={t.stored} value={t.stored}>
-																{t.display}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-												<InputGroup>
-													<InputGroupInput
-														type="text"
-														placeholder="Enter identifier"
-														value={id.value}
-														onChange={(e) =>
-															handleIdentifierChange(
-																index,
-																"value",
-																e.target.value,
-															)
-														}
-														autoComplete="off"
-													/>
-													{identifiers.length > 1 && (
-														<InputGroupAddon align="end">
-															<InputGroupButton
-																variant="ghost"
-																onClick={() => removeIdentifier(index)}
+
+													return (
+														<div key={field.metadata}>
+															<Label htmlFor={field.metadata}>
+																{field.label}
+																{field.required ? (
+																	<span className="text-destructive"> *</span>
+																) : null}
+															</Label>
+															{field.inputType === "dropdown" ? (
+																<Select
+																	value={
+																		houseMetadata[field.metadata] || undefined
+																	}
+																	onValueChange={(value) =>
+																		handleHouseFieldChange(
+																			field.metadata,
+																			value,
+																		)
+																	}
+																>
+																	<SelectTrigger className="w-full">
+																		<SelectValue
+																			placeholder={`Select ${field.label}`}
+																		/>
+																	</SelectTrigger>
+																	<SelectContent>
+																		{(valuePairs[field.valuePairs] || []).map(
+																			(option) => (
+																				<SelectItem key={option} value={option}>
+																					{option}
+																				</SelectItem>
+																			),
+																		)}
+																	</SelectContent>
+																</Select>
+															) : field.inputType === "textarea" ? (
+																<Textarea
+																	id={field.metadata}
+																	value={houseMetadata[field.metadata] || ""}
+																	onChange={(e) =>
+																		handleHouseFieldChange(
+																			field.metadata,
+																			e.target.value,
+																		)
+																	}
+																	rows="3"
+																/>
+															) : (
+																<Input
+																	id={field.metadata}
+																	type={field.inputType}
+																	value={houseMetadata[field.metadata] || ""}
+																	onChange={(e) =>
+																		handleHouseFieldChange(
+																			field.metadata,
+																			e.target.value,
+																		)
+																	}
+																	required={field.required}
+																	autoComplete="off"
+																/>
+															)}
+														</div>
+													);
+												})}
+											</div>
+										))
+									: vitalEventSections.map((section) => (
+											<div key={section.section} className="space-y-3">
+												<h3 className="font-semibold">{section.title}</h3>
+												{section.fields.map((field) => (
+													<div key={field.metadata}>
+														<Label htmlFor={field.metadata}>
+															{field.label}
+														</Label>
+														{field.inputType === "dropdown" ? (
+															<Select
+																value={
+																	vitalEventMetadata[field.metadata] ||
+																	undefined
+																}
+																onValueChange={(value) =>
+																	handleVitalEventFieldChange(
+																		field.metadata,
+																		value,
+																	)
+																}
 															>
-																<Trash2Icon className="text-destructive" />
-															</InputGroupButton>
-														</InputGroupAddon>
-													)}
-												</InputGroup>
+																<SelectTrigger className="w-full">
+																	<SelectValue
+																		placeholder={`Select ${field.label}`}
+																	/>
+																</SelectTrigger>
+																<SelectContent>
+																	{(valuePairs[field.valuePairs] || []).map(
+																		(option) => (
+																			<SelectItem key={option} value={option}>
+																				{option}
+																			</SelectItem>
+																		),
+																	)}
+																</SelectContent>
+															</Select>
+														) : field.inputType === "textarea" ? (
+															<Textarea
+																id={field.metadata}
+																value={vitalEventMetadata[field.metadata] || ""}
+																onChange={(e) =>
+																	handleVitalEventFieldChange(
+																		field.metadata,
+																		e.target.value,
+																	)
+																}
+																rows="3"
+															/>
+														) : (
+															<Input
+																id={field.metadata}
+																type={field.inputType}
+																value={vitalEventMetadata[field.metadata] || ""}
+																onChange={(e) =>
+																	handleVitalEventFieldChange(
+																		field.metadata,
+																		e.target.value,
+																	)
+																}
+															/>
+														)}
+													</div>
+												))}
+												<IdentifiersField
+													label={`${section.title} Identifiers`}
+													identifiers={
+														vitalEventIdentifiers[section.section] || [
+															{ type: "filenumber", value: "" },
+														]
+													}
+													onChange={(index, field, value) =>
+														handleVitalIdentifierChange(
+															section.section,
+															index,
+															field,
+															value,
+														)
+													}
+													onAdd={() => addVitalIdentifier(section.section)}
+													onRemove={(index) =>
+														removeVitalIdentifier(section.section, index)
+													}
+												/>
 											</div>
 										))}
-									</div>
-									<Button
-										size="sm"
-										variant="ghost"
-										type="button"
-										onClick={addIdentifier}
-									>
-										<PlusCircleIcon /> Add Identifier
-									</Button>
-								</div>
+
+								{isHouseType && (
+									<IdentifiersField
+										label="Identifiers"
+										identifiers={houseIdentifiers}
+										onChange={handleHouseIdentifierChange}
+										onAdd={addHouseIdentifier}
+										onRemove={removeHouseIdentifier}
+									/>
+								)}
 
 								{/* File List Section */}
 								<div>
