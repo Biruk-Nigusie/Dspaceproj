@@ -31,3 +31,5 @@ ql -U *
 
 # Sample data folder
 sample_data/
+
+ocr_debug/
