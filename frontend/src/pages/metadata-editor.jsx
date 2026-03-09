@@ -332,6 +332,109 @@ const getEntityTypeFromCollection = (collection) => {
 const normalizeEntityType = (entityType) =>
 	(entityType || "").replace(/\s+/g, "").toLowerCase();
 
+const houseMetadataKeys = new Set(
+	houseSections.flatMap((section) =>
+		section.fields.map((field) => field.metadata),
+	),
+);
+
+const vitalEventMetadataKeys = new Set(
+	vitalEventSections.flatMap((section) =>
+		section.fields.map((field) => field.metadata),
+	),
+);
+
+const metadataFieldConfig = new Map(
+	[...houseSections, ...vitalEventSections].flatMap((section) =>
+		section.fields.map((field) => [field.metadata, field]),
+	),
+);
+
+const dedupeStringValues = (values) => {
+	const seen = new Set();
+	const result = [];
+
+	for (const value of values || []) {
+		if (typeof value !== "string") continue;
+		const trimmedValue = value.trim();
+		if (!trimmedValue || seen.has(trimmedValue)) continue;
+		seen.add(trimmedValue);
+		result.push(trimmedValue);
+	}
+
+	return result;
+};
+
+const normalizeOcrMetadata = (metadata) =>
+	Object.fromEntries(
+		Object.entries(metadata || {})
+			.map(([field, fieldValues]) => [
+				field,
+				dedupeStringValues([
+					...(Array.isArray(fieldValues?.en) ? fieldValues.en : []),
+					...(Array.isArray(fieldValues?.am) ? fieldValues.am : []),
+				]),
+			])
+			.filter(([_, values]) => values.length > 0),
+	);
+
+const mergeOcrCandidateMaps = (currentMap, incomingMap) => {
+	const merged = { ...currentMap };
+
+	for (const [field, values] of Object.entries(incomingMap || {})) {
+		merged[field] = dedupeStringValues([...(merged[field] || []), ...values]);
+	}
+
+	return merged;
+};
+
+const isBlankMetadataValue = (value) => {
+	if (Array.isArray(value)) {
+		return value.every(
+			(entry) => typeof entry !== "string" || entry.trim().length === 0,
+		);
+	}
+
+	return typeof value !== "string" || value.trim().length === 0;
+};
+
+const applyOcrCandidatesToMetadata = (metadata, ocrCandidates, allowedKeys) => {
+	const nextMetadata = { ...metadata };
+
+	for (const [field, values] of Object.entries(ocrCandidates || {})) {
+		if (!allowedKeys.has(field) || values.length === 0) continue;
+
+		const fieldConfig = metadataFieldConfig.get(field);
+		const currentValue = nextMetadata[field];
+
+		if (!isBlankMetadataValue(currentValue)) continue;
+
+		nextMetadata[field] =
+			fieldConfig?.inputType === "repeatable-text" ? [values[0]] : values[0];
+	}
+
+	return nextMetadata;
+};
+
+const inferDocumentTypeFromOcr = (ocrDocumentType) => {
+	const normalizedValue = (ocrDocumentType || "").trim().toLowerCase();
+	if (!normalizedValue) return null;
+
+	if (normalizedValue.includes("birth")) return "Birth Certificate";
+	if (normalizedValue.includes("death")) return "Death Certificate";
+	if (normalizedValue.includes("marriage")) return "Marriage Certificate";
+	if (normalizedValue.includes("divorce")) return "Divorce Decree";
+	if (normalizedValue.includes("adoption")) return "Adoption Decree";
+	if (normalizedValue.includes("id")) return "ID Card";
+	if (normalizedValue.includes("support")) return "Supporting Document";
+
+	return (
+		documentTypeOptions.find(
+			(option) => option.toLowerCase() === normalizedValue,
+		) || null
+	);
+};
+
 const RepeatableField = ({ label, values, setValues, placeholder }) => {
 	const addField = () => setValues([...values, ""]);
 	const removeField = (index) =>
@@ -469,6 +572,8 @@ const MetadataEditor = () => {
 		marriageAndDivorce: [{ type: "filenumber", value: "" }],
 		death: [{ type: "filenumber", value: "" }],
 	});
+	const [ocrMetadataCandidates, setOcrMetadataCandidates] = useState({});
+	const [ocrLoadingCount, setOcrLoadingCount] = useState(0);
 
 	// PDF viewer states
 	const [numPages, setNumPages] = useState(null);
@@ -480,6 +585,7 @@ const MetadataEditor = () => {
 
 	// Refs
 	const collectionDropdownRef = useRef(null);
+	const ocrMetadataCandidatesRef = useRef({});
 
 	// Merge Modal states
 	const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
@@ -845,8 +951,80 @@ const MetadataEditor = () => {
 		};
 	}, [showCollectionDropdown]);
 
-	const handleFileUpload = (event) => {
+	const mergeOcrMetadataIntoForm = (incomingCandidates) => {
+		const mergedCandidates = mergeOcrCandidateMaps(
+			ocrMetadataCandidatesRef.current,
+			incomingCandidates,
+		);
+
+		ocrMetadataCandidatesRef.current = mergedCandidates;
+		setOcrMetadataCandidates(mergedCandidates);
+		setHouseMetadata((prev) =>
+			applyOcrCandidatesToMetadata(prev, mergedCandidates, houseMetadataKeys),
+		);
+		setVitalEventMetadata((prev) =>
+			applyOcrCandidatesToMetadata(
+				prev,
+				mergedCandidates,
+				vitalEventMetadataKeys,
+			),
+		);
+	};
+
+	const applyOcrDocumentTypeToFiles = (fileIds, ocrCandidates) => {
+		const inferredDocumentType = (ocrCandidates["crvs.documentType"] || [])
+			.map(inferDocumentTypeFromOcr)
+			.find(Boolean);
+
+		if (!inferredDocumentType) return;
+
+		setFiles((prev) =>
+			prev.map((file) =>
+				fileIds.includes(file.id) &&
+				(!file.documentType || file.documentType === "Other")
+					? { ...file, documentType: inferredDocumentType }
+					: file,
+			),
+		);
+	};
+
+	const extractOcrMetadataForFiles = async (uploadedFiles, fileIds) => {
+		if (uploadedFiles.length === 0) return;
+
+		setOcrLoadingCount((prev) => prev + 1);
+
+		try {
+			const formData = new FormData();
+			for (const file of uploadedFiles) {
+				formData.append("files", file);
+			}
+
+			const response = await fetch("/api/ocr/extract/", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				throw new Error(`OCR request failed with status ${response.status}`);
+			}
+
+			const data = await response.json();
+			const normalizedMetadata = normalizeOcrMetadata(data?.metadata);
+
+			if (Object.keys(normalizedMetadata).length > 0) {
+				mergeOcrMetadataIntoForm(normalizedMetadata);
+				applyOcrDocumentTypeToFiles(fileIds, normalizedMetadata);
+			}
+		} catch (error) {
+			console.error("OCR metadata extraction failed:", error);
+		} finally {
+			setOcrLoadingCount((prev) => Math.max(prev - 1, 0));
+		}
+	};
+
+	const handleFileUpload = async (event) => {
 		const uploadedFiles = Array.from(event.target.files || []);
+		if (uploadedFiles.length === 0) return;
 
 		const newFileItems = uploadedFiles.map((file) => ({
 			id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -860,14 +1038,17 @@ const MetadataEditor = () => {
 			documentStatus: "Active",
 		}));
 
-		const updatedFiles = [...files, ...newFileItems];
-		setFiles(updatedFiles);
+		setFiles((prev) => [...prev, ...newFileItems]);
 
 		if (newFileItems.length > 0 && !selectedFileId) {
 			handleFileSelect(newFileItems[0].id);
 		}
 
 		event.target.value = "";
+		await extractOcrMetadataForFiles(
+			uploadedFiles,
+			newFileItems.map((file) => file.id),
+		);
 	};
 
 	const handleFileSelect = (fileId, _fileObj = null) => {
@@ -907,6 +1088,55 @@ const MetadataEditor = () => {
 		}));
 	};
 
+	const renderOcrCandidateSelector = (
+		metadataKey,
+		currentValue,
+		onValueChange,
+	) => {
+		const candidates = ocrMetadataCandidates[metadataKey] || [];
+		if (candidates.length <= 1) return null;
+
+		const normalizedCurrentValue = Array.isArray(currentValue)
+			? currentValue.find(
+					(value) => typeof value === "string" && value.trim().length > 0,
+				) || ""
+			: currentValue || "";
+
+		const selectedCandidateIndex = candidates.indexOf(normalizedCurrentValue);
+
+		return (
+			<div className="mt-2 rounded-md border border-amber-200 bg-amber-50/60 p-2">
+				<p className="text-xs text-amber-900">
+					OCR found {candidates.length} possible values for this field.
+				</p>
+				<Select
+					value={
+						selectedCandidateIndex >= 0
+							? String(selectedCandidateIndex)
+							: undefined
+					}
+					onValueChange={(value) =>
+						onValueChange(candidates[Number.parseInt(value, 10)])
+					}
+				>
+					<SelectTrigger className="mt-2 w-full bg-background">
+						<SelectValue placeholder="Choose an OCR value" />
+					</SelectTrigger>
+					<SelectContent>
+						{candidates.map((candidate, index) => (
+							<SelectItem
+								key={`${metadataKey}-${candidate}`}
+								value={String(index)}
+							>
+								{candidate}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</div>
+		);
+	};
+
 	const handleSubmit = async () => {
 		if (uploading || files.length === 0) {
 			alert("Please select files to upload.");
@@ -918,7 +1148,7 @@ const MetadataEditor = () => {
 			(isHouseType && !houseMetadata["crvs.identifier.houseNumber"])
 		) {
 			const message = isHouseType
-				? "Please fill all mandatory fields: House Number and Collection"
+				? "Please fill all mandatory fields: House Number, House Type and Collection"
 				: "Please select a collection.";
 			alert(message);
 			return;
@@ -1074,6 +1304,8 @@ const MetadataEditor = () => {
 			setSelectedFileId(null);
 			setHouseMetadata(getInitialHouseMetadata());
 			setVitalEventMetadata({});
+			ocrMetadataCandidatesRef.current = {};
+			setOcrMetadataCandidates({});
 			setHouseIdentifiers([{ type: "filenumber", value: "" }]);
 			setVitalEventIdentifiers({
 				birth: [{ type: "filenumber", value: "" }],
@@ -1215,6 +1447,12 @@ const MetadataEditor = () => {
 						>
 							{uploading ? "Uploading..." : "Submit"}
 						</Button>
+						{ocrLoadingCount > 0 && (
+							<div className="flex items-center gap-2 text-sm text-muted-foreground">
+								<RotateCw className="h-4 w-4 animate-spin" />
+								<span>Extracting OCR metadata...</span>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
@@ -1291,15 +1529,27 @@ const MetadataEditor = () => {
 
 													if (field.inputType === "repeatable-text") {
 														return (
-															<RepeatableField
-																key={field.metadata}
-																label={field.label}
-																values={houseMetadata[field.metadata] || [""]}
-																setValues={(values) =>
-																	handleHouseFieldChange(field.metadata, values)
-																}
-																placeholder={field.placeholder}
-															/>
+															<div key={field.metadata}>
+																<RepeatableField
+																	label={field.label}
+																	values={houseMetadata[field.metadata] || [""]}
+																	setValues={(values) =>
+																		handleHouseFieldChange(
+																			field.metadata,
+																			values,
+																		)
+																	}
+																	placeholder={field.placeholder}
+																/>
+																{renderOcrCandidateSelector(
+																	field.metadata,
+																	houseMetadata[field.metadata] || [""],
+																	(value) =>
+																		handleHouseFieldChange(field.metadata, [
+																			value,
+																		]),
+																)}
+															</div>
 														);
 													}
 
@@ -1364,6 +1614,12 @@ const MetadataEditor = () => {
 																	required={field.required}
 																	autoComplete="off"
 																/>
+															)}
+															{renderOcrCandidateSelector(
+																field.metadata,
+																houseMetadata[field.metadata] || "",
+																(value) =>
+																	handleHouseFieldChange(field.metadata, value),
 															)}
 														</div>
 													);
@@ -1430,6 +1686,15 @@ const MetadataEditor = () => {
 																	)
 																}
 															/>
+														)}
+														{renderOcrCandidateSelector(
+															field.metadata,
+															vitalEventMetadata[field.metadata] || "",
+															(value) =>
+																handleVitalEventFieldChange(
+																	field.metadata,
+																	value,
+																),
 														)}
 													</div>
 												))}
@@ -1522,11 +1787,11 @@ const MetadataEditor = () => {
 															<div className="flex space-x-2">
 																<Select
 																	value={file.documentType || "Other"}
-																	onChange={(e) =>
+																	onValueChange={(value) =>
 																		handleFileMetadataChange(
 																			file.id,
 																			"documentType",
-																			e,
+																			value,
 																		)
 																	}
 																>
@@ -1543,11 +1808,11 @@ const MetadataEditor = () => {
 																</Select>
 																<Select
 																	value={file.documentStatus || "Active"}
-																	onChange={(e) =>
+																	onValueChange={(value) =>
 																		handleFileMetadataChange(
 																			file.id,
 																			"documentStatus",
-																			e,
+																			value,
 																		)
 																	}
 																>
