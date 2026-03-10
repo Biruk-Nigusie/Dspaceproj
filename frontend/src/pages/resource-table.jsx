@@ -14,6 +14,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+import { SidebarOpenIcon } from "lucide-react";
 import MetadataTreeFilter from "@/components/metadata-tree-filter";
 import { columns } from "@/components/resource/columns";
 import FilterLabel from "@/components/resource/filter-label";
@@ -29,6 +30,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { PdfPreview } from "../components/pdf-preview";
 import dspaceService from "../services/dspaceService";
 
@@ -36,6 +38,7 @@ export default function ResourceTable() {
 	const [allResources, setAllResources] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [activeFilters, setActiveFilters] = useState({});
+	const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
 	const [columnFilters, setColumnFilters] = useState({
 		houseType: { value: "", operator: "equals" },
@@ -260,27 +263,54 @@ export default function ResourceTable() {
 	return (
 		<>
 			<div className="flex justify-between items-center mb-6">
-				<h3 className="text-xl font-bold space-x-2">
-					<span>Search Results</span>
-					<span className="text-muted-foreground">
-						({resources.length} results)
-					</span>
-				</h3>
+				<div className="flex items-center gap-4">
+					<Button
+						variant="outline"
+						onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+						title={isSidebarOpen ? "Hide Filters" : "Show Filters"}
+					>
+						<SidebarOpenIcon
+							className={cn(
+								"transition-all duration-300",
+								isSidebarOpen && "rotate-180",
+							)}
+						/>
+						<span className="hidden sm:inline">Filters</span>
+						{Object.keys(activeFilters).length > 0 && (
+							<span className="ml-1 rounded-full bg-primary w-5 h-5 flex items-center justify-center text-[10px] text-primary-foreground">
+								{Object.keys(activeFilters).length}
+							</span>
+						)}
+					</Button>
+					<h3 className="text-xl font-bold space-x-2">
+						<span>Search Results</span>
+						<span className="text-muted-foreground">
+							({resources.length} results)
+						</span>
+					</h3>
+				</div>
 			</div>
 
 			<div className="flex flex-col lg:flex-row gap-4">
 				{/* Left Sidebar - Metadata Tree Filter */}
-				<div className="lg:w-1/5">
-					<MetadataTreeFilter
-						resources={allResources}
-						selectedFilters={activeFilters}
-						onFilterChange={setActiveFilters}
-						onClearFilters={() => setActiveFilters({})}
-					/>
-				</div>
+				{isSidebarOpen && (
+					<div className="lg:w-1/5">
+						<MetadataTreeFilter
+							resources={allResources}
+							selectedFilters={activeFilters}
+							onFilterChange={setActiveFilters}
+							onClearFilters={() => setActiveFilters({})}
+						/>
+					</div>
+				)}
 
 				{/* Right Content - Resource Table */}
-				<div className="lg:w-4/5">
+				<div
+					className={cn(
+						"transition-all duration-300",
+						isSidebarOpen ? "lg:w-4/5" : "w-full",
+					)}
+				>
 					<Card>
 						<CardContent className="space-y-4">
 							{/* Search Filter Grid - Always Visible */}
