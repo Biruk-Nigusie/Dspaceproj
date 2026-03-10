@@ -1,6 +1,7 @@
 import re
 import logging
 from typing import Dict, Any, List
+from dateutil.parser import parse
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,6 @@ METADATA_FIELDS = [
     "crvs.family.member",
     "crvs.family.count",
     "crvs.date.registration",
-    "crvs.documentType",
     "crvs.document.status",
     "crvs.birth.childName",
     "crvs.birth.gender",
@@ -44,6 +44,26 @@ METADATA_FIELDS = [
 ]
 
 MAX_DIMENSION = 4000
+
+
+def filter_valid_dates(extracted_dates: list):
+    valid_dates = []
+    for val in extracted_dates:
+        dt = parse_date_candidate(val)
+        if dt and dt not in valid_dates:
+            valid_dates.append(dt)
+    return valid_dates
+
+
+def parse_date_candidate(candidate: str):
+    """Try to parse a candidate string into a valid date."""
+    candidate = candidate.strip()
+    try:
+        # Fuzzy allows ignoring extra words like 'Year', 'Month', 'Day'
+        dt = parse(candidate, fuzzy=True, dayfirst=True)
+        return dt.date()  # Return only date part
+    except Exception:
+        return None
 
 
 def extract_metadata(text: str) -> Dict[str, Any]:
@@ -104,10 +124,6 @@ def extract_field_crvs(field: str, text: str):
         "crvs.identifier.houseNumber": {
             "en": [r"(?i)house\s*number[\:\-\s]+([^\n]+)"],
             "am": [r"የቤት\s*ቁጥር[\:\-\s]+([^\n]+)"],
-        },
-        "crvs.documentType": {
-            "en": [r"(?i)(birth|marriage|death|divorce)\s*(?:certificate)?"],
-            "am": [r"(ልደት|ጋብቻ|ሞት|ፍቺ)\s*(?:የምስክር\s*ወረቀት)?"],
         },
         "crvs.birth.childName": {
             "en": [
@@ -364,9 +380,23 @@ def extract_field_crvs(field: str, text: str):
                     logger.debug(f"Regex error for {field} in lang {lang}: {e}")
 
     if field in {
-        "crvs.birth.childName",
         "crvs.birth.dateOfBirth",
         "crvs.birth.registeredDate",
+        "crvs.birth.certificateIssuedDate",
+        "crvs.marriage.date",
+        "crvs.divorce.courtApprovalDate",
+        "crvs.death.dateOfBirth",
+        "crvs.death.dateOfDeath",
+        "crvs.death.certificateIssuedDate",
+    }:
+        all_vals = _concatenate_segment_values(extracted_data)
+        valid_dates = {
+            lang: filter_valid_dates(vals) for lang, vals in all_vals.items()
+        }
+        return valid_dates
+
+    if field in {
+        "crvs.birth.childName",
     }:
         return _concatenate_segment_values(extracted_data)
 

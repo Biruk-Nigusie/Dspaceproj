@@ -398,6 +398,14 @@ const isBlankMetadataValue = (value) => {
 	return typeof value !== "string" || value.trim().length === 0;
 };
 
+const normalizeGenderValue = (value) => {
+	if (typeof value !== "string") return value;
+	const v = value.trim().toLowerCase();
+	if (["male", "m", "ወንድ"].includes(v)) return "Male";
+	if (["female", "f", "ሴት"].includes(v)) return "Female";
+	return value;
+};
+
 const applyOcrCandidatesToMetadata = (metadata, ocrCandidates, allowedKeys) => {
 	const nextMetadata = { ...metadata };
 
@@ -409,8 +417,13 @@ const applyOcrCandidatesToMetadata = (metadata, ocrCandidates, allowedKeys) => {
 
 		if (!isBlankMetadataValue(currentValue)) continue;
 
+		let valToSet = values[0];
+		if (fieldConfig?.valuePairs === "gender_types") {
+			valToSet = normalizeGenderValue(valToSet);
+		}
+
 		nextMetadata[field] =
-			fieldConfig?.inputType === "repeatable-text" ? [values[0]] : values[0];
+			fieldConfig?.inputType === "repeatable-text" ? [valToSet] : valToSet;
 	}
 
 	return nextMetadata;
@@ -971,24 +984,7 @@ const MetadataEditor = () => {
 		);
 	};
 
-	const applyOcrDocumentTypeToFiles = (fileIds, ocrCandidates) => {
-		const inferredDocumentType = (ocrCandidates["crvs.documentType"] || [])
-			.map(inferDocumentTypeFromOcr)
-			.find(Boolean);
-
-		if (!inferredDocumentType) return;
-
-		setFiles((prev) =>
-			prev.map((file) =>
-				fileIds.includes(file.id) &&
-				(!file.documentType || file.documentType === "Other")
-					? { ...file, documentType: inferredDocumentType }
-					: file,
-			),
-		);
-	};
-
-	const extractOcrMetadataForFiles = async (uploadedFiles, fileIds) => {
+	const extractOcrMetadataForFiles = async (uploadedFiles) => {
 		if (uploadedFiles.length === 0) return;
 
 		setOcrLoadingCount((prev) => prev + 1);
@@ -1013,7 +1009,6 @@ const MetadataEditor = () => {
 
 			if (Object.keys(normalizedMetadata).length > 0) {
 				mergeOcrMetadataIntoForm(normalizedMetadata);
-				applyOcrDocumentTypeToFiles(fileIds, normalizedMetadata);
 			}
 		} catch (error) {
 			console.error("OCR metadata extraction failed:", error);
@@ -1076,15 +1071,31 @@ const MetadataEditor = () => {
 	};
 
 	const handleVitalEventFieldChange = (metadataKey, value) => {
+		const fieldConfig = metadataFieldConfig.get(metadataKey);
+		let normalizedValue = value;
+		if (fieldConfig?.valuePairs === "gender_types") {
+			normalizedValue = normalizeGenderValue(value);
+		}
+		
 		setVitalEventMetadata((prev) => ({
 			...prev,
-			[metadataKey]: value,
+			[metadataKey]: normalizedValue,
 		}));
 	};
 	const handleHouseFieldChange = (metadataKey, value) => {
+		const fieldConfig = metadataFieldConfig.get(metadataKey);
+		let normalizedValue = value;
+		if (fieldConfig?.valuePairs === "gender_types") {
+			if (Array.isArray(value)) {
+				normalizedValue = value.map(normalizeGenderValue);
+			} else {
+				normalizedValue = normalizeGenderValue(value);
+			}
+		}
+
 		setHouseMetadata((prev) => ({
 			...prev,
-			[metadataKey]: value,
+			[metadataKey]: normalizedValue,
 		}));
 	};
 
@@ -1102,7 +1113,13 @@ const MetadataEditor = () => {
 				) || ""
 			: currentValue || "";
 
-		const selectedCandidateIndex = candidates.indexOf(normalizedCurrentValue);
+		const fieldConfig = metadataFieldConfig.get(metadataKey);
+		const selectedCandidateIndex = candidates.findIndex((c) => {
+			if (fieldConfig?.valuePairs === "gender_types") {
+				return normalizeGenderValue(c) === normalizedCurrentValue;
+			}
+			return c === normalizedCurrentValue;
+		});
 
 		return (
 			<div className="mt-2 rounded-md border border-amber-200 bg-amber-50/60 p-2">
@@ -1164,6 +1181,7 @@ const MetadataEditor = () => {
 		}
 
 		try {
+
 			// 1. Create workspace item
 			const workspaceItem =
 				await dspaceService.createWorkspaceItem(collectionId);
@@ -1397,6 +1415,12 @@ const MetadataEditor = () => {
 				<div className="flex items-center justify-between">
 					<h1 className="text-lg font-bold">Upload Files</h1>
 					<div className="flex items-center space-x-3">
+						{ocrLoadingCount > 0 && (
+							<div className="flex items-center gap-2 text-sm text-muted-foreground">
+								<RotateCw className="h-4 w-4 animate-spin" />
+								<span>Extracting OCR metadata...</span>
+							</div>
+						)}
 						<Button size="lg" className="relative">
 							<UploadIcon />
 							Upload Files
@@ -1447,12 +1471,6 @@ const MetadataEditor = () => {
 						>
 							{uploading ? "Uploading..." : "Submit"}
 						</Button>
-						{ocrLoadingCount > 0 && (
-							<div className="flex items-center gap-2 text-sm text-muted-foreground">
-								<RotateCw className="h-4 w-4 animate-spin" />
-								<span>Extracting OCR metadata...</span>
-							</div>
-						)}
 					</div>
 				</div>
 			</div>

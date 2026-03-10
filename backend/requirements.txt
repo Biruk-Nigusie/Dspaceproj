@@ -24,3 +24,4 @@ numpy==2.4.2
 opencv-python==4.13.0.92
 pytesseract==0.3.13
 drf-spectacular==0.29.0
+python-dateutil==2.9.0.post0
