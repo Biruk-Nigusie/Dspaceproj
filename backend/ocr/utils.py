@@ -36,7 +36,7 @@ METADATA_FIELDS = [
     "crvs.death.dateOfBirth",
     "crvs.death.dateOfDeath",
     "crvs.death.placeOfDeath",
-    "crvs.death.nationality",
+    "crvs.death.citizenship",
     "crvs.death.motherName",
     "crvs.death.reason",
     "crvs.death.certificateIssuedDate",
@@ -315,23 +315,19 @@ def extract_field_crvs(field: str, text: str):
                 r"(?i)የትውልድ\s*ስፍራ[\:\-\s]+([^\n]+)",
             ],
         },
-        "crvs.de.motherName": {
+        "crvs.death.motherName": {
             "en": [
                 r"(?i)mother[\'\s]*s?\s*full\s*name[\:\-\s]+([^\n]+)",
                 r"(?i)mother[\'\s]\s*name[\:\-\s]+([^\n]+)",
             ],
             "am": [r"የእናት\s*ስም[\:\-\s]+([^\n]+)", r"የእናት\s*ሙሉ\s*ስም[\:\-\s]+([^\n]+)"],
         },
-        "crvs.de.fatherName": {
+        "crvs.death.fatherName": {
             "en": [
                 r"(?i)father[\'\s]*s?\s*full\s*name[\:\-\s]+([^\n]+)",
                 r"(?i)father[\'\s]\s*name[\:\-\s]+([^\n]+)",
             ],
             "am": [r"የአባት\s*ስም[\:\-\s]+([^\n]+)", r"የእናት\s*ሙሉ\s*ስም[\:\-\s]+([^\n]+)"],
-        },
-        "crvs.death.nationality": {
-            "en": [r"(?i)nationality[\:\-\s]+([^\n]+)"],
-            "am": [r"ዜግነት[\:\-\s]+([^\n]+)"],
         },
         "crvs.death.reason": {
             "en": [r"(?i)(?:reason|cause)\s*of\s*death[\:\-\s]+([^\n]+)"],
