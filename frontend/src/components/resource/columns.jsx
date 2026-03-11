@@ -22,7 +22,7 @@ const renderPrimaryIdentifier = (resource) => {
 	return resource.identifiers?.[0] || resource.isbn || resource.issn || "—";
 };
 
-export const columns = [
+const sharedColumnsStart = [
 	{
 		accessorKey: "parentCommunity",
 		header: "Sub City",
@@ -33,71 +33,97 @@ export const columns = [
 		header: "Woreda",
 		cell: renderFallback,
 	},
+];
+
+const sharedIdentifierColumn = {
+	id: "identifiers",
+	header: "Identifier",
+	cell: ({ row }) => {
+		const resource = row.original;
+		const primary = renderPrimaryIdentifier(resource);
+
+		if (
+			!resource.identifierGroups ||
+			Object.keys(resource.identifierGroups).length === 0
+		) {
+			return <span className="truncate max-w-48 block text-sm">{primary}</span>;
+		}
+
+		const labels = {
+			issn: "ISSN",
+			filenumber: "File Number",
+			other: "Other",
+		};
+		const ordered = ["filenumber", "issn", "other"];
+
+		return (
+			<HoverCard>
+				<HoverCardTrigger asChild>
+					<span className="truncate max-w-48 block text-sm cursor-pointer underline decoration-dotted">
+						{primary}
+					</span>
+				</HoverCardTrigger>
+				<HoverCardContent
+					className="w-64 p-3 text-sm shadow-lg rounded-xl border-border/60"
+					align="start"
+				>
+					{ordered.map((g) =>
+						resource.identifierGroups?.[g] ? (
+							<div key={g} className="mb-2 last:mb-0">
+								<div className="font-semibold text-sm text-muted-foreground/80 mb-1">
+									{labels[g]}
+								</div>
+								<div className="space-y-0.5">
+									{resource.identifierGroups[g].map((id, idx) => (
+										<div
+											key={`${g}-${
+												// biome-ignore lint/suspicious/noArrayIndexKey: <ignore>
+												idx
+											}`}
+											className="truncate text-foreground font-medium"
+										>
+											{id}
+										</div>
+									))}
+								</div>
+							</div>
+						) : null,
+					)}
+				</HoverCardContent>
+			</HoverCard>
+		);
+	},
+};
+
+const sharedActionColumn = {
+	id: "actions",
+	cell: ({ row, table }) => {
+		const resource = row.original;
+		const onPreview = table.options.meta?.handlePreview;
+
+		if (resource.source !== "dspace") return null;
+
+		return (
+			<div className="w-full flex justify-center items-center">
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					onClick={(e) => onPreview?.(resource, e)}
+				>
+					<EyeIcon />
+				</Button>
+			</div>
+		);
+	},
+};
+
+export const houseColumns = [
+	...sharedColumnsStart,
 	{
 		accessorKey: "houseNumber",
 		header: "House #",
 		cell: renderFallback,
-	},
-	{
-		id: "identifiers",
-		header: "Identifier",
-		cell: ({ row }) => {
-			const resource = row.original;
-			const primary = renderPrimaryIdentifier(resource);
-
-			if (
-				!resource.identifierGroups ||
-				Object.keys(resource.identifierGroups).length === 0
-			) {
-				return (
-					<span className="truncate max-w-48 block text-sm">{primary}</span>
-				);
-			}
-
-			const labels = {
-				issn: "ISSN",
-				filenumber: "File Number",
-				other: "Other",
-			};
-			const ordered = ["filenumber", "issn", "other"];
-
-			return (
-				<HoverCard>
-					<HoverCardTrigger asChild>
-						<span className="truncate max-w-48 block text-sm cursor-pointer underline decoration-dotted">
-							{primary}
-						</span>
-					</HoverCardTrigger>
-					<HoverCardContent
-						className="w-64 p-3 text-sm shadow-lg rounded-xl border-border/60"
-						align="start"
-					>
-						{ordered.map((g) =>
-							resource.identifierGroups?.[g] ? (
-								<div key={g} className="mb-2 last:mb-0">
-									<div className="font-semibold text-sm text-muted-foreground/80 mb-1">
-										{labels[g]}
-									</div>
-									<div className="space-y-0.5">
-										{resource.identifierGroups[g].map((id, idx) => (
-											<div
-												key={`${g}-${
-													// biome-ignore lint/suspicious/noArrayIndexKey: <ignore>
-													idx
-												}`}
-												className="truncate text-foreground font-medium"
-											>
-												{id}
-											</div>
-										))}
-									</div>
-								</div>
-							) : null,
-						)}
-					</HoverCardContent>
-				</HoverCard>
-			);
-		},
 	},
 	{
 		accessorKey: "houseType",
@@ -119,26 +145,37 @@ export const columns = [
 		header: "Reg. Date",
 		cell: renderFallback,
 	},
+	sharedIdentifierColumn,
+	sharedActionColumn,
+];
+
+export const vitalEventColumns = [
+	...sharedColumnsStart,
 	{
-		id: "actions",
-		cell: ({ row, table }) => {
-			const resource = row.original;
-			const onPreview = table.options.meta?.handlePreview;
-
-			if (resource.source !== "dspace") return null;
-
-			return (
-				<div className="w-full flex justify-center items-center">
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						onClick={(e) => onPreview?.(resource, e)}
-					>
-						<EyeIcon />
-					</Button>
-				</div>
-			);
-		},
+		accessorKey: "eventSubject",
+		header: "Subject Name",
+		cell: renderFallback,
 	},
+	{
+		accessorKey: "eventDate",
+		header: "Event Date",
+		cell: renderFallback,
+	},
+	{
+		accessorKey: "gender",
+		header: "Gender",
+		cell: renderFallback,
+	},
+	{
+		accessorKey: "motherName",
+		header: "Mother Name",
+		cell: renderFallback,
+	},
+	{
+		accessorKey: "fatherName",
+		header: "Father Name",
+		cell: renderFallback,
+	},
+	sharedIdentifierColumn,
+	sharedActionColumn,
 ];

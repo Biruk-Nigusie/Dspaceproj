@@ -16,7 +16,7 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { SidebarOpenIcon } from "lucide-react";
 import MetadataTreeFilter from "@/components/metadata-tree-filter";
-import { columns } from "@/components/resource/columns";
+import { houseColumns, vitalEventColumns } from "@/components/resource/columns";
 import FilterLabel from "@/components/resource/filter-label";
 import { FilterOperatorSelect } from "@/components/resource/filter-operator-select";
 import { FilterValueInput } from "@/components/resource/filter-value-input";
@@ -30,6 +30,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { PdfPreview } from "../components/pdf-preview";
 import dspaceService from "../services/dspaceService";
@@ -39,8 +40,10 @@ export default function ResourceTable() {
 	const [loading, setLoading] = useState(false);
 	const [activeFilters, setActiveFilters] = useState({});
 	const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+	const [activeTab, setActiveTab] = useState("house");
 
 	const [columnFilters, setColumnFilters] = useState({
+		entityType: { value: "House", operator: "equals" },
 		houseType: { value: "", operator: "equals" },
 		houseNumber: { value: "", operator: "contains" },
 		husband: { value: "", operator: "contains" },
@@ -103,6 +106,7 @@ export default function ResourceTable() {
 
 					return {
 						id: item._embedded?.indexableObject?.uuid,
+						entityType: getVal("dspace.entity.type"),
 						identifiers: identifiers,
 						identifierGroups: identifierGroups,
 						houseFamilyKey:
@@ -113,6 +117,32 @@ export default function ResourceTable() {
 						houseNumber: getVal("crvs.identifier.houseNumber"),
 						houseType: getVal("crvs.identifier.houseType"),
 						dateOfRegistration: getVal("crvs.date.registration"),
+
+						eventSubject:
+							getValList("crvs.birth.childName") ||
+							getValList("crvs.death.personName") ||
+							(getValList("crvs.marriage.husbandName") &&
+							getValList("crvs.marriage.wifeName")
+								? `${getValList("crvs.marriage.husbandName")} & ${getValList("crvs.marriage.wifeName")}`
+								: getValList("crvs.marriage.husbandName")) ||
+							"",
+						eventDate:
+							getVal("crvs.birth.dateOfBirth") ||
+							getVal("crvs.marriage.date") ||
+							getVal("crvs.divorce.courtApprovalDate") ||
+							getVal("crvs.death.dateOfDeath") ||
+							"",
+						gender:
+							getVal("crvs.birth.gender") || getVal("crvs.death.gender") || "",
+						motherName:
+							getValList("crvs.birth.motherName") ||
+							getValList("crvs.death.motherName") ||
+							"",
+						fatherName:
+							getValList("crvs.birth.fatherName") ||
+							getValList("crvs.death.fatherName") ||
+							"",
+
 						source: "dspace",
 						familySummary: getVal("crvs.description.summary"),
 						external_id:
@@ -220,6 +250,18 @@ export default function ResourceTable() {
 		}));
 	};
 
+	const handleTabChange = (nextTab) => {
+		setActiveTab(nextTab);
+		setPagination((prev) => ({ ...prev, number: 0 }));
+		onColumnFilterChange((prev) => ({
+			...prev,
+			entityType: {
+				value: nextTab === "house" ? "House" : "VitalEvent",
+				operator: "equals",
+			},
+		}));
+	};
+
 	const handlePreview = async (resource, e) => {
 		e.stopPropagation();
 
@@ -261,7 +303,7 @@ export default function ResourceTable() {
 	}, [showPreviewModal, primaryBitstream]);
 
 	return (
-		<>
+		<Tabs value={activeTab} onValueChange={handleTabChange}>
 			<div className="flex justify-between items-center mb-6">
 				<div className="flex items-center gap-4">
 					<Button
@@ -282,12 +324,10 @@ export default function ResourceTable() {
 							</span>
 						)}
 					</Button>
-					<h3 className="text-xl font-bold space-x-2">
-						<span>Search Results</span>
-						<span className="text-muted-foreground">
-							({resources.length} results)
-						</span>
-					</h3>
+					<TabsList className="h-9! m-0!">
+						<TabsTrigger value="house">Resident</TabsTrigger>
+						<TabsTrigger value="vitalEvent">Vital Events</TabsTrigger>
+					</TabsList>
 				</div>
 			</div>
 
@@ -341,6 +381,7 @@ export default function ResourceTable() {
 									)}
 								</div>
 								<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+									{/* Shared Identifier Filter */}
 									<div>
 										<div className="flex items-center justify-between">
 											<FilterLabel
@@ -374,120 +415,137 @@ export default function ResourceTable() {
 											}
 										/>
 									</div>
-									<div>
-										<div className="flex items-center justify-between">
-											<FilterLabel
-												htmlFor="filter-house-number"
-												label="House Number"
-											/>
-											<FilterOperatorSelect
-												value={
-													columnFilters.houseNumber?.operator || "contains"
-												}
+								</div>
+
+								{/* House Specific Filters */}
+								{activeTab === "house" && (
+									<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t">
+										<div>
+											<div className="flex items-center justify-between">
+												<FilterLabel
+													htmlFor="filter-house-number"
+													label="House Number"
+												/>
+												<FilterOperatorSelect
+													value={
+														columnFilters.houseNumber?.operator || "contains"
+													}
+													onChange={(value) =>
+														handleColumnFilterChange(
+															"houseNumber",
+															"operator",
+															value,
+														)
+													}
+													operators={operators}
+												/>
+											</div>
+											<FilterValueInput
+												id="filter-house-number"
+												placeholder="e.g. 123"
+												value={columnFilters.houseNumber?.value || ""}
 												onChange={(value) =>
 													handleColumnFilterChange(
 														"houseNumber",
-														"operator",
+														"value",
 														value,
 													)
 												}
-												operators={operators}
 											/>
 										</div>
-										<FilterValueInput
-											id="filter-house-number"
-											placeholder="e.g. 123"
-											value={columnFilters.houseNumber?.value || ""}
-											onChange={(value) =>
-												handleColumnFilterChange("houseNumber", "value", value)
-											}
-										/>
-									</div>
-									<div>
-										<div className="flex items-center justify-between">
-											<FilterLabel
-												htmlFor="filter-house-type"
-												label="House Type"
-											/>
-											<FilterOperatorSelect
-												value={columnFilters.houseType?.operator || "equals"}
-												onChange={(value) =>
+										<div>
+											<div className="flex items-center justify-between">
+												<FilterLabel
+													htmlFor="filter-house-type"
+													label="House Type"
+												/>
+												<FilterOperatorSelect
+													value={columnFilters.houseType?.operator || "equals"}
+													onChange={(value) =>
+														handleColumnFilterChange(
+															"houseType",
+															"operator",
+															value,
+														)
+													}
+													operators={operators}
+												/>
+											</div>
+											<Select
+												value={columnFilters.houseType?.value || "all"}
+												onValueChange={(value) =>
 													handleColumnFilterChange(
 														"houseType",
-														"operator",
-														value,
+														"value",
+														value === "all" ? "" : value,
 													)
 												}
-												operators={operators}
-											/>
+											>
+												<SelectTrigger
+													id="filter-house-type"
+													className="w-full"
+												>
+													<SelectValue placeholder="All House Types" />
+												</SelectTrigger>
+												<SelectContent className="p-2">
+													<SelectItem value="all">All House Types</SelectItem>
+													{houseTypeOptions.map((option) => (
+														<SelectItem key={option} value={option}>
+															{option}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
 										</div>
-										<Select
-											value={columnFilters.houseType?.value || "all"}
-											onValueChange={(value) =>
-												handleColumnFilterChange(
-													"houseType",
-													"value",
-													value === "all" ? "" : value,
-												)
-											}
-										>
-											<SelectTrigger id="filter-house-type" className="w-full">
-												<SelectValue placeholder="All House Types" />
-											</SelectTrigger>
-											<SelectContent className="p-2">
-												<SelectItem value="all">All House Types</SelectItem>
-												{houseTypeOptions.map((option) => (
-													<SelectItem key={option} value={option}>
-														{option}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-									<div>
-										<div className="flex items-center justify-between">
-											<FilterLabel
-												htmlFor="filter-husband"
-												label="Husband Name"
-											/>
-											<FilterOperatorSelect
-												value={columnFilters.husband?.operator || "contains"}
+										<div>
+											<div className="flex items-center justify-between">
+												<FilterLabel
+													htmlFor="filter-husband"
+													label="Husband Name"
+												/>
+												<FilterOperatorSelect
+													value={columnFilters.husband?.operator || "contains"}
+													onChange={(value) =>
+														handleColumnFilterChange(
+															"husband",
+															"operator",
+															value,
+														)
+													}
+													operators={operators}
+												/>
+											</div>
+											<FilterValueInput
+												id="filter-husband"
+												placeholder="Search husband..."
+												value={columnFilters.husband?.value || ""}
 												onChange={(value) =>
-													handleColumnFilterChange("husband", "operator", value)
+													handleColumnFilterChange("husband", "value", value)
 												}
-												operators={operators}
 											/>
 										</div>
-										<FilterValueInput
-											id="filter-husband"
-											placeholder="Search husband..."
-											value={columnFilters.husband?.value || ""}
-											onChange={(value) =>
-												handleColumnFilterChange("husband", "value", value)
-											}
-										/>
-									</div>
-									<div>
-										<div className="flex items-center justify-between">
-											<FilterLabel htmlFor="filter-wife" label="Wife Name" />
-											<FilterOperatorSelect
-												value={columnFilters.wife?.operator || "contains"}
+										<div>
+											<div className="flex items-center justify-between">
+												<FilterLabel htmlFor="filter-wife" label="Wife Name" />
+												<FilterOperatorSelect
+													value={columnFilters.wife?.operator || "contains"}
+													onChange={(value) =>
+														handleColumnFilterChange("wife", "operator", value)
+													}
+													operators={operators}
+												/>
+											</div>
+											<FilterValueInput
+												id="filter-wife"
+												placeholder="Search wife..."
+												value={columnFilters.wife?.value || ""}
 												onChange={(value) =>
-													handleColumnFilterChange("wife", "operator", value)
+													handleColumnFilterChange("wife", "value", value)
 												}
-												operators={operators}
 											/>
 										</div>
-										<FilterValueInput
-											id="filter-wife"
-											placeholder="Search wife..."
-											value={columnFilters.wife?.value || ""}
-											onChange={(value) =>
-												handleColumnFilterChange("wife", "value", value)
-											}
-										/>
 									</div>
-								</div>
+								)}
 							</div>
 
 							{loading ? (
@@ -509,11 +567,20 @@ export default function ResourceTable() {
 								</div>
 							) : (
 								<div className="overflow-x-auto">
-									<DataTable
-										columns={columns}
-										data={resources}
-										meta={{ handlePreview }}
-									/>
+									<TabsContent value="house">
+										<DataTable
+											columns={houseColumns}
+											data={resources}
+											meta={{ handlePreview }}
+										/>
+									</TabsContent>
+									<TabsContent value="vitalEvent">
+										<DataTable
+											columns={vitalEventColumns}
+											data={resources}
+											meta={{ handlePreview }}
+										/>
+									</TabsContent>
 								</div>
 							)}
 
@@ -998,6 +1065,6 @@ export default function ResourceTable() {
 					</Card>
 				</div>
 			</div>
-		</>
+		</Tabs>
 	);
 }

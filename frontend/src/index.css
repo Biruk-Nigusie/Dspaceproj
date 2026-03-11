@@ -118,6 +118,10 @@
 }
 
 @layer base {
+  :root {
+    @apply bg-primary;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
