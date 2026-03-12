@@ -92,6 +92,21 @@ export const AuthProvider = ({ children }) => {
 		checkAuth();
 	}, [checkAuth]);
 
+	// Keep-alive heartbeat: checks auth status every 2 minutes
+	// to prevent session timeout while user is active
+	useEffect(() => {
+		if (!user) return;
+
+		const heartbeatInterval = setInterval(
+			() => {
+				checkAuth();
+			},
+			2 * 60 * 1000, // 2 minutes
+		);
+
+		return () => clearInterval(heartbeatInterval);
+	}, [user, checkAuth]);
+
 	const login = async (email, password) => {
 		try {
 			// 1. Login to DSpace

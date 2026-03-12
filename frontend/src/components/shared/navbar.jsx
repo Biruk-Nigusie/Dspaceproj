@@ -25,6 +25,9 @@ const Navbar = () => {
 				{/* Navigation Links */}
 				<ul className="flex items-center gap-1 mr-auto ml-auto">
 					{navLinks.map(({ to, label, icon: Icon }) => {
+						// Hide protected links if not logged in
+						if (to === "/editor" && !user) return null;
+
 						const isActive = location.pathname === to;
 						return (
 							<li key={to}>

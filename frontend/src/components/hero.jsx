@@ -3,6 +3,7 @@ import {
 	CalendarIcon,
 	HeartIcon,
 	HouseIcon,
+	LogInIcon,
 	MapPinIcon,
 	SkullIcon,
 	UsersIcon,
@@ -19,16 +20,29 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/contexts/auth-context";
 import dspaceService from "@/services/dspaceService";
+import { ORG_NAME } from "@/utils/constants";
 
 const Hero = () => {
+	const { user } = useAuth();
 	const [collections, setCollections] = useState([]);
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		let mounted = true;
+
+		if (!user) {
+			if (mounted) {
+				setCollections([]);
+				setLoading(false);
+			}
+			return;
+		}
+
 		const load = async () => {
+			setLoading(true);
 			try {
 				const res = await dspaceService.fetchCollectionStats();
 				const list = res || [];
@@ -38,14 +52,17 @@ const Hero = () => {
 				}
 			} catch (err) {
 				console.warn("Hero: could not load collection stats", err);
+				if (mounted) setCollections([]);
 			} finally {
 				if (mounted) setLoading(false);
 			}
 		};
 
 		load();
-		return () => (mounted = false);
-	}, []);
+		return () => {
+			mounted = false;
+		};
+	}, [user]);
 
 	const selected = collections[selectedIndex] || null;
 
@@ -66,18 +83,39 @@ const Hero = () => {
 						Loading collections…
 					</div>
 				) : collections.length === 0 ? (
-					<div className="mb-4 p-4 rounded-md bg-muted/20 text-center">
-						<div className="text-sm text-primary-foreground/70 mb-2">
-							No collections available
-						</div>
-						<div className="text-xs text-primary-foreground/50 mb-4">
-							You don't have access to any collection yet.
-						</div>
-						<div className="flex justify-center">
-							<Link to="/editor">
-								<Button variant="secondary">Upload first dataset</Button>
-							</Link>
-						</div>
+					<div className="mb-4 p-4 rounded-md text-center">
+						{user ? (
+							<div>
+								<div className="text-sm text-primary-foreground/70 mb-2">
+									No collections available
+								</div>
+								<div className="text-xs text-primary-foreground/50 mb-4">
+									You don't have access to any collection yet.
+								</div>
+								<div className="flex justify-center">
+									<Link to="/editor">
+										<Button variant="secondary">Upload first dataset</Button>
+									</Link>
+								</div>
+							</div>
+						) : (
+							<div className="max-w-3/4 mx-auto text-balance">
+								<h1 className="text-4xl md:text-5xl font-extrabold leading-tight mb-4">
+									{ORG_NAME}
+								</h1>
+								<p className="text-primary-foreground/70">
+									Preserving and providing access to verified digital records
+									statistics. Select a woreda to view the latest registered
+									household and vital event statistics.
+								</p>
+								<Link to="/editor">
+									<Button variant="secondary" size="lg" className="mt-6">
+										<LogInIcon />
+										Login
+									</Button>
+								</Link>
+							</div>
+						)}
 					</div>
 				) : collections.length > 1 ? (
 					<Select
@@ -141,40 +179,38 @@ const Hero = () => {
 								subtitle="Average family size (selected)"
 							/>
 						</>
-					) : entityType === "VitalEvent" ? (
-						<>
-							<DashboardCard
-								label="Vital Events"
-								value={selected?.vitalEventStats?.totalVitalEvents ?? 0}
-								icon={<CalendarIcon size={20} />}
-								subtitle="Total registered vital events (selected)"
-							/>
-
-							<DashboardCard
-								label="Birth"
-								value={selected?.vitalEventStats?.birthRecords ?? 0}
-								icon={<BabyIcon size={20} />}
-								subtitle="Total registered births (selected)"
-							/>
-
-							<DashboardCard
-								label="Marriage"
-								value={selected?.vitalEventStats?.marriageRecords ?? 0}
-								icon={<HeartIcon size={20} />}
-								subtitle="Total registered marriages / divorces (selected)"
-							/>
-
-							<DashboardCard
-								label="Death"
-								value={selected?.vitalEventStats?.deathRecords ?? 0}
-								icon={<SkullIcon size={20} />}
-								subtitle="Total registered deaths (selected)"
-							/>
-						</>
 					) : (
-						<div className="text-sm text-primary-foreground/50">
-							No metrics available.
-						</div>
+						entityType === "VitalEvent" && (
+							<>
+								<DashboardCard
+									label="Vital Events"
+									value={selected?.vitalEventStats?.totalVitalEvents ?? 0}
+									icon={<CalendarIcon size={20} />}
+									subtitle="Total registered vital events (selected)"
+								/>
+
+								<DashboardCard
+									label="Birth"
+									value={selected?.vitalEventStats?.birthRecords ?? 0}
+									icon={<BabyIcon size={20} />}
+									subtitle="Total registered births (selected)"
+								/>
+
+								<DashboardCard
+									label="Marriage"
+									value={selected?.vitalEventStats?.marriageRecords ?? 0}
+									icon={<HeartIcon size={20} />}
+									subtitle="Total registered marriages / divorces (selected)"
+								/>
+
+								<DashboardCard
+									label="Death"
+									value={selected?.vitalEventStats?.deathRecords ?? 0}
+									icon={<SkullIcon size={20} />}
+									subtitle="Total registered deaths (selected)"
+								/>
+							</>
+						)
 					)}
 				</div>
 
@@ -182,38 +218,36 @@ const Hero = () => {
 				<div>
 					{loading ? (
 						<div className="mt-4 p-4 rounded bg-muted/40 animate-pulse h-8" />
-					) : selected ? (
-						<div className="space-y-3 text-sm">
-							{entityType === "House" && (
-								<div className="pt-6 border-t border-t-border/20 mt-6">
-									<div className="text-xs text-primary-foreground/50 mb-1">
-										House Types
-									</div>
-									<div className="flex flex-wrap gap-2">
-										{selected.houseStats?.distributionByHouseType ? (
-											Object.entries(
-												selected.houseStats.distributionByHouseType,
-											).map(([k, v]) => (
-												<Badge
-													key={k}
-													className="bg-primary-foreground/10 text-primary-foreground text-md p-3"
-												>
-													{k}: {v}
-												</Badge>
-											))
-										) : (
-											<div className="text-xs text-primary-foreground/50">
-												No breakdown
-											</div>
-										)}
-									</div>
-								</div>
-							)}
-						</div>
 					) : (
-						<div className="text-sm text-primary-foreground/50">
-							No statistics available.
-						</div>
+						selected && (
+							<div className="space-y-3 text-sm">
+								{entityType === "House" && (
+									<div className="pt-6 border-t border-t-border/20 mt-6">
+										<div className="text-xs text-primary-foreground/50 mb-1">
+											House Types
+										</div>
+										<div className="flex flex-wrap gap-2">
+											{selected.houseStats?.distributionByHouseType ? (
+												Object.entries(
+													selected.houseStats.distributionByHouseType,
+												).map(([k, v]) => (
+													<Badge
+														key={k}
+														className="bg-primary-foreground/10 text-primary-foreground text-md p-3"
+													>
+														{k}: {v}
+													</Badge>
+												))
+											) : (
+												<div className="text-xs text-primary-foreground/50">
+													No breakdown
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+							</div>
+						)
 					)}
 				</div>
 			</div>

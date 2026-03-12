@@ -1,4 +1,5 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import ProtectedRoute from "@/components/auth/protected-route";
 import Footer from "@/components/shared/footer";
 import Navbar from "@/components/shared/navbar";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -15,7 +16,14 @@ function App() {
 					<main className="grow">
 						<Routes>
 							<Route path="/" element={<Home />} />
-							<Route path="/editor" element={<MetadataEditor />} />
+							<Route
+								path="/editor"
+								element={
+									<ProtectedRoute>
+										<MetadataEditor />
+									</ProtectedRoute>
+								}
+							/>
 							<Route path="/signin" element={<SignIn />} />
 						</Routes>
 					</main>

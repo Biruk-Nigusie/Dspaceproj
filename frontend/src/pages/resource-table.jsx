@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { pdfjs } from "react-pdf";
+import { useAuth } from "@/contexts/auth-context";
 import { houseTypeOptions } from "../utils/constants";
 
 // Configure pdfjs worker
@@ -36,6 +37,7 @@ import { PdfPreview } from "../components/pdf-preview";
 import dspaceService from "../services/dspaceService";
 
 export default function ResourceTable() {
+	const { user } = useAuth();
 	const [allResources, setAllResources] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [activeFilters, setActiveFilters] = useState({});
@@ -216,8 +218,12 @@ export default function ResourceTable() {
 
 	// Initial fetch
 	useEffect(() => {
+		if (!user) {
+			setAllResources([]);
+			return;
+		}
 		fetchAllResources();
-	}, [fetchAllResources]);
+	}, [fetchAllResources, user]);
 
 	const onColumnFilterChange = setColumnFilters;
 	const onPageChange = handlePageChange;

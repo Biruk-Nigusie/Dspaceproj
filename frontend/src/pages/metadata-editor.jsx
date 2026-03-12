@@ -1076,7 +1076,7 @@ const MetadataEditor = () => {
 		if (fieldConfig?.valuePairs === "gender_types") {
 			normalizedValue = normalizeGenderValue(value);
 		}
-		
+
 		setVitalEventMetadata((prev) => ({
 			...prev,
 			[metadataKey]: normalizedValue,
@@ -1181,7 +1181,6 @@ const MetadataEditor = () => {
 		}
 
 		try {
-
 			// 1. Create workspace item
 			const workspaceItem =
 				await dspaceService.createWorkspaceItem(collectionId);
@@ -1409,7 +1408,7 @@ const MetadataEditor = () => {
 	}, [collections, collectionId]);
 
 	return (
-		<div className="flex h-full min-h-[calc(100vh-4rem)] flex-col">
+		<div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
 			{/* Top Bar */}
 			<div className="border-b border-border p-4 sticky top-0 bg-background z-50">
 				<div className="flex items-center justify-between">
@@ -1486,7 +1485,7 @@ const MetadataEditor = () => {
 									e.preventDefault();
 									handleSubmit();
 								}}
-								className="space-y-6"
+								className="space-y-6 pb-6"
 							>
 								{/* Form fields here - keeping it brief for the rest */}
 								<div>
@@ -2155,7 +2154,7 @@ const MetadataEditor = () => {
 										</button>
 									</div>
 								)}
-								<div className="flex-1 w-full overflow-auto p-4">
+								<div className="flex-1 w-full overflow-hidden p-4 flex items-center justify-center">
 									{selectedFile.type === "application/pdf" ? (
 										<Document
 											key={selectedFile.id}
